@@ -1,0 +1,1465 @@
+﻿MASTER PROMPT
+Bạn là một Senior Full-Stack Engineer + UI/UX Designer + Software Architect + AI Engineer, có kinh nghiệm xây dựng các hệ thống Web App production-ready.
+Hãy xây dựng TOÀN BỘ mã nguồn hoàn chỉnh cho một Web Application quản lý đặt món và đặt bàn nhà hàng hiện đại, tích hợp AI gợi ý món ăn, chat realtime, hệ thống quản trị, phân quyền và quản lý toàn bộ nghiệp vụ nhà hàng.
+1. MỤC TIÊU SẢN PHẨM
+Tên dự án:
+Smart Restaurant Management & Food Ordering Web Application
+Mục tiêu:
+Xây dựng một Web App hiện đại cho phép:
+    • Khách hàng xem thực đơn.
+    • Tìm kiếm và lọc món ăn.
+    • Xem chi tiết món ăn.
+    • Thêm món vào giỏ hàng.
+    • Đặt món trực tuyến.
+    • Đặt bàn.
+    • Theo dõi trạng thái đơn hàng.
+    • Xem lịch sử mua hàng.
+    • Đánh giá món ăn.
+    • Sử dụng mã khuyến mãi.
+    • Chat realtime với nhà hàng.
+    • Nhận AI gợi ý món ăn phù hợp.
+    • Nhận gợi ý combo món ăn.
+    • Quản lý tài khoản.
+Phía Admin/Staff:
+    • Quản lý món ăn.
+    • Quản lý danh mục.
+    • Quản lý nguyên liệu.
+    • Quản lý bài viết.
+    • Quản lý khuyến mãi.
+    • Quản lý mã giảm giá.
+    • Quản lý tài khoản.
+    • Quản lý vai trò và quyền.
+    • Quản lý đơn hàng.
+    • Quản lý đặt bàn.
+    • Quản lý bàn.
+    • Quản lý đánh giá.
+    • Quản lý cuộc trò chuyện.
+    • Theo dõi thống kê.
+    • Xem dữ liệu AI Recommendation.
+    • Theo dõi tình trạng hoạt động của nhà hàng.
+Hệ thống phải có cảm giác như một sản phẩm thực tế, không phải một bài demo CRUD đơn giản.
+
+2. TECH STACK BẮT BUỘC
+Frontend
+Sử dụng:
+    • React
+    • TypeScript
+    • Vite
+    • React Router
+    • Axios
+    • TanStack Query hoặc React Query
+    • Zustand hoặc Redux Toolkit
+    • Tailwind CSS
+    • shadcn/ui hoặc một component library hiện đại tương đương
+    • Lucide React Icons
+    • Framer Motion cho animation
+    • React Hook Form
+    • Zod
+Không sử dụng JavaScript thuần nếu TypeScript có thể dùng thay thế.
+Frontend phải được tổ chức component-based, reusable và responsive.
+
+3. BACKEND
+Sử dụng:
+    • Python
+    • Django
+    • Django REST Framework
+    • PostgreSQL
+    • Django Channels
+    • Redis
+    • JWT Authentication
+    • SimpleJWT
+    • Celery nếu cần xử lý background task
+    • Pillow
+    • django-filter
+    • django-cors-headers
+Backend phải xây dựng theo kiến trúc rõ ràng, có separation of concerns.
+Tổ chức:
+backend/
+├── config/
+├── apps/
+│   ├── accounts/
+│   ├── foods/
+│   ├── categories/
+│   ├── orders/
+│   ├── reservations/
+│   ├── promotions/
+│   ├── posts/
+│   ├── reviews/
+│   ├── chat/
+│   ├── recommendations/
+│   ├── analytics/
+│   └── common/
+├── manage.py
+├── requirements.txt
+└── .env.example
+Không dồn toàn bộ code vào một app duy nhất.
+
+4. DATABASE
+Sử dụng:
+PostgreSQL
+Thiết kế database chuẩn hóa, tránh duplicate dữ liệu không cần thiết.
+Các entity chính tối thiểu:
+    • User
+    • Role
+    • Permission
+    • Food
+    • Category
+    • Ingredient
+    • FoodIngredient
+    • FoodImage
+    • Table
+    • Reservation
+    • Order
+    • OrderItem
+    • Promotion
+    • PromotionCode
+    • Cart
+    • CartItem
+    • Review
+    • Post
+    • PostCategory
+    • ChatRoom
+    • ChatMessage
+    • FoodInteraction
+    • Recommendation
+    • Notification
+Thiết kế foreign key, unique constraint, index và relationship hợp lý.
+Cần có:
+    • created_at
+    • updated_at
+    • soft delete nếu phù hợp
+    • status fields
+    • database indexes cho các trường thường xuyên tìm kiếm
+
+5. USER ROLES
+Hệ thống có tối thiểu:
+CUSTOMER
+Có quyền:
+    • xem món
+    • tìm kiếm
+    • thêm giỏ hàng
+    • đặt món
+    • đặt bàn
+    • sử dụng mã giảm giá
+    • xem lịch sử
+    • đánh giá
+    • chat
+    • xem AI recommendations
+STAFF
+Có quyền:
+    • quản lý đơn hàng
+    • xác nhận đơn
+    • cập nhật trạng thái đơn
+    • quản lý đặt bàn
+    • trả lời chat
+    • xem thông tin cần thiết cho vận hành
+ADMIN
+Có toàn quyền:
+    • quản lý người dùng
+    • quản lý role
+    • quản lý permission
+    • quản lý món ăn
+    • danh mục
+    • bài viết
+    • khuyến mãi
+    • đơn hàng
+    • bàn
+    • đặt bàn
+    • review
+    • chat
+    • dashboard
+    • AI analytics
+Không hard-code quyền ở frontend.
+Backend phải kiểm tra permission thật sự.
+
+6. AUTHENTICATION
+Xây dựng:
+    • Register
+    • Login
+    • Logout
+    • Refresh Token
+    • JWT
+    • Password hashing
+    • Forgot password
+    • Reset password
+    • Change password
+    • Profile
+    • Avatar
+    • Role-based access control
+Token phải được xử lý an toàn.
+Không lưu mật khẩu dạng plain text.
+Không trả password trong API response.
+
+7. CUSTOMER WEBSITE
+Thiết kế website theo phong cách premium modern restaurant.
+Website phải tạo cảm giác:
+    • sang trọng
+    • hiện đại
+    • sạch
+    • cao cấp
+    • appetizing
+    • chuyên nghiệp
+    • có điểm nhấn thị giác
+    • không giống template CRUD
+
+8. DESIGN SYSTEM
+Màu sắc
+Phong cách chính:
+    • Dark charcoal
+    • Warm ivory
+    • Cream
+    • Terracotta / burnt orange
+    • Muted gold
+    • Soft green dùng cho trạng thái thành công
+Không dùng quá nhiều màu.
+Palette gợi ý:
+Background:
+#F8F5F0
+
+Dark:
+#171717
+
+Primary:
+#B85C38
+
+Secondary:
+#D99A64
+
+Accent:
+#C89B3C
+
+Text:
+#1F1F1F
+
+Muted:
+#777777
+
+White:
+#FFFFFF
+Có thể điều chỉnh nhẹ nếu cần để tổng thể hài hòa hơn.
+Ưu tiên:
+    • nền sáng
+    • chữ tối
+    • màu cam đất / terracotta làm điểm nhấn
+    • vàng champagne cho các chi tiết premium
+
+9. TYPOGRAPHY
+Sử dụng font hiện đại và dễ đọc.
+Gợi ý:
+    • Inter
+    • Manrope
+    • Plus Jakarta Sans
+Heading có thể sử dụng font có tính editorial nhẹ nếu phù hợp.
+Không dùng font quá cổ điển hoặc quá cầu kỳ.
+Typography phải có hierarchy rõ ràng:
+    • Display
+    • H1
+    • H2
+    • H3
+    • Body
+    • Caption
+    • Label
+
+10. GLOBAL UI STYLE
+Tất cả component phải:
+    • bo góc vừa phải
+    • spacing rộng
+    • shadow nhẹ
+    • border tinh tế
+    • typography rõ ràng
+    • icon đồng nhất
+    • animation nhẹ
+    • không lạm dụng gradient
+    • không lạm dụng glassmorphism
+Không làm UI kiểu:
+    • button màu sặc sỡ
+    • card quá nhiều shadow
+    • gradient khắp nơi
+    • animation gây rối
+    • font quá nhỏ
+    • layout chật chội
+
+11. HEADER
+Header desktop:
+[LOGO]
+
+Trang chủ
+Thực đơn
+Đặt bàn
+Khuyến mãi
+Bài viết
+
+                     🔍   🛒   ❤️   👤
+Header phải:
+    • sticky khi scroll
+    • nền thay đổi nhẹ khi scroll
+    • animation mượt
+    • responsive
+    • mobile có hamburger menu
+Cart icon phải có badge số lượng.
+
+12. HOMEPAGE
+Homepage cần có bố cục premium.
+Hero
+Hero toàn chiều rộng.
+Bên trái:
+CÂU CHUYỆN ẨM THỰC CỦA CHÚNG TÔI
+
+Fresh ingredients.
+Thoughtful recipes.
+
+Khám phá thực đơn
+Đặt bàn ngay
+Bên phải:
+Ảnh món ăn chất lượng cao.
+Có subtle parallax hoặc motion.
+Không làm hero quá nặng.
+
+Section: Featured Categories
+Hiển thị:
+    • Món chính
+    • Khai vị
+    • Đồ uống
+    • Tráng miệng
+    • Combo
+Dùng card hình ảnh.
+Hover:
+    • image zoom nhẹ
+    • overlay
+    • icon arrow
+    • smooth transition
+
+Section: Best Sellers
+Hiển thị món bán chạy.
+Food Card phải có:
+    • ảnh
+    • badge
+    • category
+    • tên món
+    • mô tả ngắn
+    • giá
+    • rating
+    • nút thêm giỏ
+    • nút xem chi tiết
+    • favorite button
+Hover animation nhẹ.
+
+Section: AI Recommendations
+Phải có khu vực nổi bật:
+✨ Đề xuất dành riêng cho bạn
+
+Dựa trên những món bạn yêu thích
+Nếu chưa đăng nhập:
+Đăng nhập để nhận gợi ý cá nhân hóa
+Nếu đã đăng nhập:
+Hiển thị food recommendation được lấy từ API.
+Có lý do giải thích:
+Được đề xuất vì bạn thường chọn món cay
+Không chỉ hiển thị danh sách món mà phải giải thích recommendation nếu có thể.
+
+Section: Special Combo
+Hiển thị combo.
+Ví dụ:
+Burger Set
+Burger bò
+Khoai tây
+Nước uống
+
+299.000đ
+
+Tiết kiệm 50.000đ
+
+Section: Restaurant Story
+Giới thiệu nhà hàng.
+Thiết kế editorial.
+Có image collage.
+
+Section: Promotion
+Hiển thị coupon / promotion.
+
+Section: Blog
+Hiển thị bài viết mới nhất.
+
+Section: Testimonials
+Hiển thị review khách hàng.
+
+Footer
+Footer đầy đủ:
+    • logo
+    • about
+    • navigation
+    • contact
+    • opening hours
+    • social media
+    • newsletter
+    • copyright
+
+13. MENU PAGE
+Trang menu phải có:
+Search bar.
+Filter:
+    • category
+    • price
+    • rating
+    • spicy
+    • vegetarian
+    • availability
+Sort:
+    • phổ biến
+    • giá thấp đến cao
+    • giá cao đến thấp
+    • đánh giá
+    • mới nhất
+Có pagination hoặc infinite scroll.
+URL query phải phản ánh filter.
+Ví dụ:
+/menu?category=main&sort=popular
+
+14. FOOD DETAIL PAGE
+Hiển thị:
+    • gallery ảnh
+    • tên món
+    • rating
+    • giá
+    • description
+    • ingredients
+    • tags
+    • availability
+    • quantity selector
+    • add to cart
+    • favorite
+    • reviews
+Có:
+Bạn có thể thích
+dùng AI recommendation.
+Có section:
+Món này thường được gọi cùng
+Dùng recommendation / association logic nếu có.
+
+15. CART
+Cart drawer hoặc cart page.
+Hiển thị:
+    • ảnh
+    • tên
+    • giá
+    • quantity
+    • subtotal
+    • remove
+    • promotion code
+Order summary:
+Subtotal
+Discount
+Delivery fee nếu có
+Total
+CTA:
+Tiến hành đặt món
+
+16. CHECKOUT
+Checkout phải rõ ràng.
+Thông tin:
+    • customer
+    • phone
+    • address nếu cần
+    • note
+    • payment method
+    • promotion
+Order review.
+Trạng thái:
+Cart
+↓
+Checkout
+↓
+Order placed
+↓
+Preparing
+↓
+Ready
+↓
+Completed
+
+17. ORDER TRACKING
+Thiết kế dạng timeline:
+✓ Đã đặt
+   │
+✓ Nhà hàng đã xác nhận
+   │
+● Đang chuẩn bị
+   │
+○ Hoàn thành
+Có realtime update.
+
+18. RESERVATION
+Trang đặt bàn phải đẹp và trực quan.
+Cho phép chọn:
+    • ngày
+    • giờ
+    • số người
+    • loại bàn
+    • ghi chú
+Hiển thị sơ đồ bàn nếu phù hợp.
+Trạng thái bàn:
+    • available
+    • reserved
+    • occupied
+    • maintenance
+Không cho phép đặt bàn trùng thời gian.
+Backend phải validate reservation conflict.
+
+19. PROMOTION
+Trang khuyến mãi:
+    • coupon cards
+    • voucher
+    • promotion details
+    • expiration
+    • condition
+Coupon card có animation nhẹ.
+
+20. BLOG
+Trang bài viết:
+    • featured article
+    • category
+    • search
+    • related posts
+    • detail page
+Admin có CRUD.
+
+21. CHAT REALTIME
+Sử dụng:
+Django Channels + WebSocket + Redis
+Frontend:
+    • chat floating button
+    • unread badge
+    • open chat drawer
+    • message list
+    • typing indicator
+    • online/offline indicator
+    • timestamp
+    • read status
+Giao diện chat:
+┌─────────────────────────┐
+│ Nhà hàng        ● Online│
+├─────────────────────────┤
+│ Xin chào!               │
+│ Tôi có thể hỗ trợ gì?   │
+│                         │
+│              Cho hỏi... │
+│                         │
+├─────────────────────────┤
+│ Type a message...    ➤  │
+└─────────────────────────┘
+Backend phải:
+    • tạo conversation
+    • lưu message
+    • gửi realtime
+    • reconnect
+    • hỗ trợ nhiều conversation
+    • kiểm tra permission
+Không giả lập realtime bằng polling.
+
+22. ADMIN DASHBOARD
+Admin Dashboard phải có design riêng, hiện đại và professional.
+Layout:
+Sidebar
+-------------------------
+Dashboard
+Orders
+Foods
+Categories
+Reservations
+Tables
+Promotions
+Posts
+Reviews
+Users
+Roles
+Chat
+AI Analytics
+Settings
+-------------------------
+
+Main Content
+Dashboard cards:
+Today's Revenue
+Orders
+Reservations
+Customers
+Charts:
+    • revenue
+    • orders
+    • popular foods
+    • reservation trends
+    • customer activity
+Có date range:
+Today
+7 days
+30 days
+Custom
+
+23. ADMIN FOOD MANAGEMENT
+Table columns:
+    • image
+    • name
+    • category
+    • price
+    • stock
+    • status
+    • rating
+    • actions
+Actions:
+    • view
+    • edit
+    • delete
+    • toggle availability
+Form phải validate.
+Có upload image preview.
+
+24. ADMIN ORDER MANAGEMENT
+Order table:
+    • order ID
+    • customer
+    • amount
+    • payment
+    • status
+    • created time
+    • actions
+Order detail:
+    • customer
+    • items
+    • quantity
+    • subtotal
+    • discount
+    • total
+    • notes
+    • status history
+Admin có thể:
+Pending
+Confirmed
+Preparing
+Ready
+Completed
+Cancelled
+
+25. ADMIN RESERVATION MANAGEMENT
+Có:
+    • calendar
+    • list
+    • filter
+    • status
+    • customer info
+    • table
+    • time
+Visual indicator rõ ràng.
+
+26. ADMIN USER / ROLE / PERMISSION
+Quản lý:
+    • user
+    • role
+    • permission
+Có UI dạng matrix:
+                 View  Create  Update Delete
+Foods             ✓      ✓       ✓      ✓
+Orders            ✓      -       ✓      -
+Users             ✓      ✓       ✓      ✓
+Reservations      ✓      ✓       ✓      ✓
+Backend kiểm tra permission thực sự.
+
+27. ADMIN CHAT
+Admin có giao diện inbox:
+Conversations | Current Chat
+Sidebar:
+    • customer name
+    • last message
+    • timestamp
+    • unread count
+    • online state
+Main:
+    • messages
+    • typing
+    • input
+    • attachments nếu hỗ trợ
+
+28. AI RECOMMENDATION SYSTEM
+Đây là phần AI quan trọng.
+Không tạo AI giả bằng random.
+Phải xây recommendation pipeline thật.
+Input
+Food metadata:
+    • category
+    • ingredients
+    • tags
+    • description
+    • price
+    • spicy level
+    • dietary attributes
+User interaction:
+    • viewed
+    • liked
+    • ordered
+    • reviewed
+    • added to cart
+Algorithm
+Triển khai tối thiểu:
+Content-Based Filtering
+Kết hợp:
+    • TF-IDF
+    • Cosine Similarity
+Pipeline:
+Food Data
+   ↓
+Preprocessing
+   ↓
+Feature Extraction
+   ↓
+TF-IDF Vectorization
+   ↓
+User Preference Profile
+   ↓
+Cosine Similarity
+   ↓
+Ranking
+   ↓
+Top-N Recommendations
+Recommendation service nên được tổ chức độc lập.
+
+29. AI EXPLANATION
+Không chỉ trả về:
+{
+  "food_id": 12
+}
+Mà nếu có thể, API nên trả:
+{
+  "food_id": 12,
+  "score": 0.89,
+  "reason": "Phù hợp với món cay bạn thường lựa chọn"
+}
+Frontend hiển thị lý do gợi ý.
+
+30. AI COMBO RECOMMENDATION
+Xây thêm logic gợi ý món đi kèm.
+Ví dụ:
+Burger
++
+Fries
++
+Drink
+Nếu đủ dữ liệu, có thể nghiên cứu:
+    • Association Rule
+    • Apriori
+    • Frequent Itemset
+Không bắt buộc phải triển khai cả hai thuật toán ngay từ đầu, nhưng architecture phải đủ linh hoạt để thêm.
+
+31. FOOD INTERACTION TRACKING
+Hệ thống phải có khả năng ghi nhận:
+VIEW
+LIKE
+ADD_TO_CART
+ORDER
+REVIEW
+Ví dụ:
+user_id
+food_id
+interaction_type
+timestamp
+Dữ liệu này được dùng cho recommendation.
+Không lưu dữ liệu vô nghĩa.
+
+32. AI FALLBACK
+Nếu user mới chưa có lịch sử:
+Không được để:
+No recommendation available
+Thay vào đó sử dụng fallback:
+    • popular foods
+    • best sellers
+    • trending foods
+    • highly rated foods
+Hiển thị:
+Phổ biến hôm nay
+
+33. SEARCH
+Search phải có:
+    • debounce
+    • autocomplete
+    • search suggestions
+    • category filter
+    • price filter
+Có thể hỗ trợ tìm kiếm theo:
+    • tên món
+    • mô tả
+    • ingredient
+    • tag
+
+34. NOTIFICATION SYSTEM
+Có notification:
+    • đơn hàng được xác nhận
+    • đơn hoàn thành
+    • đặt bàn thành công
+    • khuyến mãi
+    • tin nhắn mới
+    • recommendation mới nếu phù hợp
+Có notification bell.
+
+35. RESPONSIVE DESIGN
+Bắt buộc responsive.
+Desktop
+    • 1440px
+    • 1280px
+    • 1024px
+Tablet
+    • 768px
+Mobile
+    • 390px
+    • 430px
+Không chỉ shrink layout.
+Phải thiết kế mobile layout riêng khi cần.
+Admin dashboard cũng phải usable trên tablet/mobile.
+
+36. ANIMATION
+Sử dụng Framer Motion hoặc CSS animation.
+Animation gồm:
+    • fade in
+    • slide up
+    • scale
+    • hover
+    • page transition
+    • modal transition
+    • cart drawer
+    • notification
+    • skeleton loading
+Nguyên tắc:
+Animation phục vụ UX, không phải để khoe hiệu ứng.
+Thời gian animation khoảng:
+150ms - 400ms
+trong đa số trường hợp.
+Không làm animation quá nặng.
+
+37. LOADING STATES
+Tất cả asynchronous UI phải có:
+    • Skeleton
+    • Spinner khi cần
+    • Empty state
+    • Error state
+    • Retry
+Không để màn hình trắng khi API đang tải.
+
+38. ERROR HANDLING
+Frontend:
+    • toast
+    • inline validation
+    • error boundary
+Backend:
+Chuẩn hóa API error:
+{
+  "success": false,
+  "message": "..."
+}
+Validation error phải dễ hiểu.
+
+39. API DESIGN
+REST API phải rõ ràng.
+Ví dụ:
+/api/auth/
+/api/users/
+/api/foods/
+/api/categories/
+/api/orders/
+/api/reservations/
+/api/promotions/
+/api/posts/
+/api/reviews/
+/api/chat/
+/api/recommendations/
+Dùng HTTP methods đúng:
+GET
+POST
+PATCH
+PUT
+DELETE
+Response nhất quán.
+
+40. SECURITY
+Phải implement:
+    • JWT authentication
+    • password hashing
+    • authorization
+    • CORS
+    • CSRF protection phù hợp
+    • input validation
+    • SQL injection protection
+    • XSS mitigation
+    • file upload validation
+    • rate limiting nếu phù hợp
+    • secure environment variables
+Không hard-code secret key.
+Tạo:
+.env.example
+
+41. IMAGE UPLOAD
+Food image và post image phải hỗ trợ:
+    • upload
+    • preview
+    • validation
+    • size limit
+    • format validation
+Backend xử lý an toàn.
+Không cho upload file tùy ý không kiểm soát.
+
+42. SEO
+Customer website nên có:
+    • semantic HTML
+    • title
+    • meta description
+    • Open Graph cơ bản
+    • alt text
+    • accessible navigation
+
+43. ACCESSIBILITY
+UI phải hỗ trợ:
+    • keyboard navigation
+    • aria-label
+    • focus state
+    • contrast đủ tốt
+    • semantic HTML
+
+44. PERFORMANCE
+Tối ưu:
+    • lazy loading
+    • image optimization
+    • code splitting
+    • pagination
+    • API caching khi hợp lý
+    • database indexing
+    • debounce search
+    • tránh unnecessary re-render
+
+45. PROJECT STRUCTURE FRONTEND
+Tổ chức:
+frontend/
+├── src/
+│   ├── assets/
+│   ├── components/
+│   ├── layouts/
+│   ├── pages/
+│   │   ├── customer/
+│   │   └── admin/
+│   ├── features/
+│   ├── hooks/
+│   ├── services/
+│   ├── stores/
+│   ├── types/
+│   ├── utils/
+│   ├── routes/
+│   ├── constants/
+│   └── App.tsx
+├── package.json
+└── vite.config.ts
+Không tạo file khổng lồ hàng nghìn dòng.
+
+46. BACKEND PROJECT STRUCTURE
+backend/
+├── config/
+├── apps/
+│   ├── accounts/
+│   ├── foods/
+│   ├── categories/
+│   ├── orders/
+│   ├── reservations/
+│   ├── promotions/
+│   ├── posts/
+│   ├── reviews/
+│   ├── chat/
+│   ├── recommendations/
+│   ├── notifications/
+│   └── analytics/
+├── requirements.txt
+├── manage.py
+└── .env.example
+Mỗi app phải có:
+models.py
+serializers.py
+views.py
+urls.py
+services.py
+permissions.py
+tests.py
+Không nhồi business logic toàn bộ vào views.
+
+47. SERVICE LAYER
+Business logic quan trọng nên đặt trong:
+services.py
+Ví dụ:
+OrderService
+ReservationService
+RecommendationService
+PromotionService
+ChatService
+Mục tiêu là code dễ test và maintain.
+
+48. TESTING
+Phải tạo test cho:
+Backend
+    • authentication
+    • permission
+    • food CRUD
+    • order
+    • reservation conflict
+    • promotion
+    • recommendation
+    • chat logic
+Frontend
+Nếu phù hợp:
+    • component test
+    • utility test
+    • basic interaction test
+Không cần test mọi pixel UI nhưng phải có test cho logic quan trọng.
+
+49. SEED DATA
+Phải tạo seed/demo data để website có thể chạy ngay.
+Tối thiểu:
+    • 3 roles
+    • 1 admin
+    • 2 staff
+    • 10 customers
+    • 20+ foods
+    • 5+ categories
+    • 10+ tables
+    • sample orders
+    • reservations
+    • reviews
+    • posts
+    • promotions
+    • interactions
+Dữ liệu phải có tính thực tế.
+Không dùng toàn bộ:
+Food 1
+Food 2
+Food 3
+Hãy tạo dữ liệu giống nhà hàng thật.
+
+50. ADMIN DEMO ACCOUNT
+Tạo tài liệu hướng dẫn tài khoản demo.
+Ví dụ:
+Admin:
+admin@example.com
+
+Staff:
+staff@example.com
+
+Customer:
+customer@example.com
+Không hard-code password trong source code production.
+Nếu cần seed password demo thì phải ghi rõ chỉ dùng cho development.
+
+51. ENVIRONMENT
+Tạo:
+.env.example
+Có:
+SECRET_KEY=
+DEBUG=
+DATABASE_URL=
+POSTGRES_DB=
+POSTGRES_USER=
+POSTGRES_PASSWORD=
+POSTGRES_HOST=
+POSTGRES_PORT=
+REDIS_URL=
+JWT_SECRET=
+Không commit .env.
+
+52. DOCKER
+Tạo Docker setup:
+docker-compose.yml
+Services:
+frontend
+backend
+postgres
+redis
+Mục tiêu:
+Người khác clone project và có thể chạy bằng:
+docker compose up --build
+nếu cấu hình môi trường đúng.
+
+53. DOCUMENTATION
+Tạo:
+README.md
+README phải có:
+    • project overview
+    • features
+    • architecture
+    • tech stack
+    • folder structure
+    • installation
+    • environment variables
+    • database setup
+    • migrations
+    • seed data
+    • run frontend
+    • run backend
+    • run Docker
+    • API documentation
+    • WebSocket usage
+    • AI recommendation architecture
+    • troubleshooting
+
+54. API DOCUMENTATION
+Tích hợp Swagger/OpenAPI.
+Có thể dùng:
+drf-spectacular
+API phải được mô tả rõ.
+
+55. UI QUALITY REQUIREMENT
+Ưu tiên chất lượng UI cực cao.
+Website phải giống một sản phẩm SaaS / restaurant startup thực tế.
+Không chấp nhận:
+    • layout sơ sài
+    • default Bootstrap look
+    • component mặc định không chỉnh sửa
+    • bảng CRUD thô
+    • form xấu
+    • spacing lộn xộn
+    • typography không nhất quán
+    • màu sắc ngẫu nhiên
+Mỗi trang phải có:
+    • visual hierarchy
+    • consistent spacing
+    • consistent radius
+    • consistent button style
+    • consistent typography
+    • responsive behavior
+
+56. UX RULES
+Người dùng phải luôn biết:
+    • đang ở đâu
+    • đang thực hiện bước nào
+    • thao tác thành công hay thất bại
+    • đơn hàng đang ở trạng thái nào
+    • bàn có còn hay không
+    • món còn hàng hay không
+    • AI recommendation dựa trên gì
+
+57. EMPTY STATES
+Ví dụ:
+Cart empty:
+Giỏ hàng đang trống
+
+Khám phá thực đơn để tìm món yêu thích
+
+[ Xem thực đơn ]
+Không để UI trống trơn.
+
+58. CONFIRMATION MODALS
+Các hành động nguy hiểm:
+    • delete
+    • cancel order
+    • cancel reservation
+    • remove user
+phải có confirmation.
+
+59. REALTIME ORDER STATUS
+Khi admin cập nhật order:
+PREPARING
+khách đang mở trang order phải cập nhật realtime.
+Không bắt buộc reload.
+Sử dụng WebSocket/STOMP tương đương với kiến trúc Django Channels.
+
+60. CHAT REALTIME ARCHITECTURE
+Sử dụng:
+React
+   ↓
+WebSocket
+   ↓
+Django Channels
+   ↓
+Redis
+Message:
+{
+  "conversation_id": 123,
+  "sender_id": 45,
+  "content": "Xin chào",
+  "timestamp": "..."
+}
+Phải lưu database.
+
+61. AI SERVICE ARCHITECTURE
+Có thể triển khai AI trực tiếp trong Django hoặc tách thành module service.
+Ưu tiên architecture:
+Django API
+    ↓
+Recommendation Service
+    ↓
+Scikit-learn
+    ↓
+PostgreSQL
+Nếu sau này cần scale thì có thể tách AI thành microservice.
+Không cần over-engineering.
+
+62. RECOMMENDATION API
+Tạo endpoint:
+GET /api/recommendations/
+Response:
+{
+  "results": [
+    {
+      "food": {},
+      "score": 0.91,
+      "reason": "..."
+    }
+  ]
+}
+
+63. RECOMMENDATION LOGIC
+Ưu tiên:
+    1 user history
+    2 food similarity
+    3 popularity
+    4 rating
+    5 availability
+Không gợi ý món hết hàng.
+Không gợi ý món bị admin disable.
+Có fallback cho cold-start user.
+
+64. DASHBOARD AI ANALYTICS
+Admin có thể xem:
+    • top recommended foods
+    • most viewed
+    • most ordered
+    • most liked
+    • recommendation click-through nếu tracking được
+    • recommendation conversion nếu tracking được
+
+65. DATA ANALYTICS
+Admin dashboard có:
+Revenue
+    • daily
+    • weekly
+    • monthly
+Orders
+    • total
+    • completed
+    • cancelled
+    • pending
+Top foods
+    • top selling
+    • top viewed
+    • top rated
+Customers
+    • new customers
+    • returning customers
+Reservation
+    • booked
+    • completed
+    • cancelled
+Charts phải đẹp, dễ đọc.
+
+66. IMPLEMENTATION RULE
+Đây là yêu cầu rất quan trọng:
+KHÔNG chỉ tạo mockup.
+Không dùng fake API lâu dài.
+Không dùng static JSON thay cho database nếu tính năng đó cần backend.
+Không làm nút bấm giả.
+Mọi chức năng trong danh sách yêu cầu phải được kết nối với backend thực tế.
+
+67. CODE QUALITY
+Code phải:
+    • readable
+    • maintainable
+    • modular
+    • reusable
+    • typed
+    • documented khi cần
+    • tránh duplication
+    • tránh God component
+    • tránh God service
+    • tránh hard-coded configuration
+Sử dụng naming convention chuẩn.
+
+68. ERROR-FREE REQUIREMENT
+Trước khi hoàn thành phải kiểm tra:
+    • build frontend
+    • TypeScript errors
+    • Django migration
+    • Django system check
+    • API startup
+    • database connection
+    • authentication
+    • WebSocket connection
+    • recommendation service
+    • Docker configuration
+Không được cố tình bỏ qua lỗi.
+Nếu phát hiện lỗi dependency hoặc incompatibility, phải điều chỉnh version để project chạy ổn định.
+
+69. OUTPUT REQUIREMENT
+Tôi không muốn chỉ nhận:
+    • wireframe
+    • pseudo-code
+    • kiến trúc
+    • ví dụ minh họa
+    • vài file mẫu
+Tôi muốn FULL SOURCE CODE.
+Phải tạo:
+    • frontend code
+    • backend code
+    • database models
+    • serializers
+    • views
+    • services
+    • permissions
+    • routes
+    • WebSocket consumers
+    • AI recommendation logic
+    • admin pages
+    • customer pages
+    • authentication
+    • seed data
+    • tests
+    • Docker
+    • README
+    • environment example
+    • API documentation
+
+70. QUY TRÌNH TẠO CODE
+Không viết tất cả trong một file.
+Hãy triển khai theo các phase:
+Phase 1
+Project setup:
+    • frontend
+    • backend
+    • database
+    • Docker
+    • environment
+Phase 2
+Authentication:
+    • register
+    • login
+    • JWT
+    • roles
+    • permissions
+Phase 3
+Food system:
+    • category
+    • food
+    • ingredients
+    • upload image
+    • search
+    • filter
+Phase 4
+Cart & Order:
+    • cart
+    • checkout
+    • order
+    • status
+Phase 5
+Reservation:
+    • tables
+    • availability
+    • booking
+    • conflict validation
+Phase 6
+Promotion:
+    • coupon
+    • discount
+    • conditions
+    • validation
+Phase 7
+Blog & Review:
+    • posts
+    • review
+    • rating
+Phase 8
+Realtime:
+    • chat
+    • notifications
+    • order status updates
+Phase 9
+AI:
+    • interaction tracking
+    • preprocessing
+    • recommendation engine
+    • similarity
+    • ranking
+    • cold-start
+    • API
+Phase 10
+Admin:
+    • dashboard
+    • analytics
+    • management interfaces
+Phase 11
+Polish:
+    • animation
+    • responsive
+    • loading
+    • error state
+    • accessibility
+    • performance
+Phase 12
+Testing and documentation.
+
+71. CRITICAL INSTRUCTION FOR AI CODING AGENT
+Không tự ý thay đổi tech stack.
+Không thay Django bằng Node.js.
+Không thay PostgreSQL bằng MongoDB.
+Không thay React bằng Vue.
+Không loại bỏ AI.
+Không loại bỏ realtime.
+Không đơn giản hóa chức năng chỉ vì project lớn.
+Nếu context window không đủ để tạo toàn bộ code trong một lần, hãy:
+    1 Chia project thành các phase.
+    2 Hoàn thành từng phase.
+    3 Ghi rõ file nào đã tạo.
+    4 Không tạo code mâu thuẫn với các phase trước.
+    5 Ở phase sau phải tiếp tục sử dụng architecture đã thống nhất.
+    6 Không reset project.
+    7 Không viết lại toàn bộ code đã hoàn thành.
+    8 Trước khi chuyển phase, kiểm tra dependency và import.
+
+72. IMPORTANT UI INSTRUCTION
+Hãy ưu tiên design trước khi code UI.
+Trước khi tạo từng page:
+    1 Xác định hierarchy.
+    2 Xác định spacing.
+    3 Xác định typography.
+    4 Xác định component.
+    5 Xác định responsive behavior.
+    6 Xác định animation.
+    7 Sau đó mới code.
+Các trang phải có visual consistency.
+
+73. FINAL ACCEPTANCE CRITERIA
+Project chỉ được xem là hoàn thành khi:
+    • Frontend chạy được.
+    • Backend chạy được.
+    • PostgreSQL kết nối được.
+    • Authentication hoạt động.
+    • Role permission hoạt động.
+    • Customer flow hoạt động.
+    • Admin flow hoạt động.
+    • Cart hoạt động.
+    • Order hoạt động.
+    • Reservation hoạt động.
+    • Promotion hoạt động.
+    • Review hoạt động.
+    • Blog hoạt động.
+    • Realtime chat hoạt động.
+    • Realtime order status hoạt động.
+    • AI recommendation hoạt động thật.
+    • Cold-start recommendation hoạt động.
+    • Dashboard hoạt động.
+    • Responsive hoạt động.
+    • Tests chạy được.
+    • Docker setup hoạt động.
+    • README đầy đủ.
+
+74. FIRST ACTION
+Trước tiên hãy:
+    1 Tóm tắt kiến trúc hệ thống.
+    2 Đưa ra folder structure hoàn chỉnh.
+    3 Liệt kê tất cả dependencies chính.
+    4 Xác định database entities và relationships.
+    5 Xác định API endpoints.
+    6 Xác định WebSocket channels/events.
+    7 Xác định AI recommendation pipeline.
+    8 Xác định UI pages.
+    9 Sau đó bắt đầu tạo source code theo Phase 1.
+Không được chỉ đưa ra hướng dẫn. Hãy trực tiếp tạo code.
+Mục tiêu cuối cùng:
+Một Web App quản lý nhà hàng hiện đại, đẹp, responsive, production-style, đầy đủ backend, database, realtime, AI, admin dashboard và có thể chạy thực tế sau khi cấu hình môi trường.

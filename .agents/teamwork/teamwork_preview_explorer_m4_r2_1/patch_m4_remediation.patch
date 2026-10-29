@@ -1,0 +1,77 @@
+diff --git a/moc-backend/recommendations/apps.py b/moc-backend/recommendations/apps.py
+index c3063f1..054c237 100644
+--- a/moc-backend/recommendations/apps.py
++++ b/moc-backend/recommendations/apps.py
+@@ -3,4 +3,9 @@ from django.apps import AppConfig
+ 
+ class RecommendationsConfig(AppConfig):
++    default_auto_field = "django.db.models.BigAutoField"
+     name = "recommendations"
++    verbose_name = "Gợi ý món ăn"
++
++    def ready(self):
++        import recommendations.signals  # noqa: F401
+diff --git a/moc-backend/recommendations/signals.py b/moc-backend/recommendations/signals.py
+new file mode 100644
+index 0000000..9df2da3
+--- /dev/null
++++ b/moc-backend/recommendations/signals.py
+@@ -0,0 +1,24 @@
++import logging
++from django.db.models.signals import post_save, post_delete
++from django.dispatch import receiver
++from .models import TuongTacMonAn, GoiYMonAn
++
++logger = logging.getLogger(__name__)
++
++
++@receiver(post_save, sender=TuongTacMonAn)
++@receiver(post_delete, sender=TuongTacMonAn)
++def xoa_cache_goi_y_khi_co_tuong_tac(sender, instance, **kwargs):
++    """
++    Tự động vô hiệu hóa cache GoiYMonAn khi người dùng có tương tác mới
++    hoặc cập nhật/xóa tương tác món ăn (đặt món, đánh giá, xem, yêu thích, thêm giỏ).
++    """
++    if kwargs.get("raw", False):
++        return
++
++    nguoi_dung_id = getattr(instance, "nguoi_dung_id", None)
++    if nguoi_dung_id:
++        so_luong_xoa, _ = GoiYMonAn.objects.filter(nguoi_dung_id=nguoi_dung_id).delete()
++        if so_luong_xoa > 0:
++            logger.debug(
++                "Đã xóa %s bản ghi gợi ý cache của người dùng ID %s do thay đổi tương tác.",
++                so_luong_xoa,
++                nguoi_dung_id,
++            )
+diff --git a/moc-backend/recommendations/views.py b/moc-backend/recommendations/views.py
+index a5b128c..5c3c2b1 100644
+--- a/moc-backend/recommendations/views.py
++++ b/moc-backend/recommendations/views.py
+@@ -38,4 +38,15 @@ class GoiYMonAnViewSet(viewsets.ReadOnlyModelViewSet):
+     """
++    queryset = GoiYMonAn.objects.all()
+     serializer_class = GoiYMonAnSerializer
+     permission_classes = [AllowAny]
+ 
++    def get_queryset(self):
++        user = self.request.user
++        if user and user.is_authenticated:
++            return (
++                GoiYMonAn.objects.filter(nguoi_dung=user)
++                .select_related("mon_an", "mon_an__danh_muc")
++                .prefetch_related("mon_an__the_mon_an")
++                .order_by("-diem_tuong_dong")
++            )
++        return GoiYMonAn.objects.none()
++
+diff --git a/moc-backend/orders/services.py b/moc-backend/orders/services.py
+index a95412b..bf98101 100644
+--- a/moc-backend/orders/services.py
++++ b/moc-backend/orders/services.py
+@@ -83,3 +83,3 @@ class DichVuDonHang:
+             TuongTacMonAn.objects.create(
+                 nguoi_dung=nguoi_dung, mon_an=mon_an,
+-                loai_tuong_tac=TuongTacMonAn.LoaiTuongTac.DAT_MON, trong_so=6
++                loai_tuong_tac=TuongTacMonAn.LoaiTuongTac.DAT_MON, trong_so=4
+             )

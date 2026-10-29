@@ -1,0 +1,46 @@
+--- moc-backend/orders/services.py
++++ moc-backend/orders/services.py
+@@ -80,5 +80,5 @@
+             from recommendations.models import TuongTacMonAn
+             TuongTacMonAn.objects.create(
+                 nguoi_dung=nguoi_dung, mon_an=mon_an,
+-                loai_tuong_tac=TuongTacMonAn.LoaiTuongTac.DAT_MON, trong_so=6
++                loai_tuong_tac=TuongTacMonAn.LoaiTuongTac.DAT_MON, trong_so=4
+             )
+
+--- moc-backend/recommendations/views.py
++++ moc-backend/recommendations/views.py
+@@ -33,6 +33,14 @@
+ class GoiYMonAnViewSet(viewsets.ReadOnlyModelViewSet):
+     """
+     ViewSet cung cấp danh sách gợi ý món ăn (AI Recommender).
+     Hỗ trợ cả khách vãng lai (AllowAny) qua Cold-Start Popularity
+     và người dùng đăng nhập qua Content-Based Filtering (TF-IDF + Cosine).
+     """
++    queryset = GoiYMonAn.objects.all()
+     serializer_class = GoiYMonAnSerializer
+     permission_classes = [AllowAny]
++
++    def get_queryset(self):
++        user = self.request.user
++        if user and user.is_authenticated:
++            return GoiYMonAn.objects.filter(nguoi_dung=user).select_related("mon_an", "mon_an__danh_muc")
++        return GoiYMonAn.objects.none()
+
+--- moc-backend/recommendations/models.py
++++ moc-backend/recommendations/models.py
+@@ -1,4 +1,6 @@
+ from django.conf import settings
+ from django.db import models
++from django.db.models.signals import post_save, post_delete
++from django.dispatch import receiver
+ from foods.models import MoHinhThoiGian, MonAn
+@@ -178,2 +180,9 @@
+ FoodInteraction.Type = TuongTacMonAn.LoaiTuongTac
++
++
++@receiver(post_save, sender=TuongTacMonAn)
++@receiver(post_delete, sender=TuongTacMonAn)
++def xoa_cache_goi_y_khi_co_tuong_tac(sender, instance, **kwargs):
++    if instance.nguoi_dung_id:
++        GoiYMonAn.objects.filter(nguoi_dung_id=instance.nguoi_dung_id).delete()

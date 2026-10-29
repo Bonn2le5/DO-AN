@@ -1,0 +1,328 @@
+--- a/moc-backend/payments/views.py
++++ b/moc-backend/payments/views.py
+@@ -21,6 +21,13 @@ class ThanhToanViewSet(viewsets.ModelViewSet):
+     serializer_class = ThanhToanSerializer
+     permission_classes = [IsAuthenticated]
+ 
++    def get_permissions(self):
++        if self.action in {"vnpay_create", "vnpay_tao_phien", "vnpay_return", "vnpay_ipn"}:
++            return [AllowAny()]
++        if self.action in {"xac_nhan_thanh_cong", "mark_success"}:
++            return [LaNhanVienNhaHang()]
++        return super().get_permissions()
++
+     def get_queryset(self):
+         q = ThanhToan.objects.select_related("don_hang", "dat_ban", "nguoi_dung").order_by("-tao_luc")
+         user = self.request.user
+@@ -113,7 +120,14 @@ class ThanhToanViewSet(viewsets.ModelViewSet):
+ 
+     @action(detail=False, methods=["get"], url_path="vnpay/return", permission_classes=[AllowAny])
+     def vnpay_return(self, request):
+-        params = request.query_params.dict()
++        if hasattr(request.query_params, "dict"):
++            raw_dict = request.query_params.dict()
++        else:
++            raw_dict = dict(request.query_params)
++        params = {
++            k: (v[0] if isinstance(v, list) and len(v) > 0 else v)
++            for k, v in raw_dict.items()
++        }
+         hash_secret = getattr(settings, "VNPAY_HASH_SECRET", "VNPAYSECRETKEY2026MOCRESTAURANT")
+         vnp_secure_hash = params.pop("vnp_SecureHash", None)
+         params.pop("vnp_SecureHashType", None)
+--- a/moc-backend/reservations/views.py
++++ b/moc-backend/reservations/views.py
+@@ -16,6 +16,11 @@ class BanAnViewSet(viewsets.ModelViewSet):
+     serializer_class = BanAnSerializer
+     permission_classes = [LaNhanVienHoacChiDoc]
+ 
++    def get_permissions(self):
++        if self.action in {"giu_ban", "giu_ban_hyphen"}:
++            return [AllowAny()]
++        return super().get_permissions()
++
+     def get_queryset(self):
+         danh_sach = BanAn.objects.select_related("chi_nhanh")
+         tham_so = self.request.query_params
+@@ -128,7 +133,8 @@ class DatBanViewSet(viewsets.ModelViewSet):
+ 
+         from payments.services import RefundService
+         ly_do = request.data.get("ly_do") or request.data.get("reason", "Khách hàng yêu cầu hủy")
+-        is_no_show = bool(request.data.get("is_no_show", False))
++        is_staff = getattr(request.user, "la_nhan_vien_nha_hang", False) or getattr(request.user, "is_staff", False)
++        is_no_show = bool(request.data.get("is_no_show", False)) and is_staff
+ 
+         result = RefundService.process_cancellation_and_refund(
+             dat_ban=dat_ban,
+--- a/moc-backend/payments/services.py
++++ b/moc-backend/payments/services.py
+@@ -120,38 +120,44 @@ class VNPayService:
+     @classmethod
+     def process_ipn(cls, query_params: Dict[str, Any]) -> Tuple[str, str]:
+         hash_secret = getattr(settings, "VNPAY_HASH_SECRET", "VNPAYSECRETKEY2026MOCRESTAURANT")
+-        params = dict(query_params)
++        if hasattr(query_params, "dict"):
++            raw_dict = query_params.dict()
++        else:
++            raw_dict = dict(query_params)
++        params = {
++            k: (v[0] if isinstance(v, list) and len(v) > 0 else v)
++            for k, v in raw_dict.items()
++        }
+         vnp_secure_hash = params.pop("vnp_SecureHash", None)
+         params.pop("vnp_SecureHashType", None)
+ 
+-        if isinstance(vnp_secure_hash, list):
+-            vnp_secure_hash = vnp_secure_hash[0]
+-
+         # 1. Verify Checksum (fail-fast without touching database)
+         if not vnp_secure_hash or not cls.verify_signature(params, str(vnp_secure_hash), hash_secret):
+             return "97", "Invalid Checksum"
+ 
+         txn_ref = params.get("vnp_TxnRef")
+-        if isinstance(txn_ref, list):
+-            txn_ref = txn_ref[0]
+-
+         raw_amount = params.get("vnp_Amount", 0)
+-        if isinstance(raw_amount, list):
+-            raw_amount = raw_amount[0]
+-        amount = int(raw_amount)
++        try:
++            amount = int(raw_amount)
++        except (ValueError, TypeError):
++            return "04", "Invalid amount"
+ 
+         response_code = params.get("vnp_ResponseCode")
+-        if isinstance(response_code, list):
+-            response_code = response_code[0]
+ 
+         with transaction.atomic():
+-            # 2. Check Order Existence
++            # 2. Check Order Existence with pessimistic row lock
+             try:
+                 thanh_toan = ThanhToan.objects.select_for_update().select_related(
+                     "dat_ban", "don_hang"
+                 ).get(ma_giao_dich=txn_ref)
+             except ThanhToan.DoesNotExist:
+                 return "01", "Order not found"
+ 
+-
+-        # 3. Check Amount (VNPay amount * 100)
+-        expected_amount = int(Decimal(str(thanh_toan.so_tien)) * 100)
+-        if amount != expected_amount:
+-            return "04", "Invalid amount"
+-
+-        # 4. Idempotency Check
+-        if thanh_toan.trang_thai in (ThanhToan.TrangThai.THANH_CONG, ThanhToan.TrangThai.DA_HOAN_TIEN):
+-            return "02", "Order already confirmed"
+-
+-        # 5. Process Confirmation or Failure
+-        now = timezone.now()
+-        c = _safe_cache()
+-
+-        if response_code == "00":
+-            thanh_toan.trang_thai = ThanhToan.TrangThai.THANH_CONG
+-            thanh_toan.thanh_toan_luc = now
+-            thanh_toan.save(update_fields=["trang_thai", "thanh_toan_luc", "cap_nhat_luc"])
+-
+-            # Link DatBan
+-            if thanh_toan.loai_thanh_toan == ThanhToan.LoaiThanhToan.TIEN_COC and thanh_toan.dat_ban:
+-                db = thanh_toan.dat_ban
+-                db.trang_thai = DatBan.TrangThai.DA_XAC_NHAN
+-                db.trang_thai_coc = DatBan.TrangThaiCoc.THANH_CONG
+-                db.thanh_toan_coc_luc = now
+-                db.phien_ban += 1
+-                db.save(update_fields=["trang_thai", "trang_thai_coc", "thanh_toan_coc_luc", "phien_ban", "cap_nhat_luc"])
+-
+-                # Release temporary hold keys
+-                gio_str = str(db.gio_bat_dau)[:5]
+-                try:
+-                    c.delete(f"table_hold:{db.ban_an_id}:{db.ngay_dat}:{gio_str}")
+-                    c.delete(f"giu-ban:{db.ban_an_id}:{db.ngay_dat}:{gio_str}")
+-                    c.delete(f"giu-ban:{db.ban_an_id}:{db.ngay_dat}:{db.gio_bat_dau}")
+-                except Exception:
+-                    pass
+-
+-            # Link DonHang
+-            elif thanh_toan.loai_thanh_toan == ThanhToan.LoaiThanhToan.DON_HANG and thanh_toan.don_hang:
+-                dh = thanh_toan.don_hang
+-                dh.trang_thai = DonHang.TrangThai.DA_XAC_NHAN
+-                dh.save(update_fields=["trang_thai", "cap_nhat_luc"])
+-                from orders.models import LichSuTrangThaiDon
+-                LichSuTrangThaiDon.objects.create(
+-                    don_hang=dh,
+-                    tu_trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
+-                    sang_trang_thai=DonHang.TrangThai.DA_XAC_NHAN,
+-                    doi_boi=thanh_toan.nguoi_dung,
+-                    ghi_chu="VNPay IPN confirmed payment"
+-                )
+-                try:
+-                    from foods.services import DichVuKho
+-                    DichVuKho.khau_tru_nguyen_lieu_bom(
+-                        danh_sach_mon=dh.danh_sach_mon.all(),
+-                        loai_tham_chieu="don_hang",
+-                        id_tham_chieu=dh.id,
+-                        nguoi_dung=thanh_toan.nguoi_dung,
+-                        ghi_chu=f"Xuất kho khi thanh toán thành công đơn hàng {dh.ma_don_hang}"
+-                    )
+-                except Exception:
+-                    pass
+-
+-            return "00", "Confirm Success"
+-        else:
+-            thanh_toan.trang_thai = ThanhToan.TrangThai.THAT_BAI
+-            thanh_toan.save(update_fields=["trang_thai", "cap_nhat_luc"])
+-
+-            if thanh_toan.loai_thanh_toan == ThanhToan.LoaiThanhToan.TIEN_COC and thanh_toan.dat_ban:
+-                db = thanh_toan.dat_ban
+-                db.trang_thai = DatBan.TrangThai.DA_HUY
+-                db.trang_thai_coc = DatBan.TrangThaiCoc.THAT_BAI
+-                db.phien_ban += 1
+-                db.save(update_fields=["trang_thai", "trang_thai_coc", "phien_ban", "cap_nhat_luc"])
+-
+-                # Release hold key so table is freed
+-                gio_str = str(db.gio_bat_dau)[:5]
+-                try:
+-                    c.delete(f"table_hold:{db.ban_an_id}:{db.ngay_dat}:{gio_str}")
+-                    c.delete(f"giu-ban:{db.ban_an_id}:{db.ngay_dat}:{gio_str}")
+-                    c.delete(f"giu-ban:{db.ban_an_id}:{db.ngay_dat}:{db.gio_bat_dau}")
+-                except Exception:
+-                    pass
+-
+-            return "00", "Confirm Failure"
++            # 3. Check Amount (VNPay amount * 100)
++            expected_amount = int(Decimal(str(thanh_toan.so_tien)) * 100)
++            if amount != expected_amount:
++                return "04", "Invalid amount"
++
++            # 4. Idempotency Check
++            if thanh_toan.trang_thai in (ThanhToan.TrangThai.THANH_CONG, ThanhToan.TrangThai.DA_HOAN_TIEN):
++                return "02", "Order already confirmed"
++
++            # 5. Process Confirmation or Failure
++            now = timezone.now()
++            c = _safe_cache()
++
++            if response_code == "00":
++                thanh_toan.trang_thai = ThanhToan.TrangThai.THANH_CONG
++                thanh_toan.thanh_toan_luc = now
++                thanh_toan.save(update_fields=["trang_thai", "thanh_toan_luc", "cap_nhat_luc"])
++
++                # Link DatBan
++                if thanh_toan.loai_thanh_toan == ThanhToan.LoaiThanhToan.TIEN_COC and thanh_toan.dat_ban:
++                    db = thanh_toan.dat_ban
++                    db.trang_thai = DatBan.TrangThai.DA_XAC_NHAN
++                    db.trang_thai_coc = DatBan.TrangThaiCoc.THANH_CONG
++                    db.thanh_toan_coc_luc = now
++                    db.phien_ban += 1
++                    db.save(update_fields=["trang_thai", "trang_thai_coc", "thanh_toan_coc_luc", "phien_ban", "cap_nhat_luc"])
++
++                    # Release temporary hold keys
++                    gio_str = str(db.gio_bat_dau)[:5]
++                    try:
++                        c.delete(f"table_hold:{db.ban_an_id}:{db.ngay_dat}:{gio_str}")
++                        c.delete(f"giu-ban:{db.ban_an_id}:{db.ngay_dat}:{gio_str}")
++                        c.delete(f"giu-ban:{db.ban_an_id}:{db.ngay_dat}:{db.gio_bat_dau}")
++                    except Exception:
++                        pass
++
++                # Link DonHang
++                elif thanh_toan.loai_thanh_toan == ThanhToan.LoaiThanhToan.DON_HANG and thanh_toan.don_hang:
++                    dh = thanh_toan.don_hang
++                    dh.trang_thai = DonHang.TrangThai.DA_XAC_NHAN
++                    dh.save(update_fields=["trang_thai", "cap_nhat_luc"])
++                    from orders.models import LichSuTrangThaiDon
++                    LichSuTrangThaiDon.objects.create(
++                        don_hang=dh,
++                        tu_trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
++                        sang_trang_thai=DonHang.TrangThai.DA_XAC_NHAN,
++                        doi_boi=thanh_toan.nguoi_dung,
++                        ghi_chu="VNPay IPN confirmed payment"
++                    )
++                    try:
++                        from foods.services import DichVuKho
++                        DichVuKho.khau_tru_nguyen_lieu_bom(
++                            danh_sach_mon=dh.danh_sach_mon.all(),
++                            loai_tham_chieu="don_hang",
++                            id_tham_chieu=dh.id,
++                            nguoi_dung=thanh_toan.nguoi_dung,
++                            ghi_chu=f"Xuất kho khi thanh toán thành công đơn hàng {dh.ma_don_hang}"
++                        )
++                    except Exception:
++                        pass
++
++                return "00", "Confirm Success"
++            else:
++                thanh_toan.trang_thai = ThanhToan.TrangThai.THAT_BAI
++                thanh_toan.save(update_fields=["trang_thai", "cap_nhat_luc"])
++
++                if thanh_toan.loai_thanh_toan == ThanhToan.LoaiThanhToan.TIEN_COC and thanh_toan.dat_ban:
++                    db = thanh_toan.dat_ban
++                    db.trang_thai = DatBan.TrangThai.DA_HUY
++                    db.trang_thai_coc = DatBan.TrangThaiCoc.THAT_BAI
++                    db.phien_ban += 1
++                    db.save(update_fields=["trang_thai", "trang_thai_coc", "phien_ban", "cap_nhat_luc"])
++
++                    # Release hold key so table is freed
++                    gio_str = str(db.gio_bat_dau)[:5]
++                    try:
++                        c.delete(f"table_hold:{db.ban_an_id}:{db.ngay_dat}:{gio_str}")
++                        c.delete(f"giu-ban:{db.ban_an_id}:{db.ngay_dat}:{gio_str}")
++                        c.delete(f"giu-ban:{db.ban_an_id}:{db.ngay_dat}:{db.gio_bat_dau}")
++                    except Exception:
++                        pass
++
++                return "00", "Confirm Failure"
+--- a/moc-backend/reservations/services.py
++++ b/moc-backend/reservations/services.py
+@@ -126,12 +126,12 @@ class DichVuDatBan:
+ 
+     @classmethod
++    @transaction.atomic
+     def tao_dat_ban(cls, *, nguoi_dung, du_lieu):
+         """
+         Phase 2: Chốt đặt bàn với Khóa bi quan select_for_update() và xác minh token Redis
+         """
+-        with transaction.atomic():
+-            danh_sach_item = du_lieu.pop("danh_sach_mon", None) or du_lieu.pop("food_items", [])
++        danh_sach_item = du_lieu.pop("danh_sach_mon", None) or du_lieu.pop("food_items", [])
+ 
+         id_giu_ban = du_lieu.pop("id_giu_ban", None)
+         du_lieu.pop("expected_version", None)
+@@ -235,14 +235,14 @@ class DichVuDatBan:
+ 
+     @staticmethod
++    @transaction.atomic
+     def doi_trang_thai(dat_ban, trang_thai_moi, nguoi_dung):
+-        with transaction.atomic():
+-            if trang_thai_moi not in DatBan.TrangThai.values:
+-                raise ValidationError({"status": "Trạng thái đặt bàn không hợp lệ."})
+-            trang_thai_cu = dat_ban.trang_thai
+-            dat_ban.trang_thai = trang_thai_moi
+-            dat_ban.phien_ban += 1
+-            dat_ban.save(update_fields=["trang_thai", "phien_ban", "cap_nhat_luc"])
++        if trang_thai_moi not in DatBan.TrangThai.values:
++            raise ValidationError({"status": "Trạng thái đặt bàn không hợp lệ."})
++        trang_thai_cu = dat_ban.trang_thai
++        dat_ban.trang_thai = trang_thai_moi
++        dat_ban.phien_ban += 1
++        dat_ban.save(update_fields=["trang_thai", "phien_ban", "cap_nhat_luc"])
+ 
+         # Hook BOM deduction if status confirmed or guest arrived
+         if trang_thai_moi in [DatBan.TrangThai.DA_XAC_NHAN, DatBan.TrangThai.KHACH_DA_DEN]:
+--- a/moc-backend/foods/services.py
++++ b/moc-backend/foods/services.py
+@@ -10,6 +10,7 @@ from django.db import transaction
+ class DichVuKho:
+     @staticmethod
++    @transaction.atomic
+     def khau_tru_nguyen_lieu_bom(
+         *,
+         danh_sach_mon,
+@@ -127,6 +128,7 @@ class DichVuKho:
+ 
+     @staticmethod
++    @transaction.atomic
+     def hoan_tra_nguyen_lieu_bom(
+         *,
+         loai_tham_chieu: str,

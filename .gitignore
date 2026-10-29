@@ -1,0 +1,39 @@
+# Secrets and local environment settings
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Python / Django
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+.venv/
+env/
+moc-backend/db.sqlite3
+moc-backend/test_db.sqlite3
+*.sqlite3
+*.log
+staticfiles/
+media/
+
+# Node / Vite
+node_modules/
+dist/
+coverage/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Local editor and operating system files
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Generated test output
+tests/e2e_report.json

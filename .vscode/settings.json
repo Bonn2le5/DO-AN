@@ -1,0 +1,4 @@
+{
+  "python.analysis.extraPaths": ["./moc-backend"],
+  "postman.settings.dotenv-detection-notification-visibility": false
+}

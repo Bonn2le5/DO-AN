@@ -1,0 +1,9 @@
+--- moc-backend/orders/services.py
++++ moc-backend/orders/services.py
+@@ -80,5 +80,5 @@
+             from recommendations.models import TuongTacMonAn
+             TuongTacMonAn.objects.create(
+                 nguoi_dung=nguoi_dung, mon_an=mon_an,
+-                loai_tuong_tac=TuongTacMonAn.LoaiTuongTac.DAT_MON, trong_so=6
++                loai_tuong_tac=TuongTacMonAn.LoaiTuongTac.DAT_MON, trong_so=4
+             )

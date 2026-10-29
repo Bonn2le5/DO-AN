@@ -1,0 +1,318 @@
+{
+  "timestamp": "2026-10-15T00:37:34Z",
+  "duration_seconds": 0.056,
+  "tiers_run": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "total_tests": 60,
+  "passed": 60,
+  "failed": 0,
+  "errors": 0,
+  "skipped": 0,
+  "pass_rate_percent": 100.0,
+  "details": [
+    {
+      "test": "test_t1_backend_01_seed_data_file_has_100_plus_foods (tests.e2e.tier1.test_t1_backend.TestTier1Backend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_backend_02_schema_sql_defines_core_enums_and_tables (tests.e2e.tier1.test_t1_backend.TestTier1Backend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_backend_03_backend_project_layout (tests.e2e.tier1.test_t1_backend.TestTier1Backend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_backend_04_django_settings_and_installed_apps (tests.e2e.tier1.test_t1_backend.TestTier1Backend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_backend_05_seed_data_categories_parsing (tests.e2e.tier1.test_t1_backend.TestTier1Backend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_vnpay_01_url_generation_contains_mandatory_params (tests.e2e.tier1.test_t1_vnpay.TestTier1VNPay)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_vnpay_02_checksum_hmac_sha512_format (tests.e2e.tier1.test_t1_vnpay.TestTier1VNPay)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_vnpay_03_parameter_sorting_ascii_order (tests.e2e.tier1.test_t1_vnpay.TestTier1VNPay)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_vnpay_04_ipn_callback_success_simulation (tests.e2e.tier1.test_t1_vnpay.TestTier1VNPay)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_vnpay_05_return_url_signature_validation (tests.e2e.tier1.test_t1_vnpay.TestTier1VNPay)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_concurrency_01_hold_table_success_200 (tests.e2e.tier1.test_t1_concurrency.TestTier1Concurrency)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_concurrency_02_duplicate_hold_returns_409_conflict (tests.e2e.tier1.test_t1_concurrency.TestTier1Concurrency)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_concurrency_03_independent_table_or_time_succeeds (tests.e2e.tier1.test_t1_concurrency.TestTier1Concurrency)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_concurrency_04_manual_release_frees_table (tests.e2e.tier1.test_t1_concurrency.TestTier1Concurrency)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_concurrency_05_phase2_confirmation_commits_booking (tests.e2e.tier1.test_t1_concurrency.TestTier1Concurrency)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_realtime_01_asgi_protocol_router_declaration (tests.e2e.tier1.test_t1_realtime.TestTier1Realtime)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_realtime_02_order_fsm_initial_state (tests.e2e.tier1.test_t1_realtime.TestTier1Realtime)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_realtime_03_order_fsm_happy_path_lifecycle (tests.e2e.tier1.test_t1_realtime.TestTier1Realtime)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_realtime_04_early_cancellation_transition (tests.e2e.tier1.test_t1_realtime.TestTier1Realtime)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_realtime_05_chat_message_schema_and_persistence (tests.e2e.tier1.test_t1_realtime.TestTier1Realtime)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_recommendation_gis_01_haversine_distance (tests.e2e.tier1.test_t1_recommendation_gis.TestTier1RecommendationGIS)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_recommendation_gis_02_nearest_branch_lookup (tests.e2e.tier1.test_t1_recommendation_gis.TestTier1RecommendationGIS)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_recommendation_gis_03_inactive_branch_filtered (tests.e2e.tier1.test_t1_recommendation_gis.TestTier1RecommendationGIS)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_recommendation_gis_04_cold_start_popularity_ranking (tests.e2e.tier1.test_t1_recommendation_gis.TestTier1RecommendationGIS)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_recommendation_gis_05_explainable_tag_generation (tests.e2e.tier1.test_t1_recommendation_gis.TestTier1RecommendationGIS)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_frontend_01_package_json_dependencies (tests.e2e.tier1.test_t1_frontend.TestTier1Frontend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_frontend_02_build_scripts_configured (tests.e2e.tier1.test_t1_frontend.TestTier1Frontend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_frontend_03_frontend_directory_structure (tests.e2e.tier1.test_t1_frontend.TestTier1Frontend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_frontend_04_chat_widget_component_exists (tests.e2e.tier1.test_t1_frontend.TestTier1Frontend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_frontend_05_types_index_file_exists (tests.e2e.tier1.test_t1_frontend.TestTier1Frontend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_vnpay_01_invalid_checksum_returns_rspcode_97 (tests.e2e.tier2.test_t2_vnpay.TestTier2VNPay)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_vnpay_02_duplicate_ipn_idempotency_returns_rspcode_02 (tests.e2e.tier2.test_t2_vnpay.TestTier2VNPay)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_vnpay_03_tampered_amount_returns_rspcode_04 (tests.e2e.tier2.test_t2_vnpay.TestTier2VNPay)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_vnpay_04_missing_order_returns_rspcode_01 (tests.e2e.tier2.test_t2_vnpay.TestTier2VNPay)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_vnpay_05_vietnamese_diacritics_encoding_integrity (tests.e2e.tier2.test_t2_vnpay.TestTier2VNPay)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_refund_01_cancellation_above_24h_100_percent (tests.e2e.tier2.test_t2_refund.TestTier2Refund)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_refund_02_cancellation_exactly_24h_50_percent (tests.e2e.tier2.test_t2_refund.TestTier2Refund)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_refund_03_cancellation_between_6h_and_24h_50_percent (tests.e2e.tier2.test_t2_refund.TestTier2Refund)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_refund_04_cancellation_under_6h_0_percent (tests.e2e.tier2.test_t2_refund.TestTier2Refund)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_refund_05_no_show_and_receipt_generation (tests.e2e.tier2.test_t2_refund.TestTier2Refund)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_concurrency_01_multi_threaded_race_condition (tests.e2e.tier2.test_t2_concurrency.TestTier2Concurrency)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_concurrency_02_expired_hold_token_fails_confirmation (tests.e2e.tier2.test_t2_concurrency.TestTier2Concurrency)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_concurrency_03_token_hijacking_rejected (tests.e2e.tier2.test_t2_concurrency.TestTier2Concurrency)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_concurrency_04_double_confirmation_prevented (tests.e2e.tier2.test_t2_concurrency.TestTier2Concurrency)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_concurrency_05_re_hold_after_ttl_expiry (tests.e2e.tier2.test_t2_concurrency.TestTier2Concurrency)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_fsm_01_reverse_transition_blocked (tests.e2e.tier2.test_t2_fsm.TestTier2FSM)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_fsm_02_illegal_skip_blocked (tests.e2e.tier2.test_t2_fsm.TestTier2FSM)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_fsm_03_terminal_hoan_tat_immutability (tests.e2e.tier2.test_t2_fsm.TestTier2FSM)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_fsm_04_terminal_da_huy_immutability (tests.e2e.tier2.test_t2_fsm.TestTier2FSM)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t2_fsm_05_unknown_state_name_rejected (tests.e2e.tier2.test_t2_fsm.TestTier2FSM)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t3_01_full_pipeline_hold_pay_confirm_order_deduct (tests.e2e.tier3.test_t3_combinations.TestTier3Combinations)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t3_02_material_shortage_blocks_order (tests.e2e.tier3.test_t3_combinations.TestTier3Combinations)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t3_03_payment_failure_releases_table_hold (tests.e2e.tier3.test_t3_combinations.TestTier3Combinations)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t3_04_shared_ingredient_deduction_across_multiple_dishes (tests.e2e.tier3.test_t3_combinations.TestTier3Combinations)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t3_05_idempotent_ipn_prevents_duplicate_processing (tests.e2e.tier3.test_t3_combinations.TestTier3Combinations)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t4_scenario_01_cold_start_customer_discovery_journey (tests.e2e.tier4.test_t4_scenarios.TestTier4Scenarios)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t4_scenario_02_returning_spicy_lover_journey (tests.e2e.tier4.test_t4_scenarios.TestTier4Scenarios)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t4_scenario_03_early_cancellation_100_percent_refund (tests.e2e.tier4.test_t4_scenarios.TestTier4Scenarios)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t4_scenario_04_late_cancellation_0_percent_forfeiture (tests.e2e.tier4.test_t4_scenarios.TestTier4Scenarios)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t4_scenario_05_peak_hour_table_race_condition (tests.e2e.tier4.test_t4_scenarios.TestTier4Scenarios)",
+      "status": "PASSED",
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,165 @@
+{
+  "timestamp": "2026-10-14T17:20:09Z",
+  "duration_seconds": 0.056,
+  "tiers_run": [
+    1
+  ],
+  "total_tests": 30,
+  "passed": 29,
+  "failed": 1,
+  "errors": 0,
+  "skipped": 0,
+  "pass_rate_percent": 96.7,
+  "details": [
+    {
+      "test": "test_t1_backend_01_seed_data_file_has_100_plus_foods (tests.e2e.tier1.test_t1_backend.TestTier1Backend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_backend_02_schema_sql_defines_core_enums_and_tables (tests.e2e.tier1.test_t1_backend.TestTier1Backend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_backend_03_backend_project_layout (tests.e2e.tier1.test_t1_backend.TestTier1Backend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_backend_04_django_settings_and_installed_apps (tests.e2e.tier1.test_t1_backend.TestTier1Backend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_backend_05_seed_data_categories_parsing (tests.e2e.tier1.test_t1_backend.TestTier1Backend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_vnpay_01_url_generation_contains_mandatory_params (tests.e2e.tier1.test_t1_vnpay.TestTier1VNPay)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_vnpay_02_checksum_hmac_sha512_format (tests.e2e.tier1.test_t1_vnpay.TestTier1VNPay)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_vnpay_03_parameter_sorting_ascii_order (tests.e2e.tier1.test_t1_vnpay.TestTier1VNPay)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_vnpay_04_ipn_callback_success_simulation (tests.e2e.tier1.test_t1_vnpay.TestTier1VNPay)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_vnpay_05_return_url_signature_validation (tests.e2e.tier1.test_t1_vnpay.TestTier1VNPay)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_concurrency_01_hold_table_success_200 (tests.e2e.tier1.test_t1_concurrency.TestTier1Concurrency)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_concurrency_02_duplicate_hold_returns_409_conflict (tests.e2e.tier1.test_t1_concurrency.TestTier1Concurrency)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_concurrency_03_independent_table_or_time_succeeds (tests.e2e.tier1.test_t1_concurrency.TestTier1Concurrency)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_concurrency_04_manual_release_frees_table (tests.e2e.tier1.test_t1_concurrency.TestTier1Concurrency)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_concurrency_05_phase2_confirmation_commits_booking (tests.e2e.tier1.test_t1_concurrency.TestTier1Concurrency)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_realtime_01_asgi_protocol_router_declaration (tests.e2e.tier1.test_t1_realtime.TestTier1Realtime)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_realtime_02_order_fsm_initial_state (tests.e2e.tier1.test_t1_realtime.TestTier1Realtime)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_realtime_03_order_fsm_happy_path_lifecycle (tests.e2e.tier1.test_t1_realtime.TestTier1Realtime)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_realtime_04_early_cancellation_transition (tests.e2e.tier1.test_t1_realtime.TestTier1Realtime)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_realtime_05_chat_message_schema_and_persistence (tests.e2e.tier1.test_t1_realtime.TestTier1Realtime)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_recommendation_gis_01_haversine_distance (tests.e2e.tier1.test_t1_recommendation_gis.TestTier1RecommendationGIS)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_recommendation_gis_02_nearest_branch_lookup (tests.e2e.tier1.test_t1_recommendation_gis.TestTier1RecommendationGIS)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_recommendation_gis_03_inactive_branch_filtered (tests.e2e.tier1.test_t1_recommendation_gis.TestTier1RecommendationGIS)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_recommendation_gis_04_cold_start_popularity_ranking (tests.e2e.tier1.test_t1_recommendation_gis.TestTier1RecommendationGIS)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_recommendation_gis_05_explainable_tag_generation (tests.e2e.tier1.test_t1_recommendation_gis.TestTier1RecommendationGIS)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_frontend_01_package_json_dependencies (tests.e2e.tier1.test_t1_frontend.TestTier1Frontend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_frontend_02_build_scripts_configured (tests.e2e.tier1.test_t1_frontend.TestTier1Frontend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_frontend_03_frontend_directory_structure (tests.e2e.tier1.test_t1_frontend.TestTier1Frontend)",
+      "status": "PASSED",
+      "error": null
+    },
+    {
+      "test": "test_t1_frontend_04_chat_widget_component_exists (tests.e2e.tier1.test_t1_frontend.TestTier1Frontend)",
+      "status": "FAILED",
+      "error": "Traceback (most recent call last):\n  File \"/Users/VuVan/Documents/DO-AN/tests/e2e/tier1/test_t1_frontend.py\", line 63, in test_t1_frontend_04_chat_widget_component_exists\n    self.assertIn(\"ws\", content.lower())\nAssertionError: 'ws' not found in '/**\\n * production-ready real-time customer support chat widget.\\n * path: moc-frontend/src/components/chat/chatwidget.tsx\\n */\\n\\nimport { usestate, useref, useeffect } from \"react\";\\nimport { messagecircle, x, send, login } from \"lucide-react\";\\nimport { link } from \"react-router-dom\";\\nimport { useauthstore } from \"@/store/authstore\";\\nimport { usewebsocketchat } from \"@/hooks/usewebsocketchat\";\\n\\nexport default function chatwidget() {\\n  const [open, setopen] = usestate(false);\\n  const [draft, setdraft] = usestate(\"\");\\n  const messagesendref = useref<htmldivelement | null>(null);\\n\\n  const isauthenticated = useauthstore((s) => s.isauthenticated);\\n\\n  const {\\n    messages,\\n    isconnected,\\n    istyping,\\n    typinguser,\\n    unreadcount,\\n    loadinghistory,\\n    sendmessage,\\n    sendtyping,\\n    clearunread,\\n  } = usewebsocketchat({ enabled: open && isauthenticated });\\n\\n  // scroll to bottom when messages update\\n  useeffect(() => {\\n    if (open) {\\n      messagesendref.current?.scrollintoview({ behavior: \"smooth\" });\\n    }\\n  }, [messages, open, istyping]);\\n\\n  const handleopen = () => {\\n    setopen(true);\\n    clearunread();\\n  };\\n\\n  const handlesend = () => {\\n    if (!draft.trim()) return;\\n    sendmessage(draft);\\n    setdraft(\"\");\\n    sendtyping(false);\\n  };\\n\\n  const handleinputchange = (e: react.changeevent<htmlinputelement>) => {\\n    setdraft(e.target.value);\\n    sendtyping(e.target.value.length > 0);\\n  };\\n\\n  return (\\n    <div classname=\"fixed bottom-6 right-6 z-[95] flex flex-col items-end gap-3\">\\n      {open && (\\n        <div classname=\"w-[320px] sm:w-[380px] h-[480px] bg-white rounded-2xl shadow-lift border border-black/[0.08] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200\">\\n          {/* header */}\\n          <div classname=\"bg-dark text-white px-5 py-4 flex items-center justify-between\">\\n            <div>\\n              <div classname=\"font-display text-[15px] font-semibold\">nhà hàng mộc</div>\\n              <div classname=\"text-[11.5px] text-white/70 flex items-center gap-1.5 mt-0.5\">\\n                <span\\n                  classname={`w-2 h-2 rounded-full inline-block ${\\n                    isconnected ? \"bg-emerald-400 animate-pulse\" : \"bg-amber-400\"\\n                  }`}\\n                />\\n                {isconnected ? \"trực tuyến (real-time)\" : \"đang kết nối...\"}\\n              </div>\\n            </div>\\n            <button\\n              onclick={() => setopen(false)}\\n              classname=\"text-white/70 hover:text-white transition-colors p-1\"\\n            >\\n              <x width={18} height={18} />\\n            </button>\\n          </div>\\n\\n          {/* chat body */}\\n          {!isauthenticated ? (\\n            <div classname=\"flex-1 flex flex-col items-center justify-center p-6 text-center bg-bg\">\\n              <div classname=\"w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3\">\\n                <login width={22} height={22} />\\n              </div>\\n              <h4 classname=\"font-display text-base mb-1\">đăng nhập để trò chuyện</h4>\\n              <p classname=\"text-xs text-muted mb-4 max-w-[240px]\">\\n                vui lòng đăng nhập vào tài khoản để kết nối trực tiếp với nhân viên hỗ trợ nhà hàng.\\n              </p>\\n              <link\\n                to=\"/dang-nhap\"\\n                onclick={() => setopen(false)}\\n                classname=\"btn btn-primary text-xs py-2 px-4\"\\n              >\\n                đăng nhập ngay\\n              </link>\\n            </div>\\n          ) : (\\n            <>\\n              <div classname=\"flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-bg\">\\n                {loadinghistory && (\\n                  <div classname=\"text-center text-xs text-muted py-2\">\\n                    đang tải lịch sử trò chuyện...\\n                  </div>\\n                )}\\n\\n                {messages.length === 0 && !loadinghistory && (\\n                  <div classname=\"text-center text-xs text-muted py-6\">\\n                    chưa có tin nhắn nào. hãy gửi lời chào đến mộc nhé! 👋\\n                  </div>\\n                )}\\n\\n                {messages.map((m) => {\\n                  const isme = m.from === \"me\";\\n                  return (\\n                    <div key={m.id} classname={isme ? \"flex justify-end\" : \"flex justify-start\"}>\\n                      <div\\n                        classname={\\n                          isme\\n                            ? \"bg-primary text-white text-[13.5px] px-3.5 py-2.5 rounded-2xl rounded-br-sm max-w-[78%] shadow-sm\"\\n                            : \"bg-white border border-black/[0.07] text-text text-[13.5px] px-3.5 py-2.5 rounded-2xl rounded-bl-sm max-w-[78%] shadow-sm\"\\n                        }\\n                      >\\n                        {!isme && (\\n                          <div classname=\"text-[10px] font-semibold text-primary mb-1\">\\n                            {m.sendername} {m.isstaff && \"• nhân viên\"}\\n                          </div>\\n                        )}\\n                        <div>{m.content}</div>\\n                        <div\\n                          classname={\\n                            isme\\n                              ? \"text-[9.5px] text-white/70 mt-1 text-right\"\\n                              : \"text-[9.5px] text-muted mt-1\"\\n                          }\\n                        >\\n                          {m.time} {isme && (m.isread ? \"✓✓\" : \"✓\")}\\n                        </div>\\n                      </div>\\n                    </div>\\n                  );\\n                })}\\n\\n                {istyping && (\\n                  <div classname=\"flex items-center gap-1.5 text-xs text-muted italic px-2 py-1\">\\n                    <span classname=\"w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce\" />\\n                    <span>{typinguser || \"nhân viên\"} đang nhập...</span>\\n                  </div>\\n                )}\\n\\n                <div ref={messagesendref} />\\n              </div>\\n\\n              {/* input area */}\\n              <div classname=\"flex items-center gap-2 border-t border-black/[0.07] p-3 bg-white\">\\n                <input\\n                  value={draft}\\n                  onchange={handleinputchange}\\n                  onkeydown={(e) => e.key === \"enter\" && !e.shiftkey && handlesend()}\\n                  placeholder=\"nhập tin nhắn...\"\\n                  classname=\"flex-1 min-w-0 px-3.5 py-2.5 rounded-full bg-bg text-sm outline-none focus:ring-1 focus:ring-primary/40\"\\n                />\\n                <button\\n                  onclick={handlesend}\\n                  disabled={!draft.trim()}\\n                  classname=\"w-9 h-9 rounded-full bg-primary disabled:opacity-40 text-white flex items-center justify-center flex-shrink-0 transition-opacity\"\\n                >\\n                  <send width={15} height={15} />\\n                </button>\\n              </div>\\n            </>\\n          )}\\n        </div>\\n      )}\\n\\n      {/* floating toggle button */}\\n      <button\\n        onclick={open ? () => setopen(false) : handleopen}\\n        classname=\"w-14 h-14 rounded-full bg-primary text-white shadow-lift flex items-center justify-center hover:scale-105 transition-transform relative\"\\n        aria-label=\"trò chuyện với nhà hàng\"\\n      >\\n        {open ? <x width={22} height={22} /> : <messagecircle width={22} height={22} />}\\n        {!open && unreadcount > 0 && (\\n          <span classname=\"absolute -top-1 -right-1 w-5 h-5 rounded-full bg-dark text-white text-[10px] font-bold flex items-center justify-center animate-bounce\">\\n            {unreadcount}\\n          </span>\\n        )}\\n      </button>\\n    </div>\\n  );\\n}\\n'\n"
+    },
+    {
+      "test": "test_t1_frontend_05_types_index_file_exists (tests.e2e.tier1.test_t1_frontend.TestTier1Frontend)",
+      "status": "PASSED",
+      "error": null
+    }
+  ]
+}

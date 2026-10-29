@@ -1,0 +1,245 @@
+--- tests/e2e/test_adversarial_challenger_m2.py	2026-10-14 15:53:31
++++ .agents/teamwork/teamwork_preview_explorer_m2_r2_3/proposed_test_adversarial_challenger_m2.py	2026-10-14 16:51:18
+@@ -1,19 +1,28 @@
+ #!/usr/bin/env python3
+ """
+ Adversarial Empirical Stress Testing & Concurrency Verification Suite for Milestone 2.
+-Challenger 2 (m2_challenger_2).
++Challenger 1 & Challenger 2 Consolidated 16-Test Suite.
+ 
+-Covers:
+-1. Multi-threaded Table Hold Collision (20 concurrent threads -> 1 HTTP 200, 19 HTTP 409 BAN_DANG_BAN).
+-2. API Permission & Security Flaw on BanAnViewSet (Missing get_permissions causes 401/403 for guest users).
+-3. Phase 2 Transaction Scope & Row-Level Mutex Integrity in tao_dat_ban.
+-4. Token Expiration, Token Hijacking, and Double Booking Prevention.
+-5. BOM Material Deduction: Inverted Resource Deadlock Prevention & Strict Ascending ID Ordering.
+-6. BOM Stockout & Partial Deduction Atomicity in khau_tru_nguyen_lieu_bom & hoan_tra_nguyen_lieu_bom.
+-7. Exception Swallowing Flaw in DichVuDatBan.doi_trang_thai.
++Covers 16 adversarial scenarios across Milestone 2:
++1.  test_adv_01: Multi-threaded Table Hold Collision (20 concurrent threads -> 1 HTTP 200, 19 HTTP 409 BAN_DANG_BAN).
++2.  test_adv_02: Expired Hold Token allows immediate re-acquisition upon TTL expiration.
++3.  test_adv_03: Database Pre-booking Collision (Table already confirmed in DB returns HTTP 409).
++4.  test_adv_04: API Permission Flaw on BanAnViewSet (Missing get_permissions rejects unauthenticated guest with HTTP 401).
++5.  test_adv_05: API Permission Flaw on BanAnViewSet (Rejects authenticated regular customer with HTTP 403).
++6.  test_adv_06: DatBanViewSet giu_ban_frontend correctly allows guest (contrast verification).
++7.  test_adv_07: Phase 2 Transaction Scope Flaw (tao_dat_ban atomic block closed prematurely after 1 statement).
++8.  test_adv_08: Phase 2 Forged or Expired Hold Token Rejected with ValidationError.
++9.  test_adv_09: BOM Material Deduction Transaction Scope Flaw (khau_tru_nguyen_lieu_bom atomic block closed prematurely).
++10. test_adv_10: BOM Material Restocking Transaction Scope Flaw (hoan_tra_nguyen_lieu_bom atomic block closed prematurely).
++11. test_adv_11: Exception Swallowing Flaw in DichVuDatBan.doi_trang_thai (silently catches stockout with pass).
++12. test_adv_12: BOM Deadlock Prevention via Strict Ascending ID Ordering (Order A [10, 20] vs Order B [20, 10]).
++13. test_adv_13: BOM Stock Exhaustion Clean Rejection without partial stock deduction or orphan audit logs.
++14. test_adv_14: VNPay IPN Transaction Scope Flaw (process_ipn releases row lock before amount/idempotency checks).
++15. test_adv_15: API Permission Flaw on ThanhToanViewSet (Missing get_permissions blocks unauthenticated IPN with HTTP 401).
++16. test_adv_16: VNPay IPN Checksum Failure on Django QueryDict (dict(query_params) creates lists, breaking HMAC).
+ 
+ Usage:
+-    PYTHONPATH=moc-backend ./moc-backend/.venv/bin/python tests/e2e/test_adversarial_challenger_m2.py
++    PYTHONPATH=moc-backend ./moc-backend/.venv/bin/python proposed_test_adversarial_challenger_m2.py
+ """
+ 
+ import ast
+@@ -29,7 +38,14 @@
+ from unittest.mock import patch, MagicMock
+ 
+ # Setup paths & environment
+-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
++current_dir = Path(__file__).resolve().parent
++for p in [current_dir, current_dir.parent, current_dir.parent.parent, current_dir.parent.parent.parent, current_dir.parent.parent.parent.parent]:
++    if (p / "moc-backend").exists():
++        PROJECT_ROOT = p
++        break
++else:
++    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
++
+ BACKEND_DIR = PROJECT_ROOT / "moc-backend"
+ if str(PROJECT_ROOT) not in sys.path:
+     sys.path.insert(0, str(PROJECT_ROOT))
+@@ -42,6 +58,7 @@
+ django.setup()
+ 
+ from django.core.cache import caches
++from django.http import QueryDict
+ from rest_framework.exceptions import ValidationError
+ from rest_framework.test import APIRequestFactory, force_authenticate
+ 
+@@ -50,6 +67,9 @@
+ from reservations.models import BanAn, DatBan
+ from foods.services import DichVuKho
+ from foods.models import NguyenLieu, DinhMucNguyenLieu, LichSuXuatNhapKho
++from payments.services import VNPayService
++from payments.views import ThanhToanViewSet
++from tests.e2e.helpers.vnpay_oracle import DEFAULT_HASH_SECRET
+ 
+ 
+ class TestAdversarialTableHoldConcurrency(unittest.TestCase):
+@@ -124,17 +144,14 @@
+         mock_db_filter.return_value.exists.return_value = False
+ 
+         with patch("reservations.services._safe_cache", return_value=self.cache):
+-            # First hold with timeout=1s
+             with patch.object(DichVuDatBan, "HOLD_TIMEOUT_SECONDS", 1):
+                 ok1, data1 = DichVuDatBan.giu_ban_tam_thoi(
+                     ban_id=self.ban_id, ngay=self.ngay, gio=self.gio, so_khach=self.so_khach
+                 )
+                 self.assertTrue(ok1)
+ 
+-            # Wait for expiration
+             time.sleep(1.1)
+ 
+-            # Second hold after expiration must succeed
+             ok2, data2 = DichVuDatBan.giu_ban_tam_thoi(
+                 ban_id=self.ban_id, ngay=self.ngay, gio=self.gio, so_khach=self.so_khach
+             )
+@@ -182,7 +199,6 @@
+             format="json",
+         )
+         response = ban_view(request, pk=1)
+-        # Demonstrates defect: HTTP 401 returned for public customer endpoint
+         self.assertEqual(response.status_code, 401, "BanAnViewSet.giu_ban rejects unauthenticated guest with 401")
+         self.assertEqual(response.data["detail"].code, "not_authenticated")
+ 
+@@ -201,7 +217,6 @@
+         force_authenticate(request, user=mock_customer)
+ 
+         response = ban_view(request, pk=1)
+-        # Demonstrates defect: HTTP 403 returned for regular customer
+         self.assertEqual(response.status_code, 403, "BanAnViewSet.giu_ban rejects authenticated customer with 403")
+         self.assertEqual(response.data["detail"].code, "permission_denied")
+ 
+@@ -253,11 +268,9 @@
+             f"Defect found: with transaction.atomic() contains only {len(atomic_block.body)} statement, expected full body"
+         )
+ 
+-        # Check statement inside atomic block
+         inside_stmt = ast.unparse(atomic_block.body[0])
+         self.assertIn("du_lieu.pop", inside_stmt)
+ 
+-        # Statements that MUST be in transaction but are outside:
+         outside_stmts = [ast.unparse(s) for s in func_def.body if not isinstance(s, ast.With)]
+         full_outside = "\n".join(outside_stmts)
+         self.assertIn("select_for_update", full_outside, "Pessimistic lock is outside transaction!")
+@@ -369,11 +382,9 @@
+         """
+         mock_hist_filter.return_value.exists.return_value = False
+ 
+-        # Dish A requires NL 10 and NL 20
+         dm_a1 = MagicMock(mon_an_id=1, nguyen_lieu_id=10, so_luong_can=Decimal("1.0"))
+         dm_a2 = MagicMock(mon_an_id=1, nguyen_lieu_id=20, so_luong_can=Decimal("1.0"))
+ 
+-        # Dish B requires NL 20 and NL 10 (inverted)
+         dm_b1 = MagicMock(mon_an_id=2, nguyen_lieu_id=20, so_luong_can=Decimal("2.0"))
+         dm_b2 = MagicMock(mon_an_id=2, nguyen_lieu_id=10, so_luong_can=Decimal("2.0"))
+ 
+@@ -390,7 +401,7 @@
+ 
+         mock_nl_sfu.return_value.filter.side_effect = mock_nl_filter
+ 
+-        # Run Order A
++        # Order A
+         mock_bom_filter.return_value.select_related.return_value = [dm_a1, dm_a2]
+         with patch("django.db.transaction.atomic"):
+             with patch("foods.models.LichSuXuatNhapKho.objects.create"):
+@@ -400,7 +411,7 @@
+                     id_tham_chieu=101,
+                 )
+ 
+-        # Run Order B (inverted input)
++        # Order B
+         mock_bom_filter.return_value.select_related.return_value = [dm_b1, dm_b2]
+         with patch("django.db.transaction.atomic"):
+             with patch("foods.models.LichSuXuatNhapKho.objects.create"):
+@@ -410,7 +421,6 @@
+                     id_tham_chieu=102,
+                 )
+ 
+-        # Both invocations must request lock in strictly ascending ID order [10, 20]
+         self.assertEqual(len(order_lock_sequences), 2)
+         self.assertEqual(order_lock_sequences[0], [10, 20], "Order A lock request must be sorted [10, 20]")
+         self.assertEqual(order_lock_sequences[1], [10, 20], "Order B lock request must be sorted [10, 20]")
+@@ -436,7 +446,7 @@
+         mock_bom_filter.return_value.select_related.return_value = [dm1, dm2]
+ 
+         nl1 = MagicMock(id=1, ten="Gạo ST25", don_vi="kg", ton_kho_hien_tai=Decimal("10.0"))
+-        nl2 = MagicMock(id=2, ten="Tôm sú", don_vi="kg", ton_kho_hien_tai=Decimal("1.0"))  # Deficit!
++        nl2 = MagicMock(id=2, ten="Tôm sú", don_vi="kg", ton_kho_hien_tai=Decimal("1.0"))
+ 
+         mock_nl_sfu.return_value.filter.return_value.order_by.return_value = [nl1, nl2]
+ 
+@@ -451,15 +461,13 @@
+ 
+                 self.assertIn("kho", ctx.exception.detail)
+                 self.assertIn("Tôm sú", str(ctx.exception.detail["kho"]))
+-
+-                # Crucial assertion: no stock mutated, no log created
+                 self.assertEqual(nl1.ton_kho_hien_tai, Decimal("10.0"))
+                 self.assertEqual(nl2.ton_kho_hien_tai, Decimal("1.0"))
+                 mock_create_log.assert_not_called()
+ 
+ 
+ class TestAdversarialVNPayTransactionScoping(unittest.TestCase):
+-    """Empirically verifies transaction scoping and race condition vulnerabilities in VNPay."""
++    """Empirically verifies transaction scoping vulnerabilities in VNPay."""
+ 
+     def test_adv_14_vnpay_process_ipn_atomic_block_prematurely_closed(self):
+         """
+@@ -473,7 +481,6 @@
+         - LichSuTrangThaiDon.objects.create()
+         is executed 100% OUTSIDE the transaction.atomic() context!
+         """
+-        from payments.services import VNPayService
+         source = textwrap.dedent(inspect.getsource(VNPayService.process_ipn))
+         tree = ast.parse(source)
+         func_def = tree.body[0]
+@@ -493,6 +500,50 @@
+         self.assertIn("db.save", full_outside, "DatBan confirmation is outside transaction!")
+ 
+ 
++class TestAdversarialVNPayWebhookAndDataIntegrity(unittest.TestCase):
++    """Empirically verifies webhook permissions and QueryDict handling defects in payments."""
++
++    def setUp(self):
++        self.factory = APIRequestFactory()
++
++    def test_adv_15_thanhtoan_viewset_missing_get_permissions_rejects_ipn_unauthenticated(self):
++        """
++        CRITICAL VULNERABILITY: ThanhToanViewSet specifies permission_classes = [IsAuthenticated]
++        at class level and does NOT implement get_permissions().
++        When VNPay payment gateway issues an automated server-to-server IPN callback to
++        GET /api/payments/vnpay/ipn/ without an Authorization header, DRF halts execution
++        and returns HTTP 401 Unauthorized, completely preventing payment confirmation!
++        """
++        ipn_view = ThanhToanViewSet.as_view({"get": "vnpay_ipn"})
++        request = self.factory.get("/api/payments/vnpay/ipn/")
++        response = ipn_view(request)
++        self.assertEqual(response.status_code, 401, "ThanhToanViewSet.vnpay_ipn rejects unauthenticated IPN with 401")
++        self.assertEqual(response.data["detail"].code, "not_authenticated")
++
++    def test_adv_16_vnpay_ipn_corrupted_by_django_querydict(self):
++        """
++        HIGH DEFECT: In VNPayService.process_ipn:
++            params = dict(query_params)
++        When query_params is a Django QueryDict (as provided by request.query_params in DRF),
++        dict(query_params) wraps scalar parameter values in lists: {'vnp_Amount': ['20000000'], ...}.
++        In calculate_hmac_sha512, str(['20000000']) formats as '%5B%2720000000%27%5D' instead of '20000000'.
++        Result: Any authentic IPN request received via HTTP GET is rejected with code 97 ('Invalid Checksum')!
++        """
++        raw_params = {
++            "vnp_TxnRef": "TT_TEST_ADV_16",
++            "vnp_Amount": "20000000",
++            "vnp_ResponseCode": "00",
++        }
++        sig = VNPayService.calculate_hmac_sha512(raw_params, DEFAULT_HASH_SECRET)
++
++        qd = QueryDict("", mutable=True)
++        qd.update(raw_params)
++        qd["vnp_SecureHash"] = sig
++
++        code, msg = VNPayService.process_ipn(qd)
++        self.assertEqual(code, "97", "QueryDict causes checksum failure (code 97) due to list stringification")
++        self.assertEqual(msg, "Invalid Checksum")
++
++
+ if __name__ == "__main__":
+     unittest.main()
+-
