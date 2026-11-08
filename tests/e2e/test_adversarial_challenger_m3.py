@@ -115,7 +115,7 @@ class TestMilestone3Adversarial(TransactionTestCase):
         self.order_a = DonHang.objects.create(
             ma_don_hang="DH-ADV-M3-001",
             khach_hang=self.customer_a,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
             ten_khach="Khách A",
             sdt_khach="0911223344",
@@ -492,7 +492,7 @@ class TestMilestone3Adversarial(TransactionTestCase):
         order2 = DonHang.objects.create(
             ma_don_hang="DH-ADV-002",
             khach_hang=self.customer_a,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             trang_thai=DonHang.TrangThai.DA_XAC_NHAN,
             ten_khach="Khách A",
             sdt_khach="0911223344",

@@ -2,7 +2,6 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import Header from "./Header";
 import Footer from "./Footer";
-import CartDrawer from "@/components/cart/CartDrawer";
 import ChatWidget from "@/components/chat/ChatWidget";
 
 export default function Layout() {
@@ -19,7 +18,6 @@ export default function Layout() {
         <Outlet />
       </main>
       <Footer />
-      <CartDrawer />
       <ChatWidget />
     </div>
   );

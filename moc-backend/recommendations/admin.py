@@ -1,5 +1,12 @@
 from django.contrib import admin
-from .models import TuongTacMonAn, GoiYMonAn
+from .models import TuongTacMonAn, GoiYMonAn, SuKienGoiY
+
+
+@admin.register(SuKienGoiY)
+class SuKienGoiYAdmin(admin.ModelAdmin):
+    list_display = ("id", "nguoi_dung", "mon_an", "loai_su_kien", "vi_tri", "tao_luc")
+    list_filter = ("loai_su_kien", "vi_tri")
+    readonly_fields = ("tao_luc", "cap_nhat_luc")
 
 
 @admin.register(TuongTacMonAn)

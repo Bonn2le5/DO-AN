@@ -1,9 +1,20 @@
 export * from "./auth";
 
 // Category types
-export type CategoryId = "main" | "appetizer" | "drink" | "dessert" | "combo";
+export type CategoryId = "main" | "appetizer" | "drink" | "dessert" | "combo" | string;
 export type DanhMucMonAn = "mon_chinh" | "khai_vi" | "do_uong" | "trang_mieng" | "combo" | CategoryId;
-export type FoodCategory = CategoryId;
+export type FoodCategory = string;
+
+export interface CategoryItem {
+  id: string;
+  numericId?: number;
+  label: string;
+  slug?: string;
+  icon?: string;
+  image?: string;
+  description?: string;
+  isActive?: boolean;
+}
 
 // Food types
 export interface Food {
@@ -92,67 +103,6 @@ export interface Review {
 }
 
 export type DanhGiaMonAn = Review;
-
-// Cart types
-export interface CartItem {
-  food: Food;
-  quantity: number;
-  note?: string;
-
-  // Vietnamese aliases
-  monAn?: Food;
-  soLuong?: number;
-  ghiChu?: string;
-}
-
-export type ChiTietGioHang = CartItem;
-
-// Order types
-export type OrderStatus =
-  | "pending"
-  | "confirmed"
-  | "preparing"
-  | "ready"
-  | "serving"
-  | "completed"
-  | "cancelled"
-  | "cho_tiep_nhan"
-  | "da_xac_nhan"
-  | "dang_che_bien"
-  | "san_sang"
-  | "hoan_tat"
-  | "da_huy";
-
-export type TrangThaiDonHang = OrderStatus;
-
-export interface Order {
-  id: string;
-  items: CartItem[];
-  subtotal: number;
-  discount: number;
-  total: number;
-  status: OrderStatus;
-  createdAt: string;
-  customerName: string;
-  customerPhone: string;
-  address?: string;
-  note?: string;
-  promoCode?: string;
-
-  // Vietnamese aliases
-  danhSachMon?: CartItem[];
-  tienHang?: number;
-  tienGiam?: number;
-  tongTien?: number;
-  trangThai?: TrangThaiDonHang;
-  taoLuc?: string;
-  tenKhachHang?: string;
-  soDienThoai?: string;
-  ghiChu?: string;
-  maKhuyenMai?: string;
-}
-
-export type DonHang = Order;
 
 // Table types
 export type TableStatus =
@@ -275,7 +225,6 @@ export interface Reservation {
   depositAmount: number;
   status: ReservationStatus;
   depositStatus: DepositStatus;
-  holdExpiresAt?: string;
   createdAt: string;
 
   // Vietnamese aliases
@@ -374,6 +323,8 @@ export interface Recommendation {
   food: Food;
   score: number;
   reason: string;
+  modelVersion?: string;
+  isColdStart?: boolean;
 
   // Vietnamese aliases
   monAn?: Food;

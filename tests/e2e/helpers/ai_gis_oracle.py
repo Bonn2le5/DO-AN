@@ -66,7 +66,6 @@ def find_nearest_branch(
 INTERACTION_WEIGHTS = {
     "xem": 1,
     "yeu_thich": 2,
-    "them_gio_hang": 3,
     "dat_mon": 4,
     "danh_gia": 5,
 }

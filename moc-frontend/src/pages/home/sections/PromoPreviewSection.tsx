@@ -9,9 +9,9 @@ export default function PromoPreviewSection() {
     <section className="py-20">
       <div className="max-w-310 mx-auto px-5 md:px-8">
         <SectionHeading
+          align="center"
           eyebrow="Khuyến mãi"
           title="Ưu đãi đang diễn ra"
-          linkTo="/khuyen-mai"
         />
         {loading ? (
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-5">

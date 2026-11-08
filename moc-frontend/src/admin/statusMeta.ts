@@ -23,7 +23,7 @@ export const RES_META: Record<ReservationStatus, Meta> = {
   pending_confirmation: { label: "Chờ nhà hàng xác nhận", tone: "warn" },
   pending_payment: { label: "Chờ đặt cọc", tone: "warn" },
   confirmed: { label: "Đã xác nhận", tone: "info" },
-  seated: { label: "Đang dùng bữa", tone: "ok" },
+  seated: { label: "Đã check-in", tone: "ok" },
   completed: { label: "Hoàn tất", tone: "neutral" },
   cancelled: { label: "Đã huỷ", tone: "danger" },
   no_show: { label: "Không đến", tone: "danger" },
@@ -43,5 +43,6 @@ export const TABLE_META: Record<TableStatus, Meta> = {
   held: { label: "Đang giữ", tone: "warn" },
   reserved: { label: "Đã đặt", tone: "info" },
   occupied: { label: "Đang dùng", tone: "dark" },
+  cleaning: { label: "Chờ dọn", tone: "warn" },
   maintenance: { label: "Bảo trì", tone: "neutral" },
 };

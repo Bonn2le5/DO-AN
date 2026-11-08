@@ -43,7 +43,7 @@ export async function layKhungGioTrong(params: {
   chiNhanhId: string;
   ngay: string;
   soKhach: number;
-}): Promise<{ khungGio: string; conTrong: boolean }[]> {
+}): Promise<{ khungGio: string; conTrong: boolean; soChoConLai: number }[]> {
   try {
     const { data } = await apiClient.get("/reservations/khung-gio-trong/", {
       params: { chi_nhanh_id: params.chiNhanhId, ngay: params.ngay, so_khach: params.soKhach },
@@ -51,6 +51,7 @@ export async function layKhungGioTrong(params: {
     return (data.slots ?? []).map((s: any) => ({
       khungGio: s.khung_gio,
       conTrong: s.con_trong,
+      soChoConLai: Number(s.so_cho_con_lai ?? 0),
     }));
   } catch {
     // Không báo các khung giờ là còn trống khi máy chủ chưa trả lời.
@@ -90,30 +91,7 @@ export async function layChinhSachDatCoc(chiNhanhId?: string): Promise<DepositPo
   };
 }
 
-export async function giuBan(params: {
-  idBan: string;
-  ngayDat: string;
-  gioDat: string;
-  soLuongKhach: number;
-}): Promise<{ idGiuBan: string; thoiHanGiuCho: string; holdId: string; heldUntil: string }> {
-  const { data } = await apiClient.post(`/tables/${params.idBan}/giu_ban/`, {
-    ngay_dat: params.ngayDat,
-    gio_bat_dau: params.gioDat,
-    so_luong_khach: params.soLuongKhach,
-  });
-  const idGiuBan = data.id_giu_ban ?? data.hold_id ?? "";
-  const thoiHanGiuCho = data.thoi_han_giu_cho ?? data.held_until ?? "";
-  return {
-    idGiuBan,
-    thoiHanGiuCho,
-    holdId: idGiuBan,
-    heldUntil: thoiHanGiuCho,
-  };
-}
-
 export async function taoDatBan(params: {
-  idGiuBan?: string;
-  idBan?: string;
   chiNhanhId?: string;
   ngayDat: string;
   gioDat: string;
@@ -144,8 +122,6 @@ export async function taoDatBan(params: {
     sdt_khach: params.soDienThoai,
     ghi_chu: params.ghiChu,
   };
-  if (params.idGiuBan) payload.id_giu_ban = params.idGiuBan;
-  if (params.idBan) payload.ban_an = params.idBan;
   if (params.chiNhanhId) payload.chi_nhanh = Number(params.chiNhanhId);
 
   const { data } = await apiClient.post("/reservations/", payload);
@@ -179,6 +155,5 @@ export async function taoPhienThanhToanVNPay(
 // English aliases
 export const getTables = layDanhSachBan;
 export const getDepositPolicy = layChinhSachDatCoc;
-export const holdTable = giuBan;
 export const createReservation = taoDatBan;
 export const createVNPayPaymentSession = taoPhienThanhToanVNPay;

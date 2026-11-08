@@ -5,8 +5,6 @@ import AccountLayout from "@/components/layout/AccountLayout";
 import HomePage from "@/pages/home/HomePage";
 import MenuPage from "@/pages/menu/MenuPage";
 import FoodDetailPage from "@/pages/food-detail/FoodDetailPage";
-import CheckoutPage from "@/pages/checkout/CheckoutPage";
-import OrderSuccessPage from "@/pages/order/OrderSuccessPage";
 import ReservationPage from "@/pages/reservation/ReservationPage";
 import ReservationPaymentResultPage from "@/pages/reservation/ReservationPaymentResultPage";
 import PromotionsPage from "@/pages/promotions/PromotionsPage";
@@ -16,7 +14,6 @@ import LoginPage from "@/pages/auth/LoginPage";
 import RegisterPage from "@/pages/auth/RegisterPage";
 import EmailVerificationPage from "@/pages/auth/EmailVerificationPage";
 import AccountProfilePage from "@/pages/account/AccountProfilePage";
-import AccountOrdersPage from "@/pages/account/AccountOrdersPage";
 import AccountFavoritesPage from "@/pages/account/AccountFavoritesPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 
@@ -37,8 +34,6 @@ export default function App() {
           <Route index element={<HomePage />} />
           <Route path="thuc-don" element={<MenuPage />} />
           <Route path="thuc-don/:slug" element={<FoodDetailPage />} />
-          <Route path="thanh-toan" element={<CheckoutPage />} />
-          <Route path="don-hang/thanh-cong" element={<OrderSuccessPage />} />
           <Route path="dat-ban" element={<ReservationPage />} />
           <Route path="dat-ban/thanh-toan-ket-qua" element={<ReservationPaymentResultPage />} />
           <Route
@@ -63,7 +58,6 @@ export default function App() {
           <Route path="auth/verify-email" element={<EmailVerificationPage />} />
           <Route path="tai-khoan" element={<AccountLayout />}>
             <Route index element={<AccountProfilePage />} />
-            <Route path="don-hang" element={<AccountOrdersPage />} />
             <Route path="yeu-thich" element={<AccountFavoritesPage />} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />

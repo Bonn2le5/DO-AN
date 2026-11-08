@@ -51,7 +51,6 @@ export default function OrdersPage() {
         columns={[
           { header: "Mã đơn", cell: (o) => <b>{o.code}</b> },
           { header: "Khách hàng", cell: (o) => <div><div className="font-medium">{o.customer}</div><div className="text-xs text-muted">{o.phone}</div></div> },
-          { header: "Hình thức", cell: (o) => (o.type === "delivery" ? "Giao tận nơi" : "Tự đến lấy") },
           { header: "Tổng tiền", cell: (o) => <b>{formatCurrency(o.total)}</b> },
           { header: "Trạng thái", cell: (o) => <StatusBadge tone={ORDER_META[o.status].tone}>{ORDER_META[o.status].label}</StatusBadge> },
           { header: "Thời gian", cell: (o) => <span className="text-muted">{fmtDateTime(o.createdAt)}</span> },

@@ -7,11 +7,15 @@ import { cn } from "@/lib/utils";
 export interface FieldDef<T> {
   key: keyof T & string;
   label: string;
-  type: "text" | "password" | "number" | "textarea" | "select" | "toggle" | "datetime" | "image";
+  type: "text" | "email" | "password" | "number" | "textarea" | "select" | "toggle" | "datetime" | "image";
   options?: { value: string; label: string }[];
   required?: boolean;
+  requiredWhen?: (values: Partial<T>) => boolean;
+  minLength?: number;
   hint?: string;
   wide?: boolean;
+  /** Ẩn trường khi trả về false (vd. chỉ hiện lúc tạo mới). */
+  showWhen?: (values: Partial<T>) => boolean;
 }
 
 interface RecordDrawerProps<T> {
@@ -37,8 +41,16 @@ export default function RecordDrawer<T>({ open, title, fields, initial, saving, 
   const submit = () => {
     const next: Record<string, string> = {};
     for (const f of fields) {
+      if (f.showWhen && !f.showWhen(values as Partial<T>)) continue;
       const v = values[f.key];
-      if (f.required && (v === undefined || v === null || v === "")) next[f.key] = "Vui lòng nhập thông tin này";
+      const required = f.required || f.requiredWhen?.(values as Partial<T>);
+      if (required && (v === undefined || v === null || v === "")) {
+        next[f.key] = "Vui lòng nhập thông tin này";
+      } else if (f.minLength && typeof v === "string" && v.length > 0 && v.length < f.minLength) {
+        next[f.key] = `Vui lòng nhập ít nhất ${f.minLength} ký tự`;
+      } else if (f.type === "email" && typeof v === "string" && v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+        next[f.key] = "Email chưa đúng định dạng";
+      }
     }
     setErrors(next);
     if (Object.keys(next).length === 0) onSave(values as Partial<T>);
@@ -62,7 +74,7 @@ export default function RecordDrawer<T>({ open, title, fields, initial, saving, 
       </>}
     >
       <div className="grid grid-cols-2 gap-x-4 gap-y-5">
-        {fields.map((f) => {
+        {fields.filter((f) => !f.showWhen || f.showWhen(values as Partial<T>)).map((f) => {
           const v = values[f.key];
           const id = `field-${f.key}`;
           return (
@@ -74,7 +86,7 @@ export default function RecordDrawer<T>({ open, title, fields, initial, saving, 
                 </div>
               ) : (
                 <>
-                  <label htmlFor={id} className="text-[13px] font-semibold text-muted block mb-1.5">{f.label}{f.required && <span className="text-primary"> *</span>}</label>
+                  <label htmlFor={id} className="text-[13px] font-semibold text-muted block mb-1.5">{f.label}{(f.required || f.requiredWhen?.(values as Partial<T>)) && <span className="text-primary"> *</span>}</label>
                   {f.type === "textarea" && <textarea id={id} rows={5} value={String(v ?? "")} onChange={(e) => set(f.key, e.target.value)} className={cn(inputCls, "resize-none")} />}
                   {f.type === "select" && (
                     <select id={id} value={String(v ?? "")} onChange={(e) => set(f.key, e.target.value)} className={inputCls}>
@@ -82,10 +94,11 @@ export default function RecordDrawer<T>({ open, title, fields, initial, saving, 
                       {f.options?.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
                     </select>
                   )}
-                  {(f.type === "text" || f.type === "password" || f.type === "number" || f.type === "datetime") && (
+                  {(f.type === "text" || f.type === "email" || f.type === "password" || f.type === "number" || f.type === "datetime") && (
                     <input
                       id={id} className={inputCls}
                       type={f.type === "datetime" ? "datetime-local" : f.type}
+                      minLength={f.minLength}
                       value={String(v ?? "")}
                       onChange={(e) => set(f.key, f.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value)}
                     />

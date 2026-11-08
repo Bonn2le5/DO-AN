@@ -8,10 +8,11 @@ Paths:
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
+from config.consumers import JWTExpiryConsumerMixin
 from .models import DonHang
 
 
-class OrderTrackingConsumer(AsyncJsonWebsocketConsumer):
+class OrderTrackingConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
     """
     WebSocket consumer for tracking individual order lifecycle updates.
     Accepts numeric order ID or string code (ma_don_hang).
@@ -36,14 +37,14 @@ class OrderTrackingConsumer(AsyncJsonWebsocketConsumer):
             return
 
         self.order_data = result
+        # Một nhóm duy nhất theo id, tránh nhận trùng sự kiện.
         self.group_id_name = f"order_{self.order_data['id']}"
-        self.group_code_name = f"order_{self.order_data['order_number']}"
 
-        # 3. Join Channel Groups
+        # 3. Join Channel Group
         await self.channel_layer.group_add(self.group_id_name, self.channel_name)
-        await self.channel_layer.group_add(self.group_code_name, self.channel_name)
 
         await self.accept()
+        self.start_jwt_expiry_timer()
 
         # 4. Send immediate order snapshot
         snapshot_payload = {
@@ -67,10 +68,9 @@ class OrderTrackingConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json(snapshot_payload)
 
     async def disconnect(self, close_code):
+        self.cancel_jwt_expiry_timer()
         if hasattr(self, "group_id_name"):
             await self.channel_layer.group_discard(self.group_id_name, self.channel_name)
-        if hasattr(self, "group_code_name"):
-            await self.channel_layer.group_discard(self.group_code_name, self.channel_name)
 
     async def receive_json(self, content, **kwargs):
         action = content.get("action")
@@ -84,7 +84,14 @@ class OrderTrackingConsumer(AsyncJsonWebsocketConsumer):
             })
 
     async def order_status_update(self, event):
-        """Forward real-time status update to client."""
+        """Forward real-time status update to client and keep the snapshot current."""
+        new_status = event.get("status")
+        if new_status:
+            self.order_data["status"] = new_status
+            if event.get("status_display"):
+                self.order_data["status_display"] = event["status_display"]
+            if event.get("timestamp"):
+                self.order_data["updated_at"] = event["timestamp"]
         await self.send_json(event)
 
     @database_sync_to_async
@@ -99,6 +106,9 @@ class OrderTrackingConsumer(AsyncJsonWebsocketConsumer):
             return False, None
 
         is_staff = user.is_staff or getattr(user, "la_nhan_vien_nha_hang", False)
+        is_admin = user.is_superuser or getattr(user, "la_quan_tri_vien", False)
+        if is_staff and not is_admin and lookup.chi_nhanh_id != getattr(user, "chi_nhanh_quan_ly_id", None):
+            return False, "forbidden"
         if not is_staff and lookup.khach_hang_id != user.id:
             return False, "forbidden"
 
@@ -118,7 +128,7 @@ class OrderTrackingConsumer(AsyncJsonWebsocketConsumer):
         return True, order_info
 
 
-class StaffOrderConsumer(AsyncJsonWebsocketConsumer):
+class StaffOrderConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
     """
     WebSocket consumer for restaurant staff global order monitoring and kitchen displays.
     Path: /ws/orders/staff/
@@ -133,25 +143,28 @@ class StaffOrderConsumer(AsyncJsonWebsocketConsumer):
             return
 
         # 2. Enforce Staff Privilege (reject 4403 if not restaurant staff)
-        is_staff = await self._is_restaurant_staff(self.user)
+        is_admin, branch_id = await self._staff_scope(self.user)
+        is_staff = is_admin or bool(branch_id)
         if not is_staff:
             await self.close(code=4403)
             return
 
-        self.room_group_name = "staff_orders"
+        self.room_group_name = "staff_orders" if is_admin else f"staff_orders_branch_{branch_id}"
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
 
         await self.accept()
+        self.start_jwt_expiry_timer()
 
         await self.send_json({
             "type": "staff_connected",
             "staff_order_stream_subscribed": True,
-            "message": "Đã kết nối luồng quản lý đơn hàng toàn hệ thống.",
+            "message": "Đã kết nối luồng đơn hàng được phân công.",
             "user_id": self.user.id,
-            "role": "nhan_vien",
+            "role": "quan_tri_vien" if is_admin else "nhan_vien",
         })
 
     async def disconnect(self, close_code):
+        self.cancel_jwt_expiry_timer()
         if hasattr(self, "room_group_name"):
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
@@ -164,10 +177,14 @@ class StaffOrderConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json(event)
 
     @database_sync_to_async
-    def _is_restaurant_staff(self, user):
+    def _staff_scope(self, user):
         if not user or not user.is_authenticated:
-            return False
-        return bool(user.is_staff or getattr(user, "la_nhan_vien_nha_hang", False))
+            return False, None
+        is_admin = bool(user.is_superuser or getattr(user, "la_quan_tri_vien", False))
+        is_staff = bool(user.is_staff or getattr(user, "la_nhan_vien_nha_hang", False))
+        if not is_staff:
+            return False, None
+        return is_admin, getattr(user, "chi_nhanh_quan_ly_id", None)
 
 
 # Backward-compatible consumer aliases

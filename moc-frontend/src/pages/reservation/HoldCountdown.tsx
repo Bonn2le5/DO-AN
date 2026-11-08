@@ -17,7 +17,7 @@ export default function HoldCountdown({ until, label }: { until: string; label: 
   const low = remaining < 60000;
 
   return (
-    <div className={cn("inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-[13px] font-semibold", low ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent")}>
+    <div className={cn("inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-semibold tabular-nums", low ? "bg-primary/10 text-primary" : "bg-accent/15 text-[#7a5a14]")}>
       <Clock width={14} height={14} />
       {label}: {minutes}:{String(seconds).padStart(2, "0")}
     </div>

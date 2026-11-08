@@ -3,15 +3,15 @@ WebSocket Consumer for 2-way real-time communication between Customer and Restau
 Path: /ws/chat/<conversation_id>/
 """
 
-import json
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
-from django.db import transaction
+from config.consumers import JWTExpiryConsumerMixin
 from django.utils import timezone
 from .models import HoiThoai, TinNhan
+from .services import STAFF_GROUP, is_staff_user, save_message
 
 
-class ChatConsumer(AsyncJsonWebsocketConsumer):
+class ChatConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
     """
     Handles live chat WebSocket connections for customer-staff messaging.
     Guarantees DB persistence into PostgreSQL before broadcasting to the channel group.
@@ -45,6 +45,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         )
 
         await self.accept()
+        self.start_jwt_expiry_timer()
 
         # 4. Connection confirmation
         sender_name = getattr(self.user, "ho_ten", None) or self.user.get_full_name() or self.user.username
@@ -59,6 +60,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         })
 
     async def disconnect(self, close_code):
+        self.cancel_jwt_expiry_timer()
         if hasattr(self, "room_group_name"):
             await self.channel_layer.group_discard(
                 self.room_group_name,
@@ -66,6 +68,10 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             )
 
     async def receive_json(self, content, **kwargs):
+        if content.get("action") == "ping":
+            await self.send_json({"type": "pong"})
+            return
+
         action = content.get("action")
         if not action:
             if any(k in content for k in ("message", "content", "noi_dung", "text")):
@@ -102,33 +108,28 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 })
                 return
 
+            # save_message tự giới hạn loại tin theo vai trò người gửi.
             msg_type = (
                 content.get("message_type")
                 or content.get("loai_tin_nhan")
-                or content.get("type")
                 or TinNhan.LoaiTinNhan.VAN_BAN
             )
-            if msg_type not in ["van_ban", "hinh_anh", "he_thong"]:
-                msg_type = "van_ban"
 
             # Atomically save to PostgreSQL BEFORE broadcasting
-            msg_payload = await self._save_message(
-                conversation_id=self.room.id,
-                user=self.user,
-                noi_dung=text,
-                loai_tin_nhan=msg_type,
+            room, msg_payload = await self._save_message(
+                room_id=self.room.id, user=self.user, text=text,
+                msg_type=msg_type, client_id=content.get("client_id"),
             )
-
-            # Broadcast chat_message to channel group
-            broadcast_event = {
-                "type": "chat_message",
-                "data": msg_payload,
-                **msg_payload,
-            }
+            self.room = room
             await self.channel_layer.group_send(
-                self.room_group_name,
-                broadcast_event,
+                self.room_group_name, {"type": "chat_message", **msg_payload}
             )
+            inbox = {
+                "type": "inbox_update", "conversation_id": room.id,
+                "customer_id": room.khach_hang_id, "last_message": msg_payload,
+            }
+            await self.channel_layer.group_send(STAFF_GROUP, inbox)
+            await self.channel_layer.group_send(f"user_{room.khach_hang_id}", inbox)
 
         elif action == "typing":
             is_typing = bool(content.get("is_typing", True))
@@ -192,7 +193,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             if not room:
                 return False, None, False
 
-            is_staff = bool(user.is_staff or getattr(user, "la_nhan_vien_nha_hang", False))
+            is_staff = is_staff_user(user)
             if is_staff or room.khach_hang_id == user.id:
                 return True, room, is_staff
             return False, None, is_staff
@@ -200,49 +201,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             return False, None, False
 
     @database_sync_to_async
-    def _save_message(self, conversation_id, user, noi_dung, loai_tin_nhan):
-        with transaction.atomic():
-            room = HoiThoai.objects.select_for_update().get(id=conversation_id)
-            msg = TinNhan.objects.create(
-                hoi_thoai=room,
-                nguoi_gui=user,
-                noi_dung=noi_dung,
-                loai_tin_nhan=loai_tin_nhan,
-            )
-            now = timezone.now()
-            room.tin_nhan_cuoi_luc = now
-            is_staff = user.is_staff or getattr(user, "la_nhan_vien_nha_hang", False)
-
-            # Auto-assign staff if unassigned
-            if is_staff and room.nhan_vien_id is None:
-                room.nhan_vien = user
-                room.save(update_fields=["tin_nhan_cuoi_luc", "nhan_vien", "cap_nhat_luc"])
-            else:
-                room.save(update_fields=["tin_nhan_cuoi_luc", "cap_nhat_luc"])
-
-            sender_name = getattr(user, "ho_ten", None) or user.get_full_name() or user.username
-            sender_role = getattr(getattr(user, "vai_tro", None), "ma", "")
-
-            return {
-                "id": msg.id,
-                "conversation_id": room.id,
-                "room_id": str(room.id),
-                "hoi_thoai_id": room.id,
-                "sender_id": user.id,
-                "nguoi_gui_id": user.id,
-                "sender_name": sender_name,
-                "sender_role": sender_role,
-                "is_staff": is_staff,
-                "content": msg.noi_dung,
-                "noi_dung": msg.noi_dung,
-                "message": msg.noi_dung,
-                "message_type": msg.loai_tin_nhan,
-                "loai_tin_nhan": msg.loai_tin_nhan,
-                "is_read": msg.da_doc,
-                "da_doc": msg.da_doc,
-                "created_at": msg.tao_luc.isoformat(),
-                "tao_luc": msg.tao_luc.isoformat(),
-            }
+    def _save_message(self, **kwargs):
+        return save_message(**kwargs)
 
     @database_sync_to_async
     def _mark_read(self, conversation_id, user, last_id=None):
@@ -254,3 +214,33 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         if last_id is not None and str(last_id).isdigit():
             qs = qs.filter(id__lte=int(last_id))
         qs.update(da_doc=True, doc_luc=now)
+
+
+class InboxConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
+    """Staff receive all new messages; customers receive updates for their room."""
+
+    async def connect(self):
+        user = self.scope.get("user")
+        if not user or not user.is_authenticated:
+            await self.close(code=4401)
+            return
+        self.group = STAFF_GROUP if await self._can_access_staff_inbox(user) else f"user_{user.id}"
+        await self.channel_layer.group_add(self.group, self.channel_name)
+        await self.accept()
+        self.start_jwt_expiry_timer()
+
+    @database_sync_to_async
+    def _can_access_staff_inbox(self, user):
+        return is_staff_user(user)
+
+    async def disconnect(self, code):
+        self.cancel_jwt_expiry_timer()
+        if hasattr(self, "group"):
+            await self.channel_layer.group_discard(self.group, self.channel_name)
+
+    async def inbox_update(self, event):
+        await self.send_json(event)
+
+    async def receive_json(self, content, **kwargs):
+        if content.get("action") == "ping":
+            await self.send_json({"type": "pong"})

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import type { Store } from "../api/store";
@@ -9,6 +9,21 @@ import RecordDrawer, { type FieldDef } from "./RecordDrawer";
 import ConfirmModal from "./ConfirmModal";
 import { PageHeader, Toggle, inputCls } from "./primitives";
 import { useToast } from "./toast";
+
+function getSaveErrorMessage(error: unknown): string {
+  const status = (error as { response?: { status?: number } })?.response?.status;
+  if (status === 401) return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+  const responseData = (error as { response?: { data?: unknown } })?.response?.data;
+  if (typeof responseData === "string") return responseData;
+  if (responseData && typeof responseData === "object") {
+    const data = responseData as Record<string, unknown>;
+    const messages = Object.values(data).flatMap((value) =>
+      Array.isArray(value) ? value.map(String) : typeof value === "string" ? [value] : [],
+    );
+    if (messages.length) return messages.join(" · ");
+  }
+  return error instanceof Error ? error.message : "Không lưu được, vui lòng thử lại";
+}
 
 interface CrudPageProps<T extends { id: string }> {
   title: string;
@@ -34,6 +49,11 @@ export default function CrudPage<T extends { id: string }>({
   const can = useCan();
   const push = useToast((s) => s.push);
   const { data, loading, refetch } = useAsync(() => store.list(), [store]);
+  useEffect(() => {
+    const refreshFoods = () => { if (module === "foods") refetch(); };
+    window.addEventListener("admin:foods-imported", refreshFoods);
+    return () => window.removeEventListener("admin:foods-imported", refreshFoods);
+  }, [module, refetch]);
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<T | "new" | null>(null);
   const [deleting, setDeleting] = useState<T | null>(null);
@@ -55,7 +75,7 @@ export default function CrudPage<T extends { id: string }>({
       setEditing(null);
       refetch();
     } catch (e) {
-      push(e instanceof Error ? e.message : "Không lưu được, vui lòng thử lại", "err");
+      push(getSaveErrorMessage(e), "err");
     } finally {
       setBusy(false);
     }

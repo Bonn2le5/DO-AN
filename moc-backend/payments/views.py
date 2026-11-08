@@ -1,6 +1,7 @@
 from datetime import timedelta
 from urllib.parse import urlencode
 from django.conf import settings
+from django.db import models
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from rest_framework import viewsets
@@ -42,10 +43,41 @@ class ThanhToanViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         q = ThanhToan.objects.select_related("don_hang", "dat_ban", "nguoi_dung").order_by("-tao_luc")
         user = self.request.user
-        return q if getattr(user, "la_nhan_vien_nha_hang", False) else q.filter(nguoi_dung=user)
+        if not getattr(user, "la_nhan_vien_nha_hang", False):
+            return q.filter(nguoi_dung=user)
+        if user.is_superuser or getattr(user, "la_quan_tri_vien", False):
+            return q
+        branch_id = getattr(user, "chi_nhanh_quan_ly_id", None)
+        if not branch_id:
+            return q.none()
+        return q.filter(models.Q(don_hang__chi_nhanh_id=branch_id) | models.Q(dat_ban__chi_nhanh_id=branch_id))
 
     def perform_create(self, serializer):
-        serializer.save(nguoi_dung=self.request.user)
+        user = self.request.user
+        order = serializer.validated_data.get("don_hang")
+        reservation = serializer.validated_data.get("dat_ban")
+        expected_amount = order.tong_tien if order else reservation.so_tien_coc if reservation else None
+        if expected_amount is None or serializer.validated_data.get("so_tien") != expected_amount:
+            raise ValidationError({"so_tien": "Số tiền hóa đơn phải khớp với đơn hàng hoặc tiền cọc."})
+        existing_invoice = ThanhToan.objects.filter(
+            don_hang=order,
+            dat_ban=reservation,
+            trang_thai__in=[ThanhToan.TrangThai.CHO_XU_LY, ThanhToan.TrangThai.THANH_CONG],
+        ).exists()
+        if existing_invoice:
+            raise ValidationError({"detail": "Giao dịch này đã có hóa đơn đang xử lý hoặc đã thanh toán."})
+        if getattr(user, "la_nhan_vien_nha_hang", False) and not (
+            user.is_superuser or getattr(user, "la_quan_tri_vien", False)
+        ):
+            branch_id = getattr(user, "chi_nhanh_quan_ly_id", None)
+            branch_matches = (order and order.chi_nhanh_id == branch_id) or (reservation and reservation.chi_nhanh_id == branch_id)
+            if not branch_id or not branch_matches:
+                raise PermissionDenied("Hóa đơn phải thuộc chi nhánh được phân công.")
+        elif not (user.is_superuser or getattr(user, "la_quan_tri_vien", False)):
+            owned_by_user = (order and order.khach_hang_id == user.id) or (reservation and reservation.nguoi_dung_id == user.id)
+            if not owned_by_user:
+                raise PermissionDenied("Bạn không có quyền tạo hóa đơn cho giao dịch này.")
+        serializer.save(nguoi_dung=user)
 
     @action(detail=True, methods=["post"], permission_classes=[LaNhanVienNhaHang])
     def xac_nhan_thanh_cong(self, request, pk=None):
@@ -155,10 +187,20 @@ class PhieuHoanTienViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = PhieuHoanTienSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_permissions(self):
+        if self.request.user.is_authenticated and getattr(self.request.user, "la_nhan_vien_nha_hang", False):
+            return [LaNhanVienNhaHang()]
+        return super().get_permissions()
+
     def get_queryset(self):
         q = PhieuHoanTien.objects.select_related("dat_ban", "thanh_toan").order_by("-tao_luc")
         user = self.request.user
-        return q if getattr(user, "la_nhan_vien_nha_hang", False) else q.filter(dat_ban__nguoi_dung=user)
+        if not getattr(user, "la_nhan_vien_nha_hang", False):
+            return q.filter(dat_ban__nguoi_dung=user)
+        if user.is_superuser or getattr(user, "la_quan_tri_vien", False):
+            return q
+        branch_id = getattr(user, "chi_nhanh_quan_ly_id", None)
+        return q.filter(dat_ban__chi_nhanh_id=branch_id) if branch_id else q.none()
 
 
 # Backward-compatible viewset aliases

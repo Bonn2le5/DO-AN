@@ -16,7 +16,10 @@ class ChiNhanhViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         q = ChiNhanh.objects.all()
         user = self.request.user
-        is_staff = user.is_authenticated and getattr(user, "la_nhan_vien_nha_hang", False)
+        is_staff = user.is_authenticated and (user.is_staff or getattr(user, "la_nhan_vien_nha_hang", False))
+        if is_staff and not (user.is_superuser or getattr(user, "la_quan_tri_vien", False)):
+            branch_id = getattr(user, "chi_nhanh_quan_ly_id", None)
+            return q.filter(pk=branch_id) if branch_id else q.none()
         return q if is_staff else q.filter(con_hoat_dong=True)
 
     def list(self, request, *args, **kwargs):
@@ -63,7 +66,13 @@ class ChiNhanhViewSet(viewsets.ModelViewSet):
                 except ValueError:
                     return Response({"detail": "Tham số limit phải là số nguyên."}, status=status.HTTP_400_BAD_REQUEST)
 
-            branches = find_nearest_branches(lat_f, lng_f, radius_km=radius_f, limit=limit_i, only_active=True)
+            user = request.user
+            if user.is_authenticated and (user.is_staff or getattr(user, "la_nhan_vien_nha_hang", False)) and not (
+                user.is_superuser or getattr(user, "la_quan_tri_vien", False)
+            ):
+                branches = list(self.get_queryset())
+            else:
+                branches = find_nearest_branches(lat_f, lng_f, radius_km=radius_f, limit=limit_i, only_active=True)
             serializer = self.get_serializer(branches, many=True)
             return Response(serializer.data)
 

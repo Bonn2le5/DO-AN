@@ -21,7 +21,7 @@ export default function BlogPreviewSection() {
             {Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
-                className="rounded-card-[260px] bg-black/5 animate-pulse"
+                className="rounded-card h-65 bg-black/5 animate-pulse"
               />
             ))}
           </div>

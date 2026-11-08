@@ -18,11 +18,18 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (data: FormData) => {
-    const result = await loginApi(data);
+    let result;
+    try {
+      result = await loginApi(data);
+    } catch (e: any) {
+      setError("root", { message: e.response?.data?.detail ?? "Đăng nhập thất bại, vui lòng thử lại." });
+      return;
+    }
     login(result.user);
     if (result.user.isStaff) {
       navigate("/admin");
@@ -68,6 +75,9 @@ export default function LoginPage() {
             </p>
           )}
         </div>
+        {errors.root && (
+          <p className="text-sm text-primary text-center">{errors.root.message}</p>
+        )}
         <button
           type="submit"
           disabled={isSubmitting}

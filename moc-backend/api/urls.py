@@ -9,9 +9,9 @@ from accounts.views import (
     QuyenHanViewSet,
     DangNhapTokenView,
 )
-from foods.views import DanhMucViewSet, NguyenLieuViewSet, MonAnViewSet, TheMonAnViewSet, LichSuKhoViewSet
+from foods.views import DanhMucViewSet, NguyenLieuViewSet, MonAnViewSet, TheMonAnViewSet, LichSuKhoViewSet, DinhMucNguyenLieuViewSet
 from orders.views import DonHangViewSet
-from reservations.views import BanAnViewSet, DatBanViewSet
+from reservations.views import BanAnViewSet, DatBanViewSet, PhongRiengViewSet, PhienPhucVuViewSet
 from promotions.views import PromotionViewSet, PromotionCodeViewSet, PromotionUsageViewSet
 from posts.views import PostViewSet, PostCategoryViewSet
 from reviews.views import ReviewViewSet
@@ -20,7 +20,6 @@ from chat.views import ChatRoomViewSet
 from analytics.views import NotificationViewSet, DashboardViewSet
 from branches.views import BranchViewSet
 from payments.views import PaymentViewSet, PhieuHoanTienViewSet
-from carts.views import CartViewSet
 
 
 router = DefaultRouter()
@@ -45,6 +44,7 @@ router.register("ingredients", NguyenLieuViewSet, basename="ingredient")
 router.register("nguyen-lieu", NguyenLieuViewSet, basename="nguyen-lieu")
 router.register("inventory-transactions", LichSuKhoViewSet, basename="inventory-transaction")
 router.register("kho", LichSuKhoViewSet, basename="kho")
+router.register("dinh-muc-nguyen-lieu", DinhMucNguyenLieuViewSet, basename="dinh-muc-nguyen-lieu")
 
 # 3. Branches
 router.register("branches", BranchViewSet, basename="branch")
@@ -52,9 +52,12 @@ router.register("chi-nhanh", BranchViewSet, basename="chi-nhanh")
 
 # 4. Tables & Reservations
 router.register("tables", BanAnViewSet, basename="table")
+router.register("rooms", PhongRiengViewSet, basename="room")
 router.register("ban-an", BanAnViewSet, basename="ban-an")
 router.register("reservations", DatBanViewSet, basename="reservation")
 router.register("dat-ban", DatBanViewSet, basename="dat-ban")
+router.register("dining-sessions", PhienPhucVuViewSet, basename="dining-session")
+router.register("phien-phuc-vu", PhienPhucVuViewSet, basename="phien-phuc-vu")
 
 # 5. Orders
 router.register("orders", DonHangViewSet, basename="order")
@@ -71,10 +74,6 @@ router.register("promotions", PromotionViewSet, basename="promotion")
 router.register("khuyen-mai", PromotionViewSet, basename="khuyen-mai")
 router.register("promotion-codes", PromotionCodeViewSet, basename="promotion-code")
 router.register("promotion-usages", PromotionUsageViewSet, basename="promotion-usage")
-
-# 8. Carts
-router.register("cart", CartViewSet, basename="cart")
-router.register("gio-hang", CartViewSet, basename="gio-hang")
 
 # 9. Reviews
 router.register("reviews", ReviewViewSet, basename="review")
@@ -120,16 +119,6 @@ urlpatterns = [
     path("thanh-toan/vnpay/return/", PaymentViewSet.as_view({"get": "vnpay_return"}), name="vnpay-return-vn"),
     path("payments/vnpay/ipn/", PaymentViewSet.as_view({"get": "vnpay_ipn"}), name="vnpay-ipn-en"),
     path("thanh-toan/vnpay/ipn/", PaymentViewSet.as_view({"get": "vnpay_ipn"}), name="vnpay-ipn-vn"),
-
-    # Explicit Table Concurrency dual endpoints
-    path("tables/<int:pk>/giu_ban/", BanAnViewSet.as_view({"post": "giu_ban"}), name="table-giu-ban-en"),
-    path("ban-an/<int:pk>/giu_ban/", BanAnViewSet.as_view({"post": "giu_ban"}), name="table-giu-ban-vn"),
-    path("tables/<int:pk>/giu-ban/", BanAnViewSet.as_view({"post": "giu_ban"}), name="table-giu-ban-hyphen-en"),
-    path("ban-an/<int:pk>/giu-ban/", BanAnViewSet.as_view({"post": "giu_ban"}), name="table-giu-ban-hyphen-vn"),
-    path("dat-ban/giu-ban/", DatBanViewSet.as_view({"post": "giu_ban_frontend"}), name="dat-ban-giu-ban-list-vn"),
-    path("reservations/giu-ban/", DatBanViewSet.as_view({"post": "giu_ban_frontend"}), name="dat-ban-giu-ban-list-en"),
-    path("dat-ban/giu_ban/", DatBanViewSet.as_view({"post": "giu_ban_frontend"}), name="dat-ban-giu-ban-list-underscore-vn"),
-    path("reservations/giu_ban/", DatBanViewSet.as_view({"post": "giu_ban_frontend"}), name="dat-ban-giu-ban-list-underscore-en"),
 
     # Explicit Recommendation dual endpoints
     path("recommendations/tuong-tac/", InteractionViewSet.as_view({"get": "list", "post": "create"}), name="recommendation-tuong-tac"),

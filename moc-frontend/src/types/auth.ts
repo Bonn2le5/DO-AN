@@ -1,4 +1,4 @@
-export type UserRole = "customer" | "staff" | "admin" | "khach_hang" | "nhan_vien" | "quan_tri_vien";
+export type UserRole = "customer" | "staff" | "branch_manager" | "admin" | "khach_hang" | "nhan_vien" | "nhan_vien_ban_hang" | "quan_ly_chi_nhanh" | "quan_tri_vien";
 
 export interface User {
   id: string;
@@ -8,6 +8,8 @@ export interface User {
   avatarInitial: string;
   roles?: UserRole[];
   isStaff?: boolean;
+  isAdmin?: boolean;
+  branchId?: string;
 
   // Vietnamese aliases
   hoTen?: string;

@@ -12,6 +12,7 @@ import { useWebSocketChat } from "@/hooks/useWebSocketChat";
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
+  const [everOpened, setEverOpened] = useState(false);
   const [draft, setDraft] = useState("");
   const draftRef = useRef("");
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -27,8 +28,7 @@ export default function ChatWidget() {
     loadingHistory,
     sendMessage,
     sendTyping,
-    clearUnread,
-  } = useWebSocketChat({ enabled: open && isAuthenticated });
+  } = useWebSocketChat({ enabled: isAuthenticated && everOpened, open });
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -39,7 +39,7 @@ export default function ChatWidget() {
 
   const handleOpen = () => {
     setOpen(true);
-    clearUnread();
+    setEverOpened(true);
   };
 
   const handleSend = () => {
@@ -58,7 +58,7 @@ export default function ChatWidget() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-[95] flex flex-col items-end gap-3">
+    <div className="chat-widget fixed bottom-6 right-6 z-[95] flex flex-col items-end gap-3">
       {open && (
         <div className="w-[320px] sm:w-[380px] h-[480px] bg-white rounded-2xl shadow-lift border border-black/[0.08] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           {/* Header */}

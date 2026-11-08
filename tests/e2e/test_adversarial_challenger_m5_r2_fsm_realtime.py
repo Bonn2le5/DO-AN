@@ -110,8 +110,7 @@ class TestM5R2ChallengerFSMRealtime(TransactionTestCase):
             ten_khach="Alice Tran",
             sdt_khach="0901234567",
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
-            hinh_thuc="giao_hang",
-            dia_chi_giao="123 Vo Van Tan, Q3",
+            hinh_thuc="tai_cho",
             tong_tien=Decimal("500000.00"),
         )
         ChiTietDonHang.objects.create(

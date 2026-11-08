@@ -27,7 +27,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
     { to: "/admin/reviews", label: "Đánh giá", icon: Star, module: "reviews" },
   ] },
   { title: "Tài chính", items: [
-    { to: "/admin/payments", label: "Thanh toán & hoàn cọc", icon: CreditCard, module: "payments" },
+    { to: "/admin/payments", label: "Hóa đơn & thanh toán", icon: CreditCard, module: "payments" },
     { to: "/admin/deposit-policy", label: "Chính sách cọc", icon: Landmark, module: "deposit" },
   ] },
   { title: "Hệ thống", items: [
@@ -39,7 +39,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
   ] },
 ];
 
-export default function AdminSidebar({ open, collapsed, onClose }: { open: boolean; collapsed: boolean; onClose: () => void }) {
+export default function AdminSidebar({ open, collapsed, unreadChatCount = 0, onClose }: { open: boolean; collapsed: boolean; unreadChatCount?: number; onClose: () => void }) {
   const can = useCan();
   return (
     <>
@@ -68,7 +68,7 @@ export default function AdminSidebar({ open, collapsed, onClose }: { open: boole
                     key={i.to} to={i.to} end={i.end} onClick={onClose}
                     className={({ isActive }) => cn("flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] transition-colors", isActive ? "bg-primary text-white" : "hover:bg-white/8 hover:text-white")}
                   >
-                    <i.icon width={17} height={17} />{i.label}
+                    <i.icon width={17} height={17} />{i.label}{i.module === "chat" && unreadChatCount > 0 && <span className="ml-auto min-w-5 h-5 px-1 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">{unreadChatCount}</span>}
                   </NavLink>
                 ))}
               </div>

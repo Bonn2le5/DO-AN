@@ -261,12 +261,3 @@ export async function updateChatRoomStatus(roomId: number, status: "mo" | "dong"
   return data;
 }
 
-export async function updateAdminOrderStatus(
-  orderId: number | string,
-  status: string,
-  note = ""
-): Promise<any> {
-  const { data } = await apiClient.patch(`/orders/${orderId}/trang_thai/`, { status, note });
-  return data;
-}
-

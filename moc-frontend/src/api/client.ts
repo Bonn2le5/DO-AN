@@ -23,6 +23,56 @@ export function clearTokens() {
 
 let refreshInFlight: Promise<string | null> | null = null;
 
+function tokenExpiry(token: string): number {
+  try {
+    const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payload.padEnd(Math.ceil(payload.length / 4) * 4, "=");
+    return JSON.parse(atob(padded)).exp * 1000;
+  } catch {
+    return 0;
+  }
+}
+
+export function getAccessTokenExpiry(): number {
+  const token = localStorage.getItem("access_token");
+  return token ? tokenExpiry(token) : 0;
+}
+
+export function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = localStorage.getItem("refresh_token");
+  if (!refreshToken) {
+    clearTokens();
+    window.dispatchEvent(new Event("auth:expired"));
+    return Promise.resolve(null);
+  }
+
+  refreshInFlight ??= axios
+    .post(`${apiClient.defaults.baseURL}/auth/refresh/`, { refresh: refreshToken })
+    .then(({ data }) => {
+      const access = data.access as string;
+      setAccessToken(access);
+      if (data.refresh) setRefreshToken(data.refresh as string);
+      window.dispatchEvent(new Event("auth:token-refreshed"));
+      return access;
+    })
+    .catch(() => {
+      clearTokens();
+      window.dispatchEvent(new Event("auth:expired"));
+      return null;
+    })
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
+}
+
+/** Refreshes shortly before expiry, so REST calls and WebSocket reconnects share one token. */
+export async function ensureFreshToken(): Promise<string | null> {
+  const token = localStorage.getItem("access_token");
+  if (token && tokenExpiry(token) - Date.now() > 60_000) return token;
+  return refreshAccessToken();
+}
+
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -32,7 +82,9 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const request = error.config as (typeof error.config & { _retriedAfterRefresh?: boolean }) | undefined;
+    const request = error.config as
+      | (typeof error.config & { _retriedAfterRefresh?: boolean })
+      | undefined;
     const requestUrl = String(request?.url ?? "");
     if (
       error.response?.status !== 401 ||
@@ -45,32 +97,10 @@ apiClient.interceptors.response.use(
     }
 
     request._retriedAfterRefresh = true;
-    const refreshToken = localStorage.getItem("refresh_token");
-    if (!refreshToken) {
-      clearTokens();
-      return Promise.reject(error);
-    }
-
-    refreshInFlight ??= axios
-      .post(`${apiClient.defaults.baseURL}/auth/refresh/`, { refresh: refreshToken })
-      .then(({ data }) => {
-        const nextAccessToken = data.access as string;
-        setAccessToken(nextAccessToken);
-        if (data.refresh) setRefreshToken(data.refresh as string);
-        return nextAccessToken;
-      })
-      .catch(() => {
-        clearTokens();
-        return null;
-      })
-      .finally(() => {
-        refreshInFlight = null;
-      });
-
-    const nextAccessToken = await refreshInFlight;
+    const nextAccessToken = await refreshAccessToken();
     if (!nextAccessToken) return Promise.reject(error);
 
     request.headers.set("Authorization", `Bearer ${nextAccessToken}`);
     return apiClient(request);
-  }
+  },
 );

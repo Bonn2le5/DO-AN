@@ -293,7 +293,7 @@ CREATE TABLE dat_ban (
   id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   nguoi_dung_id     BIGINT NOT NULL REFERENCES nguoi_dung(id) ON DELETE RESTRICT,
   chi_nhanh_id      BIGINT NOT NULL REFERENCES chi_nhanh(id)  ON DELETE RESTRICT,
-  ban_an_id         BIGINT NOT NULL REFERENCES ban_an(id)      ON DELETE RESTRICT,
+  ban_an_id         BIGINT REFERENCES ban_an(id)                ON DELETE RESTRICT, -- NULL = nhân viên xếp bàn khi khách đến
   ma_dat_ban        VARCHAR(20) NOT NULL UNIQUE,
   ngay_dat          DATE        NOT NULL,
   gio_bat_dau       TIME        NOT NULL,

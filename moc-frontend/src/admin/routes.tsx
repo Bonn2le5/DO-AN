@@ -1,7 +1,10 @@
 import { lazy } from "react";
-import { Route } from "react-router-dom";
+import { Navigate, Route } from "react-router-dom";
+import type { ReactNode } from "react";
 import AdminGuard from "./layout/AdminGuard";
 import AdminLayout from "./layout/AdminLayout";
+import { useCan } from "./permissions";
+import type { Module } from "./types";
 
 const page = (loader: () => Promise<{ default: React.ComponentType }>) => lazy(loader);
 const Dashboard = page(() => import("./pages/DashboardPage"));
@@ -23,28 +26,34 @@ const Roles = page(() => import("./pages/RolesPage"));
 const Ai = page(() => import("./pages/AiAnalyticsPage"));
 const Settings = page(() => import("./pages/SettingsPage"));
 
+function ModuleGate({ module, children }: { module: Module; children: ReactNode }) {
+  const can = useCan();
+  if (can(module)) return children;
+  return <Navigate to={module === "dashboard" ? "/admin/reservations" : "/admin"} replace />;
+}
+
 /** Đặt {adminRoutes} trong <Routes> của App.tsx, NGOÀI <Route element={<Layout />}> để không dính header/footer của khách. */
 export const adminRoutes = (
   <Route path="admin" element={<AdminGuard />}>
     <Route element={<AdminLayout />}>
-      <Route index element={<Dashboard />} />
-      <Route path="orders" element={<Orders />} />
-      <Route path="reservations" element={<Reservations />} />
-      <Route path="tables" element={<Tables />} />
-      <Route path="chat" element={<Chat />} />
-      <Route path="menu" element={<Foods />} />
-      <Route path="categories" element={<Categories />} />
-      <Route path="ingredients" element={<Ingredients />} />
-      <Route path="promotions" element={<Promotions />} />
-      <Route path="posts" element={<Posts />} />
-      <Route path="reviews" element={<Reviews />} />
-      <Route path="payments" element={<Payments />} />
-      <Route path="deposit-policy" element={<DepositPolicy />} />
-      <Route path="branches" element={<Branches />} />
-      <Route path="users" element={<Users />} />
-      <Route path="roles" element={<Roles />} />
-      <Route path="ai" element={<Ai />} />
-      <Route path="settings" element={<Settings />} />
+      <Route index element={<ModuleGate module="dashboard"><Dashboard /></ModuleGate>} />
+      <Route path="orders" element={<ModuleGate module="orders"><Orders /></ModuleGate>} />
+      <Route path="reservations" element={<ModuleGate module="reservations"><Reservations /></ModuleGate>} />
+      <Route path="tables" element={<ModuleGate module="tables"><Tables /></ModuleGate>} />
+      <Route path="chat" element={<ModuleGate module="chat"><Chat /></ModuleGate>} />
+      <Route path="menu" element={<ModuleGate module="foods"><Foods /></ModuleGate>} />
+      <Route path="categories" element={<ModuleGate module="categories"><Categories /></ModuleGate>} />
+      <Route path="ingredients" element={<ModuleGate module="ingredients"><Ingredients /></ModuleGate>} />
+      <Route path="promotions" element={<ModuleGate module="promotions"><Promotions /></ModuleGate>} />
+      <Route path="posts" element={<ModuleGate module="posts"><Posts /></ModuleGate>} />
+      <Route path="reviews" element={<ModuleGate module="reviews"><Reviews /></ModuleGate>} />
+      <Route path="payments" element={<ModuleGate module="payments"><Payments /></ModuleGate>} />
+      <Route path="deposit-policy" element={<ModuleGate module="deposit"><DepositPolicy /></ModuleGate>} />
+      <Route path="branches" element={<ModuleGate module="branches"><Branches /></ModuleGate>} />
+      <Route path="users" element={<ModuleGate module="users"><Users /></ModuleGate>} />
+      <Route path="roles" element={<ModuleGate module="roles"><Roles /></ModuleGate>} />
+      <Route path="ai" element={<ModuleGate module="ai"><Ai /></ModuleGate>} />
+      <Route path="settings" element={<ModuleGate module="settings"><Settings /></ModuleGate>} />
     </Route>
   </Route>
 );

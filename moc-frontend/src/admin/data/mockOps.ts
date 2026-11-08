@@ -1,37 +1,7 @@
 import { ago, lineTotal, ymd } from "../lib";
-import type { LineItem, AdminOrder, AdminReservation, AdminTable, AdminPayment, DepositPolicyData } from "../types";
-import type { OrderStatus } from "../types";
+import type { LineItem, AdminReservation, AdminTable, AdminPayment, DepositPolicyData } from "../types";
 
 const L = (name: string, qty: number, price: number): LineItem => ({ name, qty, price });
-const FLOW: OrderStatus[] = ["pending", "confirmed", "preparing", "ready", "completed"];
-
-function order(
-  n: number, customer: string, phone: string, type: AdminOrder["type"], status: OrderStatus,
-  minutesAgo: number, items: LineItem[], discount = 0, payment: AdminOrder["payment"] = "cod", address?: string,
-): AdminOrder {
-  const subtotal = lineTotal(items);
-  const steps: OrderStatus[] = status === "cancelled" ? ["pending", "cancelled"] : FLOW.slice(0, FLOW.indexOf(status) + 1);
-  return {
-    id: `o${n}`, code: `MC${482900 + n * 7}`, customer, phone, type, address, items, subtotal, discount,
-    total: subtotal - discount, payment, status, createdAt: ago(minutesAgo),
-    note: n % 3 === 0 ? "Ít cay, không hành" : undefined,
-    history: steps.map((s, i) => ({
-      to: s, at: ago(minutesAgo - i * 6), by: i === 0 ? "Khách hàng" : "Lê Thu Hà",
-      note: s === "cancelled" ? "Khách đổi ý" : undefined,
-    })),
-  };
-}
-
-export const ordersSeed: AdminOrder[] = [
-  order(1, "Nguyễn Lan Anh", "0903 112 233", "delivery", "pending", 4, [L("Lẩu Thái hải sản", 1, 259000), L("Trà đào cam sả", 2, 45000)], 0, "cod", "45 Nguyễn Thị Minh Khai, Q.3"),
-  order(2, "Trần Minh Tân", "0987 654 321", "pickup", "pending", 11, [L("Bò lúc lắc sốt tiêu", 2, 189000)], 37800, "vnpay"),
-  order(3, "Phạm Hoài Thương", "0912 345 678", "delivery", "confirmed", 25, [L("Cơm tấm sườn bì chả", 3, 75000), L("Gỏi cuốn tôm thịt", 2, 69000)], 0, "bank", "12 Hoàng Văn Thụ, Phú Nhuận"),
-  order(4, "Võ Quốc Bảo", "0933 221 100", "pickup", "preparing", 38, [L("Bún chả Hà Nội", 2, 79000)]),
-  order(5, "Đặng Mỹ Linh", "0909 888 777", "delivery", "preparing", 52, [L("Lẩu Thái hải sản", 2, 259000), L("Chè khúc bạch nhãn", 2, 39000)], 50000, "vnpay", "88 Lê Văn Sỹ, Q.3"),
-  order(6, "Hồ Gia Huy", "0977 123 456", "pickup", "ready", 70, [L("Cơm tấm sườn bì chả", 1, 75000), L("Trà đào cam sả", 1, 45000)]),
-  order(7, "Ngô Thanh Vân", "0966 000 111", "delivery", "completed", 190, [L("Bò lúc lắc sốt tiêu", 1, 189000), L("Gỏi cuốn tôm thịt", 1, 69000)], 0, "cod", "5 Trần Quang Diệu, Q.3"),
-  order(8, "Bùi Khánh Ly", "0944 567 890", "pickup", "cancelled", 300, [L("Chè khúc bạch nhãn", 4, 39000)]),
-];
 
 export const tablesSeed: AdminTable[] = [
   { id: "t1", number: "Bàn 1", zone: "Trong nhà", capacity: 2, status: "available" },

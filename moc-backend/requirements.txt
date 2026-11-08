@@ -20,9 +20,11 @@ packaging==26.3
 prompt_toolkit==3.0.53
 psycopg2-binary==2.9.12
 Pillow>=10.0
+openpyxl>=3.1,<4
 PyJWT==2.13.0
 python-dateutil==2.9.0.post0
-redis==8.1.0
+redis==5.2.1
+resend>=2.5.0
 six==1.17.0
 sqlparse==0.6.0
 tzdata==2026.3

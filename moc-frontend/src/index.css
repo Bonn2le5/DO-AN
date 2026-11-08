@@ -4,7 +4,7 @@
   --color-accent: #f1d99b;
   --color-success: #65856a;
   --color-dark: #262a25;
-  --font-display: Georgia, "Times New Roman", serif;
+  --font-display: "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, sans-serif;
   --shadow-lift: 0 18px 45px rgb(38 42 37 / 16%);
 }
 
@@ -18,7 +18,7 @@
   --color-bg: #f7f5ef;
   --color-muted: #77766f;
   --font-body: Inter, ui-sans-serif, system-ui, sans-serif;
-  --font-display: Georgia, "Times New Roman", serif;
+  --font-display: "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, sans-serif;
   --shadow-lift: 0 18px 45px rgb(38 42 37 / 16%);
   font-family: var(--font-body);
   font-size: 14px;
@@ -52,10 +52,14 @@
   --color-muted: #7a7a7a;
   --color-success: #6e8f6c;
   --color-line: #17171717;
+  --color-wine: #862d2d;
+  --color-wine-dark: #6b2121;
+  --color-gold: #e8a33d;
+  --font-serif: "Playfair Display", Georgia, serif;
 
   /* ---------- Fonts ---------- */
 
-  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-display: "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, sans-serif;
   --font-body: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 
   /* ---------- Radius ---------- */
@@ -120,3 +124,127 @@ h4,
     @apply w-10.5 h-10.5 rounded-full flex items-center justify-center text-text hover:bg-black/6 transition-colors relative;
   }
 }
+
+/* ---------- Trang chủ: phong cách nhà hàng cổ điển (đỏ rượu + serif) ---------- */
+.home-classic {
+  --color-primary: #862d2d;
+  --color-primary-dark: #6b2121;
+  --color-secondary: #a14545;
+  --color-bg: #f8f5f1;
+  --color-text: #331a1a;
+  --color-muted: #7d6b6b;
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-body: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+
+.home-classic h1,
+.home-classic h2,
+.home-classic h3,
+.home-classic h4,
+.home-classic .font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0;
+}
+
+.home-classic .btn {
+  border-radius: 8px;
+  padding: 0.8rem 1.75rem;
+}
+
+.home-classic .btn-primary {
+  box-shadow: 0 10px 25px rgb(134 45 45 / 28%);
+}
+
+.home-classic .btn-light {
+  border: 1.5px solid rgb(255 255 255 / 75%);
+  color: white;
+  background: rgb(255 255 255 / 6%);
+  backdrop-filter: blur(4px);
+}
+
+.home-classic .btn-light:hover {
+  background: white;
+  color: var(--color-text);
+  transform: translateY(-2px);
+}
+
+/* ---------- Trang đặt bàn: đỏ rượu + serif, đồng bộ header/footer ---------- */
+.reservation-ui {
+  --color-primary: #862d2d;
+  --color-primary-dark: #6b2121;
+  /* Chữ không chân cho toàn trang đặt bàn */
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+.reservation-ui h1,
+.reservation-ui h2 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.reservation-ui h3,
+.reservation-ui .font-display {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.reservation-ui .btn {
+  border-radius: 10px;
+}
+
+.reservation-ui .btn-primary {
+  box-shadow: 0 10px 24px rgb(134 45 45 / 24%);
+}
+
+.reservation-ui .btn-primary:hover {
+  box-shadow: 0 14px 30px rgb(134 45 45 / 30%);
+}
+
+.reservation-ui :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.reservation-field {
+  @apply w-full rounded-xl border border-black/15 bg-white px-4 py-3 text-[15px] outline-none transition-colors focus:border-primary;
+}
+
+/* Đường răng cưa của phiếu đặt bàn */
+.ticket-tear {
+  position: relative;
+  height: 24px;
+  background-image: linear-gradient(to right, rgb(23 23 23 / 18%) 50%, transparent 50%);
+  background-size: 10px 1px;
+  background-repeat: repeat-x;
+  background-position: center;
+}
+
+.ticket-tear::before,
+.ticket-tear::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--color-bg);
+  transform: translateY(-50%);
+}
+
+.ticket-tear::before { left: -13px; box-shadow: inset -1px 0 0 rgb(0 0 0 / 7%); }
+.ticket-tear::after { right: -13px; box-shadow: inset 1px 0 0 rgb(0 0 0 / 7%); }
+
+@media (prefers-reduced-motion: reduce) {
+  .reservation-ui * { transition: none !important; animation: none !important; }
+}
+
+/* Đẩy nút chat lên trên thanh hành động cố định của trang đặt bàn */
+@media (max-width: 1023px) {
+  body:has(.reservation-sticky-bar) .chat-widget { bottom: 92px; }
+}
+
+/* Bước xác nhận vừa một màn hình: ẩn nút chat để không che nút thanh toán */
+body:has(.reservation-confirm) .chat-widget { display: none; }

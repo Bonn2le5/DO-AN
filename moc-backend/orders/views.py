@@ -1,4 +1,5 @@
 from django.http import Http404
+from rest_framework.exceptions import PermissionDenied
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -11,6 +12,8 @@ from .services import DichVuDonHang
 
 class DonHangViewSet(viewsets.ModelViewSet):
     serializer_class = DonHangSerializer
+    # Đã bỏ đặt món trực tuyến: đơn chỉ sinh ra từ phiên phục vụ tại bàn.
+    http_method_names = ["get", "put", "patch", "delete", "head", "options"]
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
@@ -45,14 +48,25 @@ class DonHangViewSet(viewsets.ModelViewSet):
             getattr(self.request.user, "la_nhan_vien_nha_hang", False)
             or getattr(self.request.user, "is_staff", False)
         )
-        return danh_sach if is_staff else danh_sach.filter(khach_hang=self.request.user)
+        if is_staff:
+            if self.request.user.is_superuser or getattr(self.request.user, "la_quan_tri_vien", False):
+                return danh_sach
+            branch_id = getattr(self.request.user, "chi_nhanh_quan_ly_id", None)
+            return danh_sach.filter(chi_nhanh_id=branch_id) if branch_id else danh_sach.none()
+        return danh_sach.filter(khach_hang=self.request.user)
 
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        don_hang = DichVuDonHang.tao_don_hang(nguoi_dung=request.user, du_lieu=serializer.validated_data)
-        return Response(self.get_serializer(don_hang).data, status=201)
+    def perform_update(self, serializer):
+        user = self.request.user
+        if getattr(user, "la_nhan_vien_nha_hang", False) and not (
+            user.is_superuser or getattr(user, "la_quan_tri_vien", False)
+        ):
+            branch_id = getattr(user, "chi_nhanh_quan_ly_id", None)
+            order = self.get_object()
+            requested_branch = serializer.validated_data.get("chi_nhanh", order.chi_nhanh)
+            if not branch_id or order.chi_nhanh_id != branch_id or getattr(requested_branch, "id", None) != branch_id:
+                raise PermissionDenied("Bạn chỉ được sửa đơn hàng thuộc chi nhánh được phân công.")
+        serializer.save()
 
     @action(detail=True, methods=["patch"], permission_classes=[IsAuthenticated])
     def trang_thai(self, request, pk=None):
@@ -72,7 +86,12 @@ class DonHangViewSet(viewsets.ModelViewSet):
             request.user,
             note_val,
         )
-        return Response(self.get_serializer(don_hang).data)
+        from foods.services import DichVuKho
+        data = dict(self.get_serializer(don_hang).data)
+        data["canh_bao_kho"] = DichVuKho.canh_bao_sap_het(
+            don_hang.danh_sach_mon.values_list("mon_an_id", flat=True)
+        )
+        return Response(data)
 
     @action(detail=True, methods=["patch"], permission_classes=[IsAuthenticated])
     def chuyen_trang_thai(self, request, pk=None):

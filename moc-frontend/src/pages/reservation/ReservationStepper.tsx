@@ -8,30 +8,30 @@ const STEPS: { key: ReservationStep; label: string }[] = [
   { key: "contact", label: "Xác nhận" },
 ];
 
-export default function ReservationStepper({ current }: { current: ReservationStep }) {
+export default function ReservationStepper({ current, compact = false }: { current: ReservationStep; compact?: boolean }) {
   const activeStep = current === "success" ? "contact" : current;
   const currentIndex = STEPS.findIndex((step) => step.key === activeStep);
 
   return (
-    <div className="flex items-center gap-2 mb-10 overflow-x-auto pb-1">
+    <ol className={cn("grid grid-cols-3 gap-2 sm:gap-3", compact ? "mb-4" : "mb-8 sm:mb-10")} aria-label="Các bước đặt bàn">
       {STEPS.map((step, index) => {
         const done = index < currentIndex;
         const active = index === currentIndex;
         return (
-          <div key={step.key} className="flex items-center gap-2 shrink-0">
+          <li key={step.key} aria-current={active ? "step" : undefined} className="min-w-0">
+            <div className={cn("h-1 rounded-full mb-2.5", done || active ? "bg-primary" : "bg-black/10")} />
             <div className="flex items-center gap-2">
               <span className={cn(
-                "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
-                done ? "bg-success text-white" : active ? "bg-primary text-white" : "bg-black/8 text-muted",
+                "w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold shrink-0",
+                done ? "bg-primary text-white" : active ? "border-[1.5px] border-primary text-primary" : "border border-black/20 text-muted",
               )}>
-                {done ? <Check width={14} height={14} /> : index + 1}
+                {done ? <Check width={13} height={13} /> : index + 1}
               </span>
-              <span className={cn("text-sm font-medium whitespace-nowrap", active ? "text-text" : "text-muted")}>{step.label}</span>
+              <span className={cn("text-sm truncate", active ? "font-semibold text-text" : "text-muted")}>{step.label}</span>
             </div>
-            {index < STEPS.length - 1 && <div className="w-8 h-px bg-black/15 shrink-0" />}
-          </div>
+          </li>
         );
       })}
-    </div>
+    </ol>
   );
 }

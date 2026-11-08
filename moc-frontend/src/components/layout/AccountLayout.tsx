@@ -1,11 +1,10 @@
 import { NavLink, Outlet, Navigate, Link } from "react-router-dom";
-import { User, Package, Heart, LogOut, ShieldCheck } from "lucide-react";
+import { User, Heart, LogOut, ShieldCheck } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { to: "/tai-khoan", label: "Hồ sơ", icon: User, end: true },
-  { to: "/tai-khoan/don-hang", label: "Đơn hàng", icon: Package, end: false },
   { to: "/tai-khoan/yeu-thich", label: "Yêu thích", icon: Heart, end: false },
 ];
 

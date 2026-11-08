@@ -2,7 +2,9 @@
 URL configuration for config project.
 """
 from django.contrib import admin
-from django.urls import include, path
+from django.conf import settings
+from django.urls import include, path, re_path
+from django.views.static import serve as serve_media
 from django.http import JsonResponse
 
 
@@ -33,4 +35,5 @@ urlpatterns = [
     path("", home_view, name="home"),
     path("admin/", admin.site.urls),
     path("api/", include("api.urls")),
+    re_path(r"^media/(?P<path>.*)$", serve_media, {"document_root": settings.MEDIA_ROOT}),
 ]

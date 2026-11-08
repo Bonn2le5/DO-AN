@@ -66,6 +66,10 @@ class JWTAuthMiddleware(BaseMiddleware):
         # 3. Resolve user asynchronously
         if token_str:
             scope["user"] = await get_user_from_token(token_str)
+            try:
+                scope["jwt_exp"] = AccessToken(token_str).payload.get("exp")
+            except Exception:
+                scope["jwt_exp"] = None
         elif "user" not in scope or scope["user"] is None:
             scope["user"] = AnonymousUser()
 

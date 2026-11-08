@@ -136,7 +136,7 @@ class TestEdgeRemediationM5(TransactionTestCase):
             khach_hang=self.cust_alice,
             chi_nhanh=self.branch,
             trang_thai=DonHang.TrangThai.HOAN_TAT,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             tong_tien=self.dish.don_gia,
         )
         item = ChiTietDonHang.objects.create(
@@ -159,7 +159,7 @@ class TestEdgeRemediationM5(TransactionTestCase):
             khach_hang=self.cust_bob,
             chi_nhanh=self.branch,
             trang_thai=DonHang.TrangThai.HOAN_TAT,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             tong_tien=self.dish.don_gia,
         )
         item2 = ChiTietDonHang.objects.create(
@@ -203,7 +203,7 @@ class TestEdgeRemediationM5(TransactionTestCase):
             khach_hang=self.cust_alice,
             chi_nhanh=self.branch,
             trang_thai=DonHang.TrangThai.HOAN_TAT,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             tong_tien=self.dish.don_gia,
         )
         item = ChiTietDonHang.objects.create(
@@ -235,7 +235,7 @@ class TestEdgeRemediationM5(TransactionTestCase):
             khach_hang=self.cust_alice,
             chi_nhanh=self.branch,
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             tong_tien=self.dish.don_gia,
         )
 

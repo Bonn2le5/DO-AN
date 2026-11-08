@@ -292,10 +292,9 @@ class TestMilestone4RecommendationsAdversarial(TransactionTestCase):
     # =========================================================================
 
     def test_adv_05_interaction_weight_proportions(self):
-        """Verify standard weights: xem=1 < yeu_thich=2 < them_gio_hang=3 < dat_mon=4 < danh_gia=5."""
+        """Verify standard weights: xem=1 < yeu_thich=2 < dat_mon=4 < danh_gia=5."""
         self.assertEqual(TRONG_SO_TUONG_TAC["xem"], 1)
         self.assertEqual(TRONG_SO_TUONG_TAC["yeu_thich"], 2)
-        self.assertEqual(TRONG_SO_TUONG_TAC["them_gio_hang"], 3)
         self.assertEqual(TRONG_SO_TUONG_TAC["dat_mon"], 4)
         self.assertEqual(TRONG_SO_TUONG_TAC["danh_gia"], 5)
 
@@ -303,8 +302,6 @@ class TestMilestone4RecommendationsAdversarial(TransactionTestCase):
         self.assertEqual(ALIAS_TRONG_SO["thich"], 2)
         self.assertEqual(ALIAS_TRONG_SO["like"], 2)
         self.assertEqual(ALIAS_TRONG_SO["favorite"], 2)
-        self.assertEqual(ALIAS_TRONG_SO["cart"], 3)
-        self.assertEqual(ALIAS_TRONG_SO["gio_hang"], 3)
         self.assertEqual(ALIAS_TRONG_SO["dat_hang"], 4)
         self.assertEqual(ALIAS_TRONG_SO["order"], 4)
         self.assertEqual(ALIAS_TRONG_SO["review"], 5)
@@ -397,7 +394,7 @@ class TestMilestone4RecommendationsAdversarial(TransactionTestCase):
         # 2. Post to /api/recommendations/tuong-tac/
         resp2 = self.client.post(
             "/api/recommendations/tuong-tac/",
-            {"mon_an": self.mon_chay.id, "loai_tuong_tac": "them_gio_hang"},
+            {"mon_an": self.mon_chay.id, "loai_tuong_tac": "yeu_thich"},
             format="json",
         )
         self.assertEqual(resp2.status_code, 201)

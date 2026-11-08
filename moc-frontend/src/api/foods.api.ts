@@ -1,7 +1,7 @@
 import { apiClient } from "./client";
 import { mapMonAn } from "./mappers";
-import type { Food, ComboItem } from "@/types";
-import { categories as mockCategories, combos as mockCombos } from "@/data/mock";
+import type { Food, ComboItem, CategoryItem } from "@/types";
+import { combos as mockCombos } from "@/data/mock";
 
 export async function layDanhSachMonAn(params?: {
   danhMuc?: string;
@@ -14,8 +14,16 @@ export async function layDanhSachMonAn(params?: {
   spicy?: number;
 }): Promise<Food[]> {
   const queryParams: Record<string, any> = {};
-  if (params?.danhMuc || params?.category) queryParams.category = params?.danhMuc || params?.category;
-  if (params?.timKiem || params?.search) queryParams.search = params?.timKiem || params?.search;
+  const cat = params?.danhMuc || params?.category;
+  if (cat) {
+    queryParams.category = cat;
+    queryParams.danh_muc = cat;
+  }
+  const q = params?.timKiem || params?.search;
+  if (q) {
+    queryParams.search = q;
+    queryParams.tim_kiem = q;
+  }
   if (params?.laMonChay || params?.vegetarian) queryParams.vegetarian = "true";
   if (params?.doCay !== undefined || params?.spicy !== undefined) {
     queryParams.spicy = String(params?.doCay ?? params?.spicy);
@@ -49,8 +57,26 @@ export async function getRelatedFoods(food: Food, limit = 3): Promise<Food[]> {
   return all.filter((f) => f.id !== food.id).slice(0, limit);
 }
 
-export async function getCategories(): Promise<{ id: "main" | "appetizer" | "drink" | "dessert" | "combo"; label: string; icon: string }[]> {
-  return mockCategories as any;
+export async function getCategories(): Promise<CategoryItem[]> {
+  try {
+    const { data } = await apiClient.get("/categories/");
+    const list = Array.isArray(data) ? data : data.results ?? [];
+    return list
+        .filter((cat: any) => cat.con_hoat_dong ?? cat.is_active ?? true)
+        .map((cat: any) => ({
+          id: String(cat.duong_dan || cat.slug || cat.id),
+          numericId: cat.id,
+          label: cat.ten || cat.name || "",
+          slug: cat.duong_dan || cat.slug || String(cat.id),
+          description: cat.mo_ta || cat.description || "",
+          image: cat.anh_dai_dien || cat.image || "",
+          icon: cat.icon,
+          isActive: Boolean(cat.con_hoat_dong ?? cat.is_active ?? true),
+        }));
+  } catch (error) {
+    console.warn("Failed to fetch categories from API:", error);
+    return [];
+  }
 }
 
 export async function getCombos(): Promise<ComboItem[]> {

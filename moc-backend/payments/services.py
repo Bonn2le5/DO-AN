@@ -7,24 +7,18 @@ from typing import Dict, Any, Tuple, Optional
 from django.conf import settings
 from django.utils import timezone
 from django.db import transaction
-from django.core.cache import cache, caches
+from rest_framework.exceptions import APIException
 from .models import ThanhToan, PhieuHoanTien
 from reservations.models import DatBan
 from orders.models import DonHang
 
 
-def _safe_cache():
-    try:
-        cache.get("_probe_")
-        return cache
-    except Exception:
-        try:
-            return caches["locmem"]
-        except Exception:
-            return cache
-
-
 class VNPayService:
+    class NotConfigured(APIException):
+        status_code = 503
+        default_detail = "VNPay sandbox chưa được cấu hình: cần VNPAY_TMN_CODE và VNPAY_HASH_SECRET."
+        default_code = "vnpay_not_configured"
+
     @staticmethod
     def get_client_ip(request) -> str:
         if not request:
@@ -70,8 +64,10 @@ class VNPayService:
         locale: str = "vn",
         create_date: Optional[str] = None,
     ) -> Tuple[str, Dict[str, Any]]:
-        tmn_code = getattr(settings, "VNPAY_TMN_CODE", "MOCREST1")
-        hash_secret = getattr(settings, "VNPAY_HASH_SECRET", "VNPAYSECRETKEY2026MOCRESTAURANT")
+        tmn_code = getattr(settings, "VNPAY_TMN_CODE", "")
+        hash_secret = getattr(settings, "VNPAY_HASH_SECRET", "")
+        if not tmn_code or not hash_secret:
+            raise cls.NotConfigured()
         base_url = getattr(settings, "VNPAY_URL", getattr(settings, "VNPAY_SANDBOX_URL", "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"))
         return_url = getattr(settings, "VNPAY_RETURN_URL", "http://127.0.0.1:8000/api/payments/vnpay/return/")
 
@@ -119,7 +115,9 @@ class VNPayService:
 
     @classmethod
     def process_ipn(cls, query_params: Any) -> Tuple[str, str]:
-        hash_secret = getattr(settings, "VNPAY_HASH_SECRET", "VNPAYSECRETKEY2026MOCRESTAURANT")
+        hash_secret = getattr(settings, "VNPAY_HASH_SECRET", "")
+        if not hash_secret:
+            return "99", "VNPay is not configured"
         
         # Robust scalar parameter extraction from Django QueryDict or standard dict
         if hasattr(query_params, "dict"):
@@ -152,9 +150,10 @@ class VNPayService:
         with transaction.atomic():
             # 2. Check Order Existence
             try:
-                thanh_toan = ThanhToan.objects.select_for_update().select_related(
-                    "dat_ban", "don_hang"
-                ).get(ma_giao_dich=txn_ref)
+                # Lock only the payment row. Locking select_related() here also
+                # tries to FOR UPDATE the nullable dat_ban/don_hang joins, which
+                # PostgreSQL rejects for payments that have either relation NULL.
+                thanh_toan = ThanhToan.objects.select_for_update().get(ma_giao_dich=txn_ref)
             except ThanhToan.DoesNotExist:
                 return "01", "Order not found"
 
@@ -169,8 +168,6 @@ class VNPayService:
 
             # 5. Process Confirmation or Failure
             now = timezone.now()
-            c = _safe_cache()
-
             if response_code == "00":
                 thanh_toan.trang_thai = ThanhToan.TrangThai.THANH_CONG
                 thanh_toan.thanh_toan_luc = now
@@ -183,15 +180,6 @@ class VNPayService:
                     db.thanh_toan_coc_luc = now
                     db.phien_ban += 1
                     db.save(update_fields=["trang_thai_coc", "thanh_toan_coc_luc", "phien_ban", "cap_nhat_luc"])
-
-                    # Release temporary hold keys
-                    gio_str = str(db.gio_bat_dau)[:5]
-                    try:
-                        c.delete(f"table_hold:{db.ban_an_id}:{db.ngay_dat}:{gio_str}")
-                        c.delete(f"giu-ban:{db.ban_an_id}:{db.ngay_dat}:{gio_str}")
-                        c.delete(f"giu-ban:{db.ban_an_id}:{db.ngay_dat}:{db.gio_bat_dau}")
-                    except Exception:
-                        pass
 
                 # Link DonHang
                 elif thanh_toan.loai_thanh_toan == ThanhToan.LoaiThanhToan.DON_HANG and thanh_toan.don_hang:
@@ -208,10 +196,8 @@ class VNPayService:
                     )
                     try:
                         from foods.services import DichVuKho
-                        DichVuKho.khau_tru_nguyen_lieu_bom(
-                            danh_sach_mon=dh.danh_sach_mon.all(),
-                            loai_tham_chieu="don_hang",
-                            id_tham_chieu=dh.id,
+                        DichVuKho.dong_bo_nguyen_lieu_don(
+                            don_hang=dh,
                             nguoi_dung=thanh_toan.nguoi_dung,
                             ghi_chu=f"Xuất kho khi thanh toán thành công đơn hàng {dh.ma_don_hang}"
                         )
@@ -229,15 +215,6 @@ class VNPayService:
                     db.trang_thai_coc = DatBan.TrangThaiCoc.THAT_BAI
                     db.phien_ban += 1
                     db.save(update_fields=["trang_thai", "trang_thai_coc", "phien_ban", "cap_nhat_luc"])
-
-                    # Release hold key so table is freed
-                    gio_str = str(db.gio_bat_dau)[:5]
-                    try:
-                        c.delete(f"table_hold:{db.ban_an_id}:{db.ngay_dat}:{gio_str}")
-                        c.delete(f"giu-ban:{db.ban_an_id}:{db.ngay_dat}:{gio_str}")
-                        c.delete(f"giu-ban:{db.ban_an_id}:{db.ngay_dat}:{db.gio_bat_dau}")
-                    except Exception:
-                        pass
 
                 return "00", "Confirm Failure"
 
@@ -361,16 +338,6 @@ class RefundService:
         dat_ban.ly_do_huy = ly_do
         dat_ban.phien_ban += 1
         dat_ban.save(update_fields=["trang_thai", "trang_thai_coc", "huy_luc", "ly_do_huy", "phien_ban", "cap_nhat_luc"])
-
-        # Release table hold cache if any
-        c = _safe_cache()
-        gio_str = str(dat_ban.gio_bat_dau)[:5]
-        try:
-            c.delete(f"table_hold:{dat_ban.ban_an_id}:{dat_ban.ngay_dat}:{gio_str}")
-            c.delete(f"giu-ban:{dat_ban.ban_an_id}:{dat_ban.ngay_dat}:{gio_str}")
-            c.delete(f"giu-ban:{dat_ban.ban_an_id}:{dat_ban.ngay_dat}:{dat_ban.gio_bat_dau}")
-        except Exception:
-            pass
 
         # Update linked ThanhToan
         tt = dat_ban.danh_sach_thanh_toan.filter(loai_thanh_toan=ThanhToan.LoaiThanhToan.TIEN_COC).first()

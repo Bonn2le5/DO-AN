@@ -1,4 +1,7 @@
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.validators import validate_email
+from django.db import transaction
 from django.core.mail import send_mail
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -32,25 +35,19 @@ class XacThucViewSet(viewsets.ViewSet):
         s = DangKySerializer(data=request.data)
         s.is_valid(raise_exception=True)
         # Tạo user với is_active=False để chờ xác thực email
-        nguoi_dung = s.save(is_active=False)
+        with transaction.atomic():
+            nguoi_dung = s.save(is_active=False)
 
-        # Tạo bản ghi XacThucEmail và gửi OTP
+        # Tạo bản ghi XacThucEmail và gửi OTP qua Resend
         from .models import XacThucEmail
+        from .services_email import gui_email_xac_thuc
         xac_thuc, _ = XacThucEmail.objects.get_or_create(nguoi_dung=nguoi_dung)
         ma_otp = xac_thuc.tao_ma()
 
-        # Gửi email (console backend in ra terminal trong môi trường dev)
-        send_mail(
-            subject="Mã xác thực tài khoản Nhà hàng Mộc",
-            message=(
-                f"Chào {nguoi_dung.first_name or nguoi_dung.username},\n\n"
-                f"Mã xác thực của bạn là: {ma_otp}\n\n"
-                f"Mã có hiệu lực trong 15 phút.\n\n"
-                f"Nhà hàng Mộc"
-            ),
-            from_email=None,  # dùng DEFAULT_FROM_EMAIL
-            recipient_list=[nguoi_dung.thu_dien_tu],
-            fail_silently=True,
+        gui_email_xac_thuc(
+            thu_dien_tu=nguoi_dung.thu_dien_tu,
+            ten_nguoi_nhan=nguoi_dung.first_name or nguoi_dung.username,
+            ma_otp=ma_otp,
         )
 
         return Response({
@@ -70,7 +67,7 @@ class XacThucViewSet(viewsets.ViewSet):
     def gui_ma_xac_thuc(self, request):
         """Gửi lại mã OTP xác thực email."""
         from .models import XacThucEmail
-        email = request.data.get("email", "").strip()
+        email = request.data.get("email", "").strip().lower()
         if not email:
             return Response({"detail": "Cần cung cấp email."}, status=400)
 
@@ -82,18 +79,14 @@ class XacThucViewSet(viewsets.ViewSet):
         if nguoi_dung.is_active:
             return Response({"detail": "Tài khoản đã được xác thực."}, status=400)
 
+        from .services_email import gui_email_xac_thuc
         xac_thuc, _ = XacThucEmail.objects.get_or_create(nguoi_dung=nguoi_dung)
         ma_otp = xac_thuc.tao_ma()
 
-        send_mail(
-            subject="Mã xác thực tài khoản Nhà hàng Mộc",
-            message=(
-                f"Mã xác thực mới của bạn là: {ma_otp}\n\n"
-                f"Mã có hiệu lực trong 15 phút.\n\nNhà hàng Mộc"
-            ),
-            from_email=None,
-            recipient_list=[email],
-            fail_silently=True,
+        gui_email_xac_thuc(
+            thu_dien_tu=email,
+            ten_nguoi_nhan=nguoi_dung.first_name or nguoi_dung.username,
+            ma_otp=ma_otp,
         )
         return Response({"message": "Đã gửi lại mã xác thực."})
 
@@ -101,7 +94,7 @@ class XacThucViewSet(viewsets.ViewSet):
     def xac_thuc_email(self, request):
         """Xác thực OTP. Trả về tokens nếu thành công."""
         from .models import XacThucEmail
-        email = request.data.get("email", "").strip()
+        email = request.data.get("email", "").strip().lower()
         ma_otp = request.data.get("ma_xac_thuc", "").strip()
 
         if not email or not ma_otp:
@@ -196,25 +189,60 @@ class NguoiDungViewSet(viewsets.ModelViewSet):
         email = str(request.data.get("email", "")).strip().lower()
         password = str(request.data.get("password", ""))
         name = str(request.data.get("name", "")).strip()
-        if not email or not password or len(password) < 8:
-            raise ValidationError({"password": "Email bắt buộc; mật khẩu khởi tạo tối thiểu 8 ký tự."})
-        if NguoiDung.objects.filter(thu_dien_tu=email).exists():
+        role_key = request.data.get("role", "customer")
+        if not email:
+            raise ValidationError({"email": "Email là bắt buộc."})
+        try:
+            validate_email(email)
+        except DjangoValidationError:
+            raise ValidationError({"email": "Email chưa đúng định dạng."})
+        if not password or len(password) < 8:
+            raise ValidationError({"password": "Mật khẩu khởi tạo phải có ít nhất 8 ký tự."})
+        if not name:
+            raise ValidationError({"name": "Họ và tên là bắt buộc."})
+        role_aliases = {
+            "admin": "admin", "quan_tri_vien": "admin",
+            "branch_manager": "branch_manager", "quan_ly_chi_nhanh": "branch_manager",
+            "staff": "staff", "employee": "staff", "nhan_vien_ban_hang": "staff", "nhan_vien": "branch_manager",
+            "customer": "customer", "khach_hang": "customer",
+        }
+        normalized_role = role_aliases.get(str(role_key))
+        if normalized_role is None:
+            raise ValidationError({"role": "Vai trò không hợp lệ."})
+        branch_id = request.data.get("branch_id")
+        if normalized_role in {"staff", "branch_manager"} and not branch_id:
+            raise ValidationError({"branch_id": "Nhân viên và quản lý chi nhánh phải được gán một chi nhánh."})
+        if NguoiDung.objects.filter(thu_dien_tu__iexact=email).exists():
             raise ValidationError({"email": "Email này đã được sử dụng."})
+        managed_branch = None
+        if branch_id not in (None, ""):
+            from branches.models import ChiNhanh
+            try:
+                managed_branch = ChiNhanh.objects.get(pk=branch_id)
+            except (ChiNhanh.DoesNotExist, ValueError, TypeError):
+                raise ValidationError({"branch_id": "Chi nhánh không tồn tại hoặc không hợp lệ."})
         username = email.split("@", 1)[0]
         base, suffix = username, 1
         while NguoiDung.objects.filter(username=username).exists():
             username = f"{base}_{suffix}"; suffix += 1
-        user = NguoiDung.objects.create_user(username=username, thu_dien_tu=email, email=email, password=password, so_dien_thoai=request.data.get("phone", ""))
-        user.name = name
-        user.is_active = bool(request.data.get("active", True))
-        user.save()
-        self._set_admin_role(user, request.data.get("role", "customer"))
+        with transaction.atomic():
+            user = NguoiDung.objects.create_user(username=username, thu_dien_tu=email, email=email, password=password, so_dien_thoai=request.data.get("phone", ""))
+            user.name = name
+            user.is_active = request.data.get("active", True)
+            user.chi_nhanh_quan_ly = managed_branch
+            user.save()
+            self._set_admin_role(user, normalized_role)
         return Response(self.get_serializer(user).data, status=201)
 
     @action(detail=True, methods=["patch"], url_path="admin_update")
     def admin_update(self, request, pk=None):
         self._require_admin()
         user = self.get_object()
+        requested_role = request.data.get("role")
+        if requested_role in {"staff", "employee", "nhan_vien_ban_hang", "branch_manager", "quan_ly_chi_nhanh", "nhan_vien"} and not (
+            request.data.get("branch_id") or user.chi_nhanh_quan_ly_id
+        ):
+            raise ValidationError({"branch_id": "Quản lý chi nhánh phải được gán một chi nhánh."})
         if "email" in request.data:
             email = str(request.data["email"]).strip().lower()
             if NguoiDung.objects.exclude(pk=user.pk).filter(thu_dien_tu=email).exists():
@@ -223,6 +251,8 @@ class NguoiDungViewSet(viewsets.ModelViewSet):
         if "name" in request.data: user.name = str(request.data["name"]).strip()
         if "phone" in request.data: user.so_dien_thoai = str(request.data["phone"] or "")
         if "active" in request.data: user.is_active = bool(request.data["active"])
+        if "branch_id" in request.data:
+            self._set_managed_branch(user, request.data.get("branch_id"))
         if request.data.get("password"):
             if len(str(request.data["password"])) < 8: raise ValidationError({"password": "Mật khẩu tối thiểu 8 ký tự."})
             user.set_password(str(request.data["password"]))
@@ -232,9 +262,26 @@ class NguoiDungViewSet(viewsets.ModelViewSet):
 
     @staticmethod
     def _set_admin_role(user, role_key):
-        role_name = {"admin": "quan_tri_vien", "staff": "nhan_vien", "customer": "khach_hang"}.get(str(role_key), str(role_key))
+        role_name = {
+            "admin": "quan_tri_vien",
+            "branch_manager": "quan_ly_chi_nhanh",
+            "staff": "nhan_vien_ban_hang",
+            "customer": "khach_hang",
+        }.get(str(role_key), str(role_key))
         role, _ = VaiTro.objects.get_or_create(ten=role_name, defaults={"mo_ta": role_name})
         user.danh_sach_vai_tro.set([role])
+
+    @staticmethod
+    def _set_managed_branch(user, branch_id):
+        if branch_id in (None, ""):
+            user.chi_nhanh_quan_ly = None
+        else:
+            from branches.models import ChiNhanh
+            try:
+                user.chi_nhanh_quan_ly = ChiNhanh.objects.get(pk=branch_id)
+            except ChiNhanh.DoesNotExist:
+                raise ValidationError({"branch_id": "Chi nhánh không tồn tại."})
+        user.save(update_fields=["chi_nhanh_quan_ly"])
 
 
 class VaiTroViewSet(viewsets.ModelViewSet):

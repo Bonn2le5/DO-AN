@@ -102,53 +102,6 @@ class TestMilestone4BugReproduction(TransactionTestCase):
                 self.fail(f"CRITICAL BUG REPRODUCED: {e}")
             raise
 
-    def test_reproduce_bug_2_order_service_interaction_weight_is_6_not_4(self):
-        """
-        Bug 2: Placing order via DichVuDonHang.tao_don_hang logs TuongTacMonAn with weight 6.00 instead of 4.00.
-        Feature 20 strictly requires: xem=1, yeu_thich=2, them_gio_hang=3, dat_mon=4, danh_gia=5.
-        """
-        order = DichVuDonHang.tao_don_hang(
-            nguoi_dung=self.user,
-            du_lieu={
-                "items": [{"mon_an": self.mon, "so_luong": 1}],
-                "hinh_thuc": "mang_ve",
-            }
-        )
-        tt = TuongTacMonAn.objects.filter(nguoi_dung=self.user, mon_an=self.mon).first()
-        self.assertIsNotNone(tt, "TuongTacMonAn must be created upon order creation")
-        self.assertEqual(
-            tt.trong_so,
-            Decimal("4.00"),
-            f"HIGH BUG REPRODUCED: orders/services.py:83 created TuongTacMonAn with trong_so={tt.trong_so}, expected 4.00 per Feature 20"
-        )
-
-    def test_reproduce_bug_3_order_creation_fails_to_invalidate_cache(self):
-        """
-        Bug 3: Placing an order does not invalidate existing GoiYMonAn recommendation cache.
-        User's recommendation cache remains stale until manual refresh.
-        """
-        # 1. User has cached recommendations
-        DichVuGoiY.cap_nhat_goi_y(self.user, gioi_han=1)
-        cache_before = GoiYMonAn.objects.filter(nguoi_dung=self.user).count()
-        self.assertGreater(cache_before, 0)
-
-        # 2. User places order
-        DichVuDonHang.tao_don_hang(
-            nguoi_dung=self.user,
-            du_lieu={
-                "items": [{"mon_an": self.mon, "so_luong": 1}],
-                "hinh_thuc": "mang_ve",
-            }
-        )
-
-        # 3. Cache should be cleared/invalidated
-        cache_after = GoiYMonAn.objects.filter(nguoi_dung=self.user).count()
-        self.assertEqual(
-            cache_after,
-            0,
-            f"MEDIUM BUG REPRODUCED: Cache was not invalidated after placing order (still has {cache_after} cached items)"
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

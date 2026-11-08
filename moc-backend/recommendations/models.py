@@ -7,7 +7,6 @@ class TuongTacMonAn(MoHinhThoiGian):
     class LoaiTuongTac(models.TextChoices):
         XEM = "xem", "Xem"
         YEU_THICH = "yeu_thich", "Yêu thích"
-        THEM_GIO_HANG = "them_gio_hang", "Thêm vào giỏ"
         DAT_MON = "dat_mon", "Đặt món"
         DANH_GIA = "danh_gia", "Đánh giá"
 
@@ -98,6 +97,7 @@ class GoiYMonAn(MoHinhThoiGian):
     diem_tuong_dong = models.DecimalField(max_digits=5, decimal_places=4)  # cosine similarity
     ly_do_goi_y = models.TextField(blank=True)
     phien_ban_model = models.CharField(max_length=30, blank=True)
+    thu_hang = models.PositiveSmallIntegerField(default=0)  # vị trí trong Top-N (0 = đầu)
 
     _LEGACY_MAP = {
         "user": "nguoi_dung",
@@ -169,6 +169,36 @@ class GoiYMonAn(MoHinhThoiGian):
     @model_version.setter
     def model_version(self, val):
         self.phien_ban_model = val
+
+
+class SuKienGoiY(MoHinhThoiGian):
+    """
+    Nhật ký hiển thị / nhấp vào món được gợi ý — nguồn dữ liệu để đo CTR và Conversion.
+    nguoi_dung để trống với khách chưa đăng nhập (chỉ tính vào CTR).
+    """
+
+    class LoaiSuKien(models.TextChoices):
+        HIEN_THI = "hien_thi", "Hiển thị"
+        NHAP = "nhap", "Nhấp / chọn món"
+
+    class ViTri(models.TextChoices):
+        TRANG_CHU = "trang_chu", "Trang chủ"
+        CHI_TIET_MON = "chi_tiet_mon", "Món tương tự (chi tiết món)"
+        GOI_MON = "goi_mon", "Bước gọi món khi đặt bàn"
+
+    nguoi_dung = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name="su_kien_goi_y",
+        null=True, blank=True, on_delete=models.CASCADE,
+    )
+    mon_an = models.ForeignKey(MonAn, related_name="su_kien_goi_y", on_delete=models.CASCADE)
+    loai_su_kien = models.CharField(max_length=20, choices=LoaiSuKien.choices)
+    vi_tri = models.CharField(max_length=20, choices=ViTri.choices, default=ViTri.TRANG_CHU)
+    phien_ban_model = models.CharField(max_length=30, blank=True)
+
+    class Meta:
+        db_table = "su_kien_goi_y"
+        indexes = [models.Index(fields=["loai_su_kien", "tao_luc"])]
+        verbose_name = "Sự kiện gợi ý"
 
 
 # Backward-compatible model aliases

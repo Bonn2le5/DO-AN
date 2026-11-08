@@ -44,7 +44,7 @@ class OrderFSMTransitionTestCase(TestCase):
         return DonHang.objects.create(
             ma_don_hang=f"DH-TEST-{DonHang.objects.count() + 1}",
             khach_hang=self.customer,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             trang_thai=initial_status,
             ten_khach="Khách Hàng",
             sdt_khach="0901234567",
@@ -190,10 +190,13 @@ class OrderWebSocketTestCase(TransactionTestCase):
             first_name="Nhân",
             last_name="Viên",
         )
+        # Vai trò thật để code phân quyền nhận ra nhân viên (is_staff thôi là chưa đủ).
+        from accounts.models import VaiTro
+        self.staff_user.danh_sach_vai_tro.add(VaiTro.objects.get_or_create(ten="quan_tri_vien")[0])
         self.don_hang = DonHang.objects.create(
             ma_don_hang="DH-TEST-WS-01",
             khach_hang=self.user,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
             ten_khach="Khách Hàng",
             sdt_khach="0901234567",
@@ -243,6 +246,26 @@ class OrderWebSocketTestCase(TransactionTestCase):
         self.assertEqual(update["to_status"], DonHang.TrangThai.DA_XAC_NHAN)
         self.assertEqual(update["status"], DonHang.TrangThai.DA_XAC_NHAN)
 
+        await communicator.disconnect()
+
+    async def test_status_update_delivered_once_and_refresh_is_current(self):
+        token = str(AccessToken.for_user(self.user))
+        communicator = WebsocketCommunicator(
+            application, f"/ws/orders/{self.don_hang.id}/?token={token}"
+        )
+        connected, _ = await communicator.connect()
+        self.assertTrue(connected)
+        await communicator.receive_json_from()  # snapshot
+
+        await self._advance_order_status(DonHang.TrangThai.DA_XAC_NHAN)
+        update = await communicator.receive_json_from()
+        self.assertEqual(update["type"], "order_status_update")
+        # Không được nhận bản trùng.
+        self.assertTrue(await communicator.receive_nothing())
+
+        await communicator.send_json_to({"action": "refresh"})
+        snapshot = await communicator.receive_json_from()
+        self.assertEqual(snapshot["status"], DonHang.TrangThai.DA_XAC_NHAN)
         await communicator.disconnect()
 
     async def test_order_tracking_by_ma_don_hang(self):

@@ -253,7 +253,7 @@ class TestMilestone5AdversarialPortals(TransactionTestCase):
             khach_hang=user,
             chi_nhanh=self.branch,
             trang_thai=DonHang.TrangThai.HOAN_TAT,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             tong_tien=dish.don_gia,
         )
         item = ChiTietDonHang.objects.create(
@@ -521,7 +521,7 @@ class TestMilestone5AdversarialPortals(TransactionTestCase):
             khach_hang=self.customer_a,
             chi_nhanh=self.branch,
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             tong_tien=Decimal("850000"),
         )
         ChiTietDonHang.objects.create(
@@ -637,7 +637,7 @@ class TestMilestone5AdversarialPortals(TransactionTestCase):
             khach_hang=self.customer_a,
             chi_nhanh=self.branch,
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             tong_tien=Decimal("250000"),
         )
         ChiTietDonHang.objects.create(
@@ -689,7 +689,7 @@ class TestMilestone5AdversarialPortals(TransactionTestCase):
         order = DonHang.objects.create(
             khach_hang=self.customer_a, chi_nhanh=self.branch,
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY, tong_tien=Decimal("250000"),
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO, tong_tien=Decimal("250000"),
         )
         ChiTietDonHang.objects.create(
             don_hang=order, mon_an=self.dish1, so_luong=1,
@@ -738,7 +738,7 @@ class TestMilestone5AdversarialPortals(TransactionTestCase):
         order1 = DonHang.objects.create(
             khach_hang=self.customer_a, chi_nhanh=self.branch,
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY, tong_tien=Decimal("250000"),
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO, tong_tien=Decimal("250000"),
         )
         ChiTietDonHang.objects.create(
             don_hang=order1, mon_an=self.dish1, so_luong=1,
@@ -749,7 +749,7 @@ class TestMilestone5AdversarialPortals(TransactionTestCase):
         order2 = DonHang.objects.create(
             khach_hang=self.customer_a, chi_nhanh=self.branch,
             trang_thai=DonHang.TrangThai.DA_XAC_NHAN,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY, tong_tien=Decimal("250000"),
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO, tong_tien=Decimal("250000"),
         )
         ChiTietDonHang.objects.create(
             don_hang=order2, mon_an=self.dish1, so_luong=1,
@@ -786,7 +786,7 @@ class TestMilestone5AdversarialPortals(TransactionTestCase):
         order = DonHang.objects.create(
             khach_hang=self.customer_a, chi_nhanh=self.branch,
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY, tong_tien=Decimal("250000"),
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO, tong_tien=Decimal("250000"),
         )
         ChiTietDonHang.objects.create(
             don_hang=order, mon_an=self.dish1, so_luong=1,

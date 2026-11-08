@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  layDanhSachBan,
   layChinhSachDatCoc,
-  giuBan,
   taoDatBan,
   taoPhienThanhToanVNPay,
 } from "@/api/reservations.api";
 import type {
-  RestaurantTable,
   ReservationFoodItem,
   DepositPolicy,
   Reservation,
@@ -35,13 +32,6 @@ export function useReservationFlow() {
   const [time, setTimeState] = useState("");
   const [partySize, setPartySizeState] = useState(2);
 
-  const [tables, setTables] = useState<RestaurantTable[]>([]);
-  const [tablesLoading, setTablesLoading] = useState(true);
-  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
-  const [holdInfo, setHoldInfo] = useState<{ holdId: string; heldUntil: string } | null>(null);
-  const [holdLoading, setHoldLoading] = useState(false);
-  const [holdError, setHoldError] = useState("");
-
   const [policy, setPolicy] = useState<DepositPolicy | null>(null);
   const [foodItems, setFoodItems] = useState<ReservationFoodItem[]>([]);
   const [foodCategory, setFoodCategory] = useState("all");
@@ -55,43 +45,24 @@ export function useReservationFlow() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    let active = true;
-    layDanhSachBan(selectedBranchId || undefined)
-      .then((result) => { if (active) setTables(result); })
-      .finally(() => { if (active) setTablesLoading(false); });
-    return () => { active = false; };
-  }, [selectedBranchId]);
-
-  useEffect(() => {
     layChinhSachDatCoc(selectedBranchId || undefined).then(setPolicy);
   }, [selectedBranchId]);
 
   const setDate = (value: string) => {
     setDateState(value);
-    setSelectedTableId(null);
-    setHoldInfo(null);
   };
 
   const setSelectedBranchId = (value: string) => {
-    setTablesLoading(true);
     setSelectedBranchIdState(value);
-    setSelectedTableId(null);
-    setHoldInfo(null);
   };
 
   const setTime = (value: string) => {
     setTimeState(value);
-    setSelectedTableId(null);
-    setHoldInfo(null);
   };
 
   const setPartySize = (value: number) => {
     setPartySizeState(value);
-    setSelectedTableId(null);
-    setHoldInfo(null);
   };
-
-  const selectedTable = tables.find((b) => b.id === selectedTableId) ?? null;
 
   const foodSubtotal = foodItems.reduce(
     (total, i) => total + (i.food.price ?? i.food.donGia ?? 0) * (i.quantity ?? 1),
@@ -105,33 +76,10 @@ export function useReservationFlow() {
 
   // Proceed from branch_time step
   const proceedFromBranchTime = (branchId: string, branchName: string, selectedTime: string) => {
-    // The selected table hold belongs to this branch/time. Do not call the
-    // branch/time setters here: they intentionally clear the hold token.
     setSelectedBranchIdState(branchId);
     setSelectedBranchName(branchName);
     setTimeState(selectedTime);
     setStep("food");
-  };
-
-  const selectTable = async (tableId: string) => {
-    setSelectedTableId(tableId);
-    setHoldInfo(null);
-    setHoldError("");
-    setHoldLoading(true);
-    try {
-      const res = await giuBan({
-        idBan: tableId,
-        ngayDat: date,
-        gioDat: time,
-        soLuongKhach: partySize,
-      });
-      setHoldInfo({ holdId: res.idGiuBan, heldUntil: res.thoiHanGiuCho });
-    } catch (e: any) {
-      setHoldError(e.response?.data?.chi_tiet ?? "Bàn đang có người giữ hoặc đặt.");
-      setSelectedTableId(null);
-    } finally {
-      setHoldLoading(false);
-    }
   };
 
   const proceedToContact = () => setStep("contact");
@@ -166,8 +114,6 @@ export function useReservationFlow() {
     setSubmitting(true);
     try {
       const res = await taoDatBan({
-        idGiuBan: holdInfo?.holdId,
-        idBan: selectedTableId ?? undefined,
         chiNhanhId: selectedBranchId || undefined,
         ngayDat: date,
         gioDat: time,
@@ -215,8 +161,6 @@ export function useReservationFlow() {
     setStep("branch_time");
     setSelectedBranchId("");
     setSelectedBranchName("");
-    setSelectedTableId(null);
-    setHoldInfo(null);
     setFoodItems([]);
     setFoodCategory("all");
     setContact({ name: "", phone: "", note: "" });
@@ -243,14 +187,6 @@ export function useReservationFlow() {
     setTime,
     partySize,
     setPartySize,
-    tables,
-    tablesLoading,
-    selectedTableId,
-    selectedTable,
-    holdInfo,
-    holdLoading,
-    holdError,
-    selectTable,
     proceedToContact,
     policy,
     foodItems,
@@ -282,14 +218,6 @@ export function useReservationFlow() {
     setGioDat: setTime,
     soLuongKhach: partySize,
     setSoLuongKhach: setPartySize,
-    danhSachBan: tables,
-    dangTaiBan: tablesLoading,
-    idBanDaChon: selectedTableId,
-    banDaChon: selectedTable,
-    thongTinGiuBan: holdInfo,
-    dangGiuBan: holdLoading,
-    loiGiuBan: holdError,
-    chonBan: selectTable,
     tiepTucSauChonBan: proceedToContact,
     chinhSachCoc: policy,
     danhSachMonDat: foodItems,

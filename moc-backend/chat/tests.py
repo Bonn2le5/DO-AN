@@ -40,6 +40,9 @@ class ChatWebSocketTestCase(TransactionTestCase):
             first_name="Nhân",
             last_name="Viên",
         )
+        # Vai trò thật để code phân quyền nhận ra nhân viên (is_staff thôi là chưa đủ).
+        from accounts.models import VaiTro
+        self.staff_user.danh_sach_vai_tro.add(VaiTro.objects.get_or_create(ten="quan_tri_vien")[0])
         self.hoi_thoai = HoiThoai.objects.create(khach_hang=self.user)
 
     async def test_chat_anonymous_connection_rejected(self):
@@ -123,6 +126,23 @@ class ChatWebSocketTestCase(TransactionTestCase):
 
         tin_nhan_count = await self._get_message_count()
         self.assertEqual(tin_nhan_count, 0)
+
+    async def test_customer_cannot_send_system_message(self):
+        token = str(AccessToken.for_user(self.user))
+        communicator = WebsocketCommunicator(
+            application, f"/ws/chat/{self.hoi_thoai.id}/?token={token}"
+        )
+        connected, _ = await communicator.connect()
+        self.assertTrue(connected)
+        await communicator.receive_json_from()  # welcome
+
+        await communicator.send_json_to({
+            "action": "send_message", "content": "Giả hệ thống", "message_type": "he_thong",
+        })
+        response = await communicator.receive_json_from()
+        self.assertEqual(response["type"], "chat_message")
+        self.assertEqual(response["message_type"], "van_ban")
+        await communicator.disconnect()
 
     async def test_chat_typing_indicator(self):
         token1 = str(AccessToken.for_user(self.user))
@@ -234,4 +254,4 @@ class ChatRESTApiTestCase(TestCase):
         response = self.client.get(f"/api/chat/conversations/{room.id}/messages/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["noi_dung"], "Alo alo")
+        self.assertEqual(response.data[0]["content"], "Alo alo")

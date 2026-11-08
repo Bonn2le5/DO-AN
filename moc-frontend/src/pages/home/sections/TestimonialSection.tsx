@@ -28,9 +28,9 @@ const TESTIMONIALS = [
 
 export default function TestimonialSection() {
   return (
-    <section className="py-20">
-      <div className="max-w-310uto px-5 md:px-8">
-        <SectionHeading eyebrow="Đánh giá" title="Khách hàng nói gì về MỘC" />
+    <section className="py-24">
+      <div className="max-w-310 mx-auto px-5 md:px-8">
+        <SectionHeading align="center" eyebrow="Đánh giá" title="Khách hàng nói gì về MỘC" />
         <div className="grid md:grid-cols-3 gap-6">
           {TESTIMONIALS.map((t) => (
             <div key={t.name} className="card p-7">

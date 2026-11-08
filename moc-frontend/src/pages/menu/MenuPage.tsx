@@ -16,10 +16,6 @@ export default function MenuPage() {
     setSearch,
     sort,
     setSort,
-    vegOnly,
-    setVegOnly,
-    maxPrice,
-    setMaxPrice,
     filteredFoods,
     loading,
   } = useMenuFilters();
@@ -32,21 +28,12 @@ export default function MenuPage() {
         <h1 className="font-display text-[34px] sm:text-[42px]">
           Toàn bộ món ăn
         </h1>
-        <p className="text-muted mt-2 max-w-lg">
-          {loading
-            ? "Đang tải..."
-            : `${filteredFoods.length} món phù hợp với lựa chọn của bạn`}
-        </p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-8">
         <MenuFilters
           activeCategory={activeCategory}
           onCategoryChange={setCategory}
-          maxPrice={maxPrice}
-          onMaxPriceChange={setMaxPrice}
-          vegOnly={vegOnly}
-          onVegOnlyChange={setVegOnly}
           open={filtersOpen}
           onToggleOpen={() => setFiltersOpen((v) => !v)}
         />

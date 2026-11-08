@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Search, X } from "lucide-react";
 import FoodCard from "@/components/food/FoodCard";
 import { SORT_OPTIONS, type SortKey } from "@/hooks/useMenuFilters";
@@ -20,25 +22,35 @@ export default function MenuResults({
   sort,
   onSortChange,
 }: MenuResultsProps) {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get("focusSearch") === "1") {
+      document.getElementById("menu-search")?.focus();
+    }
+  }, [location.search]);
+
   return (
     <div className="flex-1">
-      <div className="flex flex-col sm:flex-row gap-3 mb-7">
-        <div className="relative flex-1">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-7">
+        <div className="relative w-full sm:max-w-xs">
           <Search
-            width={17}
-            height={17}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
+            width={15}
+            height={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
           />
           <input
+            id="menu-search"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Tìm món ăn, nguyên liệu..."
-            className="w-full pl-11 pr-4 py-3 rounded-full border border-black/15 text-sm outline-none focus:border-primary"
+            aria-label="Tìm món ăn hoặc nguyên liệu"
+            className="w-full pl-9 pr-8 py-2 rounded-md border border-black/15 text-sm outline-none focus:border-primary"
           />
           {search && (
             <button
               onClick={() => onSearchChange("")}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted"
             >
               <X width={15} height={15} />
             </button>
@@ -47,7 +59,7 @@ export default function MenuResults({
         <select
           value={sort}
           onChange={(e) => onSortChange(e.target.value as SortKey)}
-          className="px-4 py-3 rounded-full border border-black/15 text-sm outline-none bg-white"
+          className="px-3 py-2 rounded-md border border-black/15 text-sm outline-none bg-white"
         >
           {SORT_OPTIONS.map((opt) => (
             <option key={opt.key} value={opt.key}>

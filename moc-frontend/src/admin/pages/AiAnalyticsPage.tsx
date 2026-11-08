@@ -18,12 +18,26 @@ export default function AiAnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="AI gợi ý món" subtitle="Hiệu quả của mục “Đề xuất dành riêng cho bạn” trên trang chủ." />
+      <PageHeader title="AI gợi ý món" subtitle="Hiệu quả gợi ý ở trang chủ, món tương tự và bước gọi món khi đặt bàn." />
       <div className="grid sm:grid-cols-3 gap-4">
         <StatCard label="Lượt gợi ý đã hiển thị" value={data.overview.suggested.toLocaleString("vi-VN")} />
-        <StatCard label="Tỉ lệ bấm vào gợi ý" value={`${data.overview.ctr}%`} />
-        <StatCard label="Tỉ lệ đặt sau khi bấm" value={`${data.overview.conversion}%`} />
+        <StatCard label="Tỉ lệ bấm vào gợi ý (CTR)" value={`${data.overview.ctr}%`} />
+        <StatCard label="Tỉ lệ đặt sau khi bấm (Conversion)" value={`${data.overview.conversion}%`} />
       </div>
+      {data.positions && data.positions.length > 0 && (
+        <div>
+          <h2 className="font-display text-lg mb-3">Theo vị trí hiển thị</h2>
+          <DataTable
+            rows={data.positions.map((p) => ({ ...p, id: p.key }))}
+            columns={[
+              { header: "Vị trí", cell: (r) => <b>{r.label}</b> },
+              { header: "Lượt hiển thị", cell: (r) => r.shown.toLocaleString("vi-VN") },
+              { header: "Lượt bấm", cell: (r) => r.clicks.toLocaleString("vi-VN") },
+              { header: "CTR", cell: (r) => `${r.ctr}%` },
+            ]}
+          />
+        </div>
+      )}
       <div className="card p-6">
         <div className="mb-5"><Tabs value={tab} onChange={setTab} items={TABS.map(({ key, label }) => ({ key, label }))} /></div>
         <BarList items={data.top[tab]} unit={TABS.find((t) => t.key === tab)?.unit} />

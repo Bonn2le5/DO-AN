@@ -351,7 +351,7 @@ class TestMilestone6CrossModuleHardening(TransactionTestCase):
             chi_nhanh=self.branch_tanbinh,
             tong_tien=Decimal("570000"),
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             ten_khach="Alice M6",
             sdt_khach="0911223344",
         )
@@ -432,7 +432,7 @@ class TestMilestone6CrossModuleHardening(TransactionTestCase):
             chi_nhanh=self.branch_tanbinh,
             tong_tien=Decimal("350000"),
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             ten_khach="Alice M6",
             sdt_khach="0911223344",
         )
@@ -682,7 +682,7 @@ class TestMilestone6CrossModuleHardening(TransactionTestCase):
             chi_nhanh=self.branch_tanbinh,
             tong_tien=Decimal("350000"),
             trang_thai=DonHang.TrangThai.DA_XAC_NHAN,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             ten_khach="Alice M6",
             sdt_khach="0911223344",
         )
@@ -703,7 +703,7 @@ class TestMilestone6CrossModuleHardening(TransactionTestCase):
             khach_hang=self.customer_alice,
             chi_nhanh=self.branch_tanbinh,
             trang_thai=DonHang.TrangThai.HOAN_TAT,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             tong_tien=self.dish_hotpot.don_gia,
         )
         item_rev_alice = ChiTietDonHang.objects.create(
@@ -727,7 +727,7 @@ class TestMilestone6CrossModuleHardening(TransactionTestCase):
             khach_hang=self.customer_bob,
             chi_nhanh=self.branch_tanbinh,
             trang_thai=DonHang.TrangThai.HOAN_TAT,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             tong_tien=self.dish_hotpot.don_gia,
         )
         item_rev_bob = ChiTietDonHang.objects.create(

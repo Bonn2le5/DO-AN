@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Plus } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import { formatCurrency } from "@/lib/utils";
 import { needsRefund, paymentsStore, refundBucket, reservationsStore } from "../api/admin.api";
 import DataTable from "../components/DataTable";
+import CreateInvoiceDrawer from "../components/CreateInvoiceDrawer";
 import ConfirmModal from "../components/ConfirmModal";
 import { PageHeader, StatusBadge, Tabs } from "../components/primitives";
 import { useToast } from "../components/toast";
-import { useCan } from "../permissions";
+import { useCan, useRole } from "../permissions";
 import { fmtDateTime } from "../lib";
 import type { AdminPayment } from "../types";
 
@@ -17,9 +19,12 @@ const BUCKET = { ">24h": "Huỷ >24h", "6-24h": "Huỷ 6–24h", "<6h": "Huỷ <
 
 export default function PaymentsPage() {
   const can = useCan();
+  const role = useRole();
+  const canHandleRefunds = role === "admin" || role === "branch_manager";
   const push = useToast((s) => s.push);
   const [tab, setTab] = useState<"refund" | "all">("refund");
   const [confirming, setConfirming] = useState<AdminPayment | null>(null);
+  const [creatingInvoice, setCreatingInvoice] = useState(false);
   const { data: payments, loading, refetch } = useAsync(() => paymentsStore.list());
   const { data: reservations, loading: loadingRes } = useAsync(() => reservationsStore.list());
   const queue = reservations?.filter(needsRefund);
@@ -32,9 +37,13 @@ export default function PaymentsPage() {
 
   return (
     <div>
-      <PageHeader title="Thanh toán & hoàn cọc" subtitle="Hoàn cọc làm thủ công qua lễ tân/CSKH: xác minh, chuyển khoản, rồi ghi nhận tại đây." />
-      <div className="mb-4"><Tabs value={tab} onChange={setTab} items={[{ key: "refund", label: "Cọc chờ hoàn", count: queue?.length ?? 0 }, { key: "all", label: "Tất cả giao dịch" }]} /></div>
-      {tab === "refund" ? (
+      <PageHeader
+        title={canHandleRefunds ? "Thanh toán & hoàn cọc" : "Hóa đơn & thanh toán"}
+        subtitle={canHandleRefunds ? "Đối chiếu giao dịch và xử lý hoàn cọc theo đặt bàn." : "Lập hóa đơn và theo dõi thanh toán tại chi nhánh được phân công."}
+        actions={can("payments", "create") && <button onClick={() => setCreatingInvoice(true)} className="btn btn-primary py-2.5! px-5! text-sm!"><Plus size={16} />Lập hóa đơn</button>}
+      />
+      <div className="mb-4"><Tabs value={canHandleRefunds ? tab : "all"} onChange={setTab} items={[...(canHandleRefunds ? [{ key: "refund" as const, label: "Cọc chờ hoàn", count: queue?.length ?? 0 }] : []), { key: "all" as const, label: "Tất cả giao dịch" }]} /></div>
+      {canHandleRefunds && tab === "refund" ? (
         <DataTable
           loading={loadingRes} rows={queue} emptyTitle="Không có khoản cọc nào đang chờ hoàn" emptyHint="Khi khách huỷ hoặc không đến, khoản cọc đã thanh toán sẽ xuất hiện ở đây."
           columns={[
@@ -65,6 +74,7 @@ export default function PaymentsPage() {
         message={confirming ? `${confirming.code} · ${formatCurrency(confirming.amount)}. Chỉ xác nhận khi đã đối chiếu sao kê.` : ""}
         onConfirm={markPaid} onCancel={() => setConfirming(null)}
       />
+      <CreateInvoiceDrawer open={creatingInvoice} onClose={() => setCreatingInvoice(false)} onCreated={refetch} />
     </div>
   );
 }

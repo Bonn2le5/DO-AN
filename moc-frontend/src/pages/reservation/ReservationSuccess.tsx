@@ -1,95 +1,61 @@
-import { CheckCircle2, UtensilsCrossed } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { formatCurrency } from "@/lib/utils";
-import type { Reservation, ReservationFoodItem } from "@/types";
+import type { Reservation } from "@/types";
+import ReservationTicket from "./ReservationTicket";
 
 export default function ReservationSuccess({
   reservation,
+  branchName = "",
   onReset,
 }: {
   reservation: Reservation;
+  branchName?: string;
   onReset: () => void;
 }) {
   const foodItems = reservation.foodItems ?? reservation.danhSachMonAn ?? [];
-  const hasFood = foodItems.length > 0;
-  const depositPaid = (reservation.depositAmount ?? reservation.soTienCoc ?? 0) > 0
+  const deposit = reservation.depositAmount ?? reservation.soTienCoc ?? 0;
+  const depositPaid = deposit > 0
     && ["success", "thanh_cong"].includes(reservation.depositStatus ?? reservation.trangThaiThanhToanCoc ?? "");
+  const confirmed = reservation.status === "da_xac_nhan" || reservation.trangThai === "da_xac_nhan";
+  const statusText = confirmed
+    ? "Nhà hàng đã xác nhận"
+    : depositPaid ? "Đã nhận cọc, chờ nhà hàng gọi xác nhận" : "Chờ nhà hàng gọi xác nhận";
 
   return (
-    <div className="max-w-lg mx-auto px-5 py-16 text-center">
-      <div className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-6">
-        <CheckCircle2 width={40} height={40} className="text-success" />
-      </div>
-      <h1 className="font-display text-3xl mb-2">{depositPaid ? "Đã nhận cọc và đặt chỗ" : "Đã gửi yêu cầu đặt chỗ"}</h1>
-      <p className="text-muted mb-8">
-        Nhà hàng sẽ gọi điện xác nhận thông tin với bạn. Hẹn gặp bạn tại MỘC!
-      </p>
-
-      <div className="card p-6 text-left space-y-4">
-        <div className="flex items-center justify-between border-b border-black/8">
-          <span className="font-display text-lg">#{reservation.id}</span>
-          <span className="text-xs font-bold uppercase tracking-wide bg-success/10 text-success px-3 py-1 rounded-full">
-            {reservation.status === "da_xac_nhan" || reservation.trangThai === "da_xac_nhan"
-              ? "Nhà hàng đã xác nhận"
-              : depositPaid ? "Đã nhận cọc · Chờ nhà hàng gọi" : "Chờ nhà hàng gọi xác nhận"}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <Row label="Bàn" value={reservation.tableLabel ?? reservation.tenBanAn ?? "Chưa xếp bàn"} />
-          <Row
-            label="Thời gian"
-            value={`${reservation.time ?? reservation.gioDat} · ${reservation.date ?? reservation.ngayDat}`}
-          />
-          <Row label="Số khách" value={String(reservation.partySize ?? reservation.soLuongKhach ?? 2)} />
-          <Row label="Người đặt" value={reservation.customerName ?? reservation.tenKhachHang ?? ""} />
-        </div>
-
-        {hasFood && (
-          <div className="pt-4 border-t border-black/8">
-            <div className="text-xs font-bold uppercase tracking-wide text-muted mb-2.5 flex items-center gap-1.5">
-              <UtensilsCrossed width={13} height={13} /> Đơn món đã đặt trước
-            </div>
-            <div className="space-y-1.5">
-              {foodItems.map((i: ReservationFoodItem) => (
-                <div key={i.food.id} className="flex justify-between text-sm">
-                  <span>
-                    ✓ {i.quantity} × {i.food.name ?? i.food.tenMon}
-                  </span>
-                  <span className="text-muted">
-                    {formatCurrency((i.food.price ?? i.food.donGia ?? 0) * i.quantity)}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-between text-sm font-semibold mt-2 pt-2 border-t border-black/6">
-              <span>Tiền món</span>
-              <span>{formatCurrency(reservation.foodSubtotal ?? reservation.tienMonAn ?? 0)}</span>
-            </div>
-          </div>
-        )}
-
-        {(reservation.depositAmount ?? reservation.soTienCoc ?? 0) > 0 && (
-          <div className="flex justify-between items-center pt-4 border-t border-black/8">
-            <span className="text-sm font-bold">Đã cọc</span>
-            <span className="font-display text-xl text-primary">
-              {formatCurrency(reservation.depositAmount ?? reservation.soTienCoc ?? 0)}
-            </span>
-          </div>
-        )}
+    <div className="reservation-ui max-w-xl mx-auto px-4 sm:px-5 py-12 sm:py-16">
+      <div className="text-center mb-8">
+        <CheckCircle2 width={44} height={44} className="text-success mx-auto mb-4" />
+        <h1 className="font-display text-[30px] sm:text-[34px] leading-tight">
+          {depositPaid ? "Đã nhận cọc, chỗ của bạn đã được giữ" : "Đã gửi yêu cầu đặt chỗ"}
+        </h1>
+        <p className="text-muted mt-2 max-w-[48ch] mx-auto">
+          Nhà hàng sẽ gọi số {reservation.customerPhone ?? reservation.soDienThoai} để xác nhận. Hẹn gặp bạn tại MỘC.
+        </p>
       </div>
 
-      <button onClick={onReset} className="btn btn-outline mt-8">
-        Đặt thêm bàn khác
-      </button>
-    </div>
-  );
-}
+      <ReservationTicket
+        branchName={branchName}
+        date={reservation.date ?? reservation.ngayDat ?? ""}
+        time={reservation.time ?? reservation.gioDat ?? ""}
+        partySize={reservation.partySize ?? reservation.soLuongKhach ?? 2}
+        foodItems={foodItems}
+        foodSubtotal={reservation.foodSubtotal ?? reservation.tienMonAn ?? 0}
+        tableLabel={reservation.tableLabel || reservation.tenBanAn}
+        topLine={<>Mã đặt chỗ <strong className="text-text">#{reservation.id}</strong> · {statusText}</>}
+      >
+        {deposit > 0 && (
+          <div className="flex items-baseline justify-between gap-3 mt-4 pt-3 border-t border-black/8">
+            <span className="font-semibold">{depositPaid ? "Đã cọc" : "Tiền cọc"}</span>
+            <span className="font-display text-2xl text-primary tabular-nums">{formatCurrency(deposit)}</span>
+          </div>
+        )}
+      </ReservationTicket>
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-muted text-xs">{label}</div>
-      <div className="font-medium">{value}</div>
+      <div className="flex flex-col sm:flex-row gap-3 mt-8 justify-center">
+        <Link to="/" className="btn btn-primary">Về trang chủ</Link>
+        <button type="button" onClick={onReset} className="btn btn-outline">Đặt thêm bàn khác</button>
+      </div>
     </div>
   );
 }

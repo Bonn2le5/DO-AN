@@ -5,7 +5,8 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { getWebSocketUrl } from "@/services/websocket";
+import { openAuthenticatedWebSocket, scheduleCurrentWebSocketRenewal } from "@/services/websocket";
+import { refreshAccessToken } from "@/api/client";
 import { useAuthStore } from "@/store/authStore";
 import type { UserRole } from "@/types";
 
@@ -37,16 +38,25 @@ export function useStaffOrderStream(options?: {
   useEffect(() => {
     if (!isAuthenticated || !isStaff) return;
 
-    const wsUrl = getWebSocketUrl("/ws/orders/staff/");
     let isClosing = false;
     let timer: ReturnType<typeof setTimeout>;
+    let cancelRenewal: (() => void) | undefined;
 
-    function connect() {
+    async function connect() {
+      if (isClosing) return;
       try {
-        const ws = new WebSocket(wsUrl);
+        const ws = await openAuthenticatedWebSocket("/ws/orders/staff/");
+        if (!ws) return;
+        if (isClosing) {
+          ws.close();
+          return;
+        }
         wsRef.current = ws;
 
-        ws.onopen = () => setIsConnected(true);
+        ws.onopen = () => {
+          setIsConnected(true);
+          cancelRenewal = scheduleCurrentWebSocketRenewal(ws);
+        };
 
         ws.onmessage = (event) => {
           try {
@@ -70,9 +80,17 @@ export function useStaffOrderStream(options?: {
           }
         };
 
-        ws.onclose = () => {
+        ws.onclose = (event) => {
           setIsConnected(false);
-          if (!isClosing) timer = setTimeout(connect, 3000);
+          cancelRenewal?.();
+          if (isClosing) return;
+          if (event.code === 4401) {
+            void refreshAccessToken().then((token) => { if (token && !isClosing) return connect(); });
+          } else if (event.code === 4001) {
+            void connect();
+          } else if (event.code !== 4403) {
+            timer = setTimeout(connect, 3000);
+          }
         };
       } catch {
         setIsConnected(false);
@@ -84,6 +102,7 @@ export function useStaffOrderStream(options?: {
     return () => {
       isClosing = true;
       clearTimeout(timer);
+      cancelRenewal?.();
       if (wsRef.current) wsRef.current.close();
     };
   }, [isAuthenticated, isStaff, options]);

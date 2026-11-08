@@ -6,14 +6,14 @@ export interface AdminFood {
 }
 export interface AdminCategory { id: string; name: string; description: string; active: boolean }
 export interface AdminTag { id: string; name: string }
-export interface AdminIngredient { id: string; name: string; unit: string; currentStock: number; minimumStock: number; active: boolean }
+export interface AdminIngredient { id: string; name: string; unit: string; currentStock: number; minimumStock: number; active: boolean; recipeCount?: number; updatedAt?: string }
 export interface AdminPromotion {
   id: string; code: string; name: string; discountType: "percent" | "fixed"; discountValue: number; minOrder: number;
   maxDiscount: number; startAt: string; endAt: string; usageLimit: number; usedCount: number; active: boolean;
 }
 export interface AdminPost { id: string; title: string; category: string; status: "draft" | "published" | "archived"; content: string; image?: string; createdAt: string }
 export interface AdminReview { id: string; food: string; customer: string; rating: number; comment: string; visible: boolean; createdAt: string }
-export interface AdminUser { id: string; name: string; email: string; phone: string; role: "admin" | "staff" | "customer"; active: boolean; createdAt: string; password?: string }
+export interface AdminUser { id: string; name: string; email: string; phone: string; role: "admin" | "branch_manager" | "staff" | "customer"; active: boolean; createdAt: string; password?: string; branchId?: string }
 export interface AdminBranch { id: string; name: string; address: string; phone: string; lat: number; lng: number; active: boolean }
 
 export const CATEGORY_OPTIONS = ["Món chính", "Khai vị", "Đồ uống", "Tráng miệng", "Combo"].map((v) => ({ value: v, label: v }));

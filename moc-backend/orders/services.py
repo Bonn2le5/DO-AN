@@ -1,103 +1,117 @@
+import logging
 from decimal import Decimal
 from django.db import transaction
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from .models import DonHang, ChiTietDonHang, LichSuTrangThaiDon
-from promotions.models import KhuyenMai, MaKhuyenMai, LichSuDungKhuyenMai
+
+logger = logging.getLogger(__name__)
+
+
+def gui_su_kien_don_hang(dh, message):
+    """Gửi sự kiện WS cho người theo dõi đơn và luồng đơn của nhân viên.
+
+    Mỗi nhóm chỉ gửi một lần: người theo dõi đơn chỉ ở nhóm order_<id>.
+    """
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+
+    channel_layer = get_channel_layer()
+    if not channel_layer:
+        return
+    groups = [f"order_{dh.id}", "staff_orders"]
+    if dh.chi_nhanh_id:
+        groups.append(f"staff_orders_branch_{dh.chi_nhanh_id}")
+    for group in groups:
+        try:
+            async_to_sync(channel_layer.group_send)(group, message)
+        except Exception:
+            logger.exception("Không gửi được sự kiện WS %s tới nhóm %s", message.get("type"), group)
 
 
 class DichVuDonHang:
     @staticmethod
+    def tao_don_tai_cho(*, nguoi_dung, phien_phuc_vu, ten_khach="", sdt_khach="", ghi_chu=""):
+        """Tạo hóa đơn rỗng khi bắt đầu phục vụ tại bàn.
+
+        Món được thêm sau qua phiên phục vụ, vì khách walk-in thường gọi món
+        sau khi đã ổn định chỗ ngồi.
+        """
+        don_hang = DonHang.objects.create(
+            # Gắn khách đã đặt bàn (nếu có tài khoản) để họ đánh giá món sau khi dùng.
+            khach_hang=getattr(phien_phuc_vu.dat_ban, "nguoi_dung", None),
+            chi_nhanh=phien_phuc_vu.chi_nhanh,
+            dat_ban=phien_phuc_vu.dat_ban,
+            phien_phuc_vu=phien_phuc_vu,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
+            ten_khach=ten_khach or "Khách tại bàn",
+            sdt_khach=sdt_khach or "",
+            ghi_chu=ghi_chu or "",
+            tien_hang=Decimal("0"),
+            tien_giam=Decimal("0"),
+            tong_tien=Decimal("0"),
+        )
+        LichSuTrangThaiDon.objects.create(
+            don_hang=don_hang,
+            tu_trang_thai=None,
+            sang_trang_thai=don_hang.trang_thai,
+            doi_boi=nguoi_dung,
+            ghi_chu=f"Mở phiên phục vụ {phien_phuc_vu.ma_phien}",
+        )
+
+        order_payload = {
+            "id": don_hang.id,
+            "order_number": don_hang.ma_don_hang,
+            "ma_don_hang": don_hang.ma_don_hang,
+            "status": don_hang.trang_thai,
+            "status_display": don_hang.get_trang_thai_display(),
+            "order_type": don_hang.hinh_thuc,
+            "chi_nhanh_id": don_hang.chi_nhanh_id,
+            "customer_name": don_hang.ten_khach,
+            "total_amount": str(don_hang.tong_tien),
+            "created_at": don_hang.tao_luc.isoformat(),
+        }
+        transaction.on_commit(lambda: gui_su_kien_don_hang(don_hang, {
+            "type": "order_created", "order": order_payload, "data": order_payload,
+        }))
+        return don_hang
+
+    @staticmethod
     @transaction.atomic
-    def tao_don_hang(*, nguoi_dung, du_lieu):
-        danh_sach_item = du_lieu.pop("danh_sach_mon", None) or du_lieu.pop("items", [])
-        ma_km = du_lieu.pop("ma_khuyen_mai", "") or du_lieu.pop("promo_code", "")
-
-        if not danh_sach_item:
-            raise ValidationError({"items": "Đơn hàng phải có ít nhất một món ăn."})
-
-        tien_hang = Decimal("0")
-        danh_sach_chuan_hoa = []
+    def them_mon_tai_cho(*, don_hang, danh_sach_item, nguoi_dung):
+        """Thêm món vào hóa đơn của phiên đang phục vụ và tính lại tổng tiền."""
+        don_hang = DonHang.objects.select_for_update(of=("self",)).select_related("phien_phuc_vu").get(pk=don_hang.pk)
+        if don_hang.hinh_thuc != DonHang.HinhThuc.TAI_CHO or not don_hang.phien_phuc_vu_id:
+            raise ValidationError({"order": "Chỉ hóa đơn dùng tại bàn mới được thêm món từ phiên phục vụ."})
+        if don_hang.phien_phuc_vu.trang_thai != "dang_phuc_vu":
+            raise ValidationError({"session": "Phiên phục vụ này đã checkout hoặc đang chờ dọn."})
+        if don_hang.trang_thai in DichVuDonHang.TERMINAL_STATES:
+            raise ValidationError({"order": "Hóa đơn đã kết thúc, không thể thêm món."})
 
         for item in danh_sach_item:
             mon_an = item["mon_an"]
-            so_luong = item.get("so_luong") if "so_luong" in item else item.get("quantity", 1)
+            so_luong = item["so_luong"]
             if so_luong < 1 or not mon_an.hien_thi or not mon_an.con_hang:
                 raise ValidationError({"items": f"Món {mon_an.ten} hiện không khả dụng."})
             if mon_an.ton_kho_cache is not None and not mon_an.quan_ly_kho and mon_an.ton_kho_cache < so_luong:
                 raise ValidationError({"items": f"Món {mon_an.ten} không đủ số lượng trong kho."})
 
             don_gia = mon_an.don_gia_hien_tai
-            tien_hang += don_gia * so_luong
-            danh_sach_chuan_hoa.append((mon_an, so_luong, don_gia))
-
-        khuyen_mai = ma_khuyen_mai_obj = None
-        tien_giam = Decimal("0")
-
-        if ma_km:
-            khuyen_mai = KhuyenMai.objects.select_for_update().filter(ma_giam_gia__iexact=ma_km).first()
-            ma_khuyen_mai_obj = MaKhuyenMai.objects.select_for_update().filter(
-                ma__iexact=ma_km, con_hoat_dong=True
-            ).select_related("khuyen_mai").first()
-
-            if ma_khuyen_mai_obj:
-                khuyen_mai = ma_khuyen_mai_obj.khuyen_mai
-
-            if not khuyen_mai or (khuyen_mai.gioi_han_su_dung is not None and khuyen_mai.so_lan_da_dung >= khuyen_mai.gioi_han_su_dung):
-                raise ValidationError({"promo_code": "Mã khuyến mãi không hợp lệ hoặc đã hết lượt."})
-
-            tien_giam = khuyen_mai.tinh_tien_giam(tien_hang)
-            if not tien_giam:
-                raise ValidationError({"promo_code": "Đơn hàng chưa đạt giá trị tối thiểu để áp dụng mã này."})
-
-            if ma_khuyen_mai_obj and ma_khuyen_mai_obj.gioi_han is not None and ma_khuyen_mai_obj.da_dung >= ma_khuyen_mai_obj.gioi_han:
-                raise ValidationError({"promo_code": "Mã giảm giá cá nhân đã hết lượt sử dụng."})
-
-        if du_lieu["hinh_thuc"] == DonHang.HinhThuc.GIAO_HANG and not du_lieu.get("dia_chi_giao"):
-            raise ValidationError({"dia_chi_giao": "Địa chỉ giao hàng là bắt buộc đối với đơn giao tận nơi."})
-
-        don_hang = DonHang.objects.create(
-            khach_hang=nguoi_dung,
-            tien_hang=tien_hang,
-            tien_giam=tien_giam,
-            tong_tien=tien_hang - tien_giam,
-            khuyen_mai=khuyen_mai,
-            **du_lieu
-        )
-
-        for mon_an, so_luong, don_gia in danh_sach_chuan_hoa:
-            if mon_an.ton_kho_cache is not None and not mon_an.quan_ly_kho:
-                mon_an.ton_kho_cache -= so_luong
-                mon_an.save(update_fields=["ton_kho_cache", "cap_nhat_luc"])
-
             ChiTietDonHang.objects.create(
                 don_hang=don_hang,
                 mon_an=mon_an,
                 so_luong=so_luong,
                 don_gia_luc_dat=don_gia,
-                thanh_tien=don_gia * so_luong
+                thanh_tien=don_gia * so_luong,
+                ghi_chu=item.get("ghi_chu", ""),
             )
+            if mon_an.ton_kho_cache is not None and not mon_an.quan_ly_kho:
+                mon_an.ton_kho_cache -= so_luong
+                mon_an.save(update_fields=["ton_kho_cache", "cap_nhat_luc"])
 
-            from recommendations.models import TuongTacMonAn
-            TuongTacMonAn.objects.create(
-                nguoi_dung=nguoi_dung, mon_an=mon_an,
-                loai_tuong_tac=TuongTacMonAn.LoaiTuongTac.DAT_MON, trong_so=4
-            )
-
-        if khuyen_mai:
-            khuyen_mai.so_lan_da_dung += 1
-            khuyen_mai.save(update_fields=["so_lan_da_dung", "cap_nhat_luc"])
-            if ma_khuyen_mai_obj:
-                ma_khuyen_mai_obj.da_dung += 1
-                ma_khuyen_mai_obj.save(update_fields=["da_dung", "cap_nhat_luc"])
-            LichSuDungKhuyenMai.objects.create(
-                khuyen_mai=khuyen_mai, ma_khuyen_mai=ma_khuyen_mai_obj,
-                nguoi_dung=nguoi_dung, don_hang=don_hang, so_tien_giam=tien_giam
-            )
-
-        LichSuTrangThaiDon.objects.create(
-            don_hang=don_hang, tu_trang_thai=None,
-            sang_trang_thai=don_hang.trang_thai, doi_boi=nguoi_dung
-        )
+        tien_hang = sum((item.thanh_tien for item in don_hang.danh_sach_mon.all()), Decimal("0"))
+        don_hang.tien_hang = tien_hang
+        don_hang.tong_tien = max(Decimal("0"), tien_hang - don_hang.tien_giam)
+        don_hang.save(update_fields=["tien_hang", "tong_tien", "cap_nhat_luc"])
         return don_hang
 
     STATUS_ALIASES = {
@@ -214,10 +228,8 @@ class DichVuDonHang:
         # Hook BOM Material Deduction when order is confirmed
         if trang_thai_moi_canonical == DonHang.TrangThai.DA_XAC_NHAN:
             from foods.services import DichVuKho
-            DichVuKho.khau_tru_nguyen_lieu_bom(
-                danh_sach_mon=dh.danh_sach_mon.all(),
-                loai_tham_chieu="don_hang",
-                id_tham_chieu=dh.id,
+            DichVuKho.dong_bo_nguyen_lieu_don(
+                don_hang=dh,
                 nguoi_dung=nguoi_dung,
                 ghi_chu=ghi_chu or f"Xuất kho khi xác nhận đơn hàng {dh.ma_don_hang}"
             )
@@ -236,6 +248,15 @@ class DichVuDonHang:
         dh.trang_thai = trang_thai_moi_canonical
         dh.save(update_fields=["trang_thai", "cap_nhat_luc"])
 
+        # Ghi tương tác "đặt món" cho mô hình gợi ý AI khi đơn hoàn tất.
+        # Món đã gọi trước lúc đặt bàn đã được ghi khi tạo đặt bàn → bỏ qua để không tính 2 lần.
+        if trang_thai_moi_canonical == DonHang.TrangThai.HOAN_TAT and dh.khach_hang_id:
+            from recommendations.services import ghi_nhan_dat_mon
+            mon_ids = set(dh.danh_sach_mon.values_list("mon_an_id", flat=True))
+            if dh.dat_ban_id and dh.dat_ban.nguoi_dung_id == dh.khach_hang_id:
+                mon_ids -= set(dh.dat_ban.danh_sach_mon.values_list("mon_an_id", flat=True))
+            ghi_nhan_dat_mon(dh.khach_hang, mon_ids)
+
         # Audit log in LichSuTrangThaiDon (safe note truncation <= 255 chars)
         clean_note = (ghi_chu or "")[:255]
         LichSuTrangThaiDon.objects.create(
@@ -249,13 +270,7 @@ class DichVuDonHang:
         # Post-commit broadcast (transaction.on_commit)
         def _broadcast():
             try:
-                from channels.layers import get_channel_layer
-                from asgiref.sync import async_to_sync
                 from django.utils import timezone
-
-                channel_layer = get_channel_layer()
-                if not channel_layer:
-                    return
 
                 actor_name = (
                     getattr(nguoi_dung, "ho_ten", None)
@@ -291,10 +306,9 @@ class DichVuDonHang:
                     **event_payload,
                 }
 
-                for group in [f"order_{dh.id}", f"order_{dh.ma_don_hang}", "staff_orders"]:
-                    async_to_sync(channel_layer.group_send)(group, broadcast_msg)
+                gui_su_kien_don_hang(dh, broadcast_msg)
             except Exception:
-                pass
+                logger.exception("Lỗi khi tạo sự kiện cập nhật trạng thái đơn %s", dh.id)
 
         transaction.on_commit(_broadcast)
         return dh

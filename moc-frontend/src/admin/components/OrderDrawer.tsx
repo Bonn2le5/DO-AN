@@ -51,7 +51,7 @@ export default function OrderDrawer({ order, onClose, onChanged }: { order: Admi
             <StatusBadge tone={ORDER_META[order.status].tone}>{ORDER_META[order.status].label}</StatusBadge>
             <section className="space-y-1.5">
               <div className="font-semibold">{order.customer} · {order.phone}</div>
-              <div className="text-muted">{order.type === "delivery" ? `Giao tới: ${order.address ?? "—"}` : "Khách tự đến lấy"}</div>
+              <div className="text-muted">Phục vụ tại bàn</div>
               <div className="text-muted">Thanh toán: {PAYMENT[order.payment]}</div>
               {order.note && <div className="rounded-xl bg-accent/10 px-3 py-2">Ghi chú: {order.note}</div>}
             </section>

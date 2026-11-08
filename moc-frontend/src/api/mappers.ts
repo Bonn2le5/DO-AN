@@ -156,7 +156,6 @@ export function mapThongTinDatBan(raw: any): Reservation {
     depositAmount,
     status,
     depositStatus,
-    holdExpiresAt: raw.thoi_han_giu_cho ?? raw.hold_expires_at,
     createdAt,
 
     // Vietnamese aliases
@@ -281,6 +280,8 @@ export function mapGoiY(raw: any): Recommendation {
     food: mapMonAn(raw.chi_tiet_mon_an ?? raw.food_detail ?? raw.mon_an ?? raw.food),
     score: Number(raw.diem_tuong_dong ?? raw.score ?? 1),
     reason: raw.ly_do_goi_y ?? raw.reason ?? "Gợi ý dành riêng cho bạn",
+    modelVersion: raw.phien_ban_model ?? raw.model_version ?? "",
+    isColdStart: Boolean(raw.is_cold_start),
   };
 }
 

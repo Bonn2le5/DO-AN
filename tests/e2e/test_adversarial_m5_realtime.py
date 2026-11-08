@@ -146,18 +146,17 @@ class TestMilestone5RealtimeAdversarial(TransactionTestCase):
         self.order_alice = DonHang.objects.create(
             ma_don_hang="DH-M5-ALICE-01",
             khach_hang=self.customer_alice,
-            hinh_thuc=DonHang.HinhThuc.GIAO_HANG,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
             ten_khach="Alice Tran",
             sdt_khach="0901234567",
-            dia_chi_giao="123 Nguyen Hue, Q1, TPHCM",
             tien_hang=Decimal("450000"),
             tong_tien=Decimal("450000"),
         )
         self.order_bob = DonHang.objects.create(
             ma_don_hang="DH-M5-BOB-01",
             khach_hang=self.customer_bob,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
             ten_khach="Bob Nguyen",
             sdt_khach="0907654321",

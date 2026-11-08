@@ -3,6 +3,7 @@ from django.db import models
 from django.utils import timezone
 import secrets
 from foods.models import LegacyKwargsMixin
+from branches.models import ChiNhanh
 
 
 class VaiTro(LegacyKwargsMixin, models.Model):
@@ -103,6 +104,13 @@ class NguoiDung(LegacyKwargsMixin, AbstractUser):
     so_dien_thoai = models.CharField(max_length=30, blank=True)
     anh_dai_dien = models.ImageField(upload_to="anh_dai_dien/", blank=True, null=True)
     ngay_sinh = models.DateField(null=True, blank=True)
+    chi_nhanh_quan_ly = models.ForeignKey(
+        ChiNhanh,
+        related_name="nguoi_dung_quan_ly",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
     gioi_tinh = models.CharField(
         max_length=10,
         choices=[("nam", "Nam"), ("nu", "Nữ"), ("khac", "Khác")],
@@ -192,11 +200,24 @@ class NguoiDung(LegacyKwargsMixin, AbstractUser):
 
     @property
     def la_nhan_vien_nha_hang(self):
-        return self.is_superuser or bool(self.ten_vai_tro & {"nhan_vien", "quan_tri_vien"})
+        return self.is_superuser or bool(
+            self.ten_vai_tro & {"nhan_vien", "nhan_vien_ban_hang", "quan_ly_chi_nhanh", "quan_tri_vien"}
+        )
+
+    @property
+    def la_quan_ly_chi_nhanh(self):
+        roles = self.ten_vai_tro
+        # Accounts created before branch roles were split used nhan_vien for managers.
+        return "quan_ly_chi_nhanh" in roles or ("nhan_vien" in roles and bool(self.chi_nhanh_quan_ly_id))
+
+    @property
+    def la_nhan_vien_chi_nhanh(self):
+        roles = self.ten_vai_tro
+        return "nhan_vien_ban_hang" in roles or ("nhan_vien" in roles and not self.chi_nhanh_quan_ly_id)
 
     @property
     def la_quan_tri_vien(self):
-        return self.is_superuser or "quan_tri_vien" in self.ten_vai_tro
+        return self.is_superuser or bool(self.ten_vai_tro & {"quan_tri_vien", "admin"})
 
     @property
     def is_restaurant_staff(self):

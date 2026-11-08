@@ -220,52 +220,16 @@ class TestM4R2DeepAdversarialStress(TransactionTestCase):
     # Group 2: Interaction Weights (Orders & Reviews)
     # =========================================================================
 
-    def test_06_order_creation_interaction_weight_single_item(self):
-        """Order creation assigns loai_tuong_tac=dat_mon and trong_so=4.00."""
-        order = DichVuDonHang.tao_don_hang(
-            nguoi_dung=self.user_a,
-            du_lieu={
-                "items": [{"mon_an": self.mon_1, "so_luong": 1}],
-                "hinh_thuc": "mang_ve",
-            }
-        )
-        self.assertIsNotNone(order)
-        tt = TuongTacMonAn.objects.filter(nguoi_dung=self.user_a, mon_an=self.mon_1).first()
-        self.assertIsNotNone(tt)
-        self.assertEqual(tt.loai_tuong_tac, TuongTacMonAn.LoaiTuongTac.DAT_MON)
-        self.assertEqual(tt.trong_so, Decimal("4.00"))
-
-    def test_07_order_creation_interaction_weight_multi_items_and_quantities(self):
-        """Order creation with multiple distinct items and large quantities all get trong_so=4.00."""
-        order = DichVuDonHang.tao_don_hang(
-            nguoi_dung=self.user_a,
-            du_lieu={
-                "items": [
-                    {"mon_an": self.mon_1, "so_luong": 5},
-                    {"mon_an": self.mon_2, "so_luong": 2},
-                    {"mon_an": self.mon_3, "so_luong": 10},
-                ],
-                "hinh_thuc": "giao_hang",
-                "dia_chi_giao": "123 Đường Mộc, Q1",
-            }
-        )
-        self.assertIsNotNone(order)
-        interactions = TuongTacMonAn.objects.filter(nguoi_dung=self.user_a)
-        self.assertEqual(interactions.count(), 3)
-        for tt in interactions:
-            self.assertEqual(tt.loai_tuong_tac, TuongTacMonAn.LoaiTuongTac.DAT_MON)
-            self.assertEqual(tt.trong_so, Decimal("4.00"))
+    def _completed_order(self, mon_an):
+        order = DonHang.objects.create(khach_hang=self.user_a, ten_khach="A", sdt_khach="0900000000")
+        ChiTietDonHang.objects.create(don_hang=order, mon_an=mon_an, so_luong=1,
+                                      don_gia_luc_dat=mon_an.don_gia, thanh_tien=mon_an.don_gia)
+        return order
 
     def test_08_review_creation_interaction_weight_is_5(self):
         """Submitting a review assigns loai_tuong_tac=danh_gia and trong_so=5.00."""
         # Create an order and mark as completed
-        order = DichVuDonHang.tao_don_hang(
-            nguoi_dung=self.user_a,
-            du_lieu={
-                "items": [{"mon_an": self.mon_1, "so_luong": 1}],
-                "hinh_thuc": "mang_ve",
-            }
-        )
+        order = self._completed_order(self.mon_1)
         order.trang_thai = DonHang.TrangThai.HOAN_TAT
         order.save()
         item = ChiTietDonHang.objects.filter(don_hang=order).first()
@@ -295,62 +259,10 @@ class TestM4R2DeepAdversarialStress(TransactionTestCase):
     # Group 3: Cache Invalidation Signals & Isolation
     # =========================================================================
 
-    def test_09_order_creation_invalidates_cache_via_signal(self):
-        """Placing an order triggers signal to delete cached GoiYMonAn records for user."""
-        # 1. Seed recommendations for User A
-        DichVuGoiY.cap_nhat_goi_y(self.user_a, gioi_han=3)
-        self.assertGreater(GoiYMonAn.objects.filter(nguoi_dung=self.user_a).count(), 0)
-
-        # 2. Place order
-        DichVuDonHang.tao_don_hang(
-            nguoi_dung=self.user_a,
-            du_lieu={
-                "items": [{"mon_an": self.mon_2, "so_luong": 1}],
-                "hinh_thuc": "mang_ve",
-            }
-        )
-
-        # 3. Cache must be completely wiped
-        self.assertEqual(GoiYMonAn.objects.filter(nguoi_dung=self.user_a).count(), 0)
-
-    def test_10_cache_invalidation_multi_user_isolation(self):
-        """User A's order must NOT invalidate User B's cached recommendations."""
-        # Seed cache for both User A and User B
-        DichVuGoiY.cap_nhat_goi_y(self.user_a, gioi_han=2)
-        DichVuGoiY.cap_nhat_goi_y(self.user_b, gioi_han=2)
-        count_a_before = GoiYMonAn.objects.filter(nguoi_dung=self.user_a).count()
-        count_b_before = GoiYMonAn.objects.filter(nguoi_dung=self.user_b).count()
-        self.assertGreater(count_a_before, 0)
-        self.assertGreater(count_b_before, 0)
-
-        # User A places order
-        DichVuDonHang.tao_don_hang(
-            nguoi_dung=self.user_a,
-            du_lieu={
-                "items": [{"mon_an": self.mon_1, "so_luong": 1}],
-                "hinh_thuc": "mang_ve",
-            }
-        )
-
-        # User A's cache must be cleared
-        self.assertEqual(GoiYMonAn.objects.filter(nguoi_dung=self.user_a).count(), 0)
-        # User B's cache must remain UNTOUCHED
-        self.assertEqual(
-            GoiYMonAn.objects.filter(nguoi_dung=self.user_b).count(),
-            count_b_before,
-            "ISOLATION VIOLATION: User A's order cleared User B's cache!"
-        )
-
     def test_11_review_creation_invalidates_cache_via_signal(self):
         """Submitting a review triggers signal to delete user's cached recommendations."""
         # 1. Create completed order
-        order = DichVuDonHang.tao_don_hang(
-            nguoi_dung=self.user_a,
-            du_lieu={
-                "items": [{"mon_an": self.mon_2, "so_luong": 1}],
-                "hinh_thuc": "mang_ve",
-            }
-        )
+        order = self._completed_order(self.mon_2)
         order.trang_thai = DonHang.TrangThai.HOAN_TAT
         order.save()
         item = ChiTietDonHang.objects.filter(don_hang=order).first()

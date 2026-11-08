@@ -86,7 +86,7 @@ class TestTier1Backend(unittest.TestCase):
 
         required_apps = [
             "accounts", "foods", "branches", "reservations", "orders",
-            "payments", "carts", "promotions", "reviews", "chat",
+            "payments", "promotions", "reviews", "chat",
             "recommendations", "analytics", "posts"
         ]
         for app_name in required_apps:

@@ -1,3 +1,4 @@
+import re
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -55,6 +56,7 @@ class NguoiDungSerializer(DualPayloadMixin, serializers.ModelSerializer):
         fields = (
             "id", "thu_dien_tu", "email", "username", "first_name", "last_name",
             "name", "so_dien_thoai", "phone", "anh_dai_dien", "ngay_sinh", "gioi_tinh",
+            "chi_nhanh_quan_ly",
             "danh_sach_vai_tro", "roles", "is_active", "date_joined",
             "la_nhan_vien_nha_hang", "is_restaurant_staff", "is_superuser",
         )
@@ -62,6 +64,13 @@ class NguoiDungSerializer(DualPayloadMixin, serializers.ModelSerializer):
             "danh_sach_vai_tro", "roles", "is_active", "date_joined",
             "la_nhan_vien_nha_hang", "is_restaurant_staff", "is_superuser",
         )
+
+    def validate_chi_nhanh_quan_ly(self, value):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not (user.is_superuser or getattr(user, "la_quan_tri_vien", False)):
+            raise serializers.ValidationError("Chỉ quản trị viên được gán chi nhánh quản lý.")
+        return value
 
 
 class DangKySerializer(DualPayloadMixin, serializers.ModelSerializer):
@@ -73,17 +82,59 @@ class DangKySerializer(DualPayloadMixin, serializers.ModelSerializer):
         "phone": "so_dien_thoai",
         "phone_number": "so_dien_thoai",
     }
-    mat_khau = serializers.CharField(write_only=True, min_length=6)
+    mat_khau = serializers.CharField(write_only=True, min_length=6, error_messages={
+        "required": "Vui lòng nhập mật khẩu.",
+        "blank": "Vui lòng nhập mật khẩu.",
+        "min_length": "Mật khẩu tối thiểu 6 ký tự.",
+    })
     ho_ten = serializers.CharField(write_only=True, required=False)
 
     class Meta:
         model = NguoiDung
         fields = ("thu_dien_tu", "username", "ho_ten", "mat_khau", "first_name", "last_name", "so_dien_thoai")
-        extra_kwargs = {"username": {"required": False}}
+        extra_kwargs = {
+            "username": {"required": False},
+            # Kiểm tra trùng email tự làm trong validate() để không phân biệt hoa/thường
+            "thu_dien_tu": {"validators": [], "error_messages": {
+                "required": "Vui lòng nhập email.",
+                "blank": "Vui lòng nhập email.",
+                "invalid": "Email không hợp lệ.",
+            }},
+            "so_dien_thoai": {"required": True, "allow_blank": False, "error_messages": {
+                "required": "Vui lòng nhập số điện thoại.",
+                "blank": "Vui lòng nhập số điện thoại.",
+            }},
+        }
+
+    @staticmethod
+    def tai_khoan_cho_xac_thuc(thu_dien_tu):
+        """Tài khoản đăng ký nhưng chưa nhập OTP (khác tài khoản bị admin khóa)."""
+        return NguoiDung.objects.filter(
+            thu_dien_tu__iexact=thu_dien_tu, is_active=False, xac_thuc_email__da_xac_thuc=False
+        )
+
+    def validate(self, attrs):
+        thu_dien_tu = attrs["thu_dien_tu"].strip().lower()
+        so_dien_thoai = re.sub(r"[\s.-]", "", attrs["so_dien_thoai"])
+        cho_xac_thuc = self.tai_khoan_cho_xac_thuc(thu_dien_tu).values("pk")
+
+        if NguoiDung.objects.filter(thu_dien_tu__iexact=thu_dien_tu).exclude(pk__in=cho_xac_thuc).exists():
+            raise serializers.ValidationError({"thu_dien_tu": "Email này đã được đăng ký."})
+        if not re.fullmatch(r"(0|\+84)\d{9,10}", so_dien_thoai):
+            raise serializers.ValidationError({"so_dien_thoai": "Số điện thoại không hợp lệ."})
+        if NguoiDung.objects.filter(so_dien_thoai=so_dien_thoai).exclude(pk__in=cho_xac_thuc).exists():
+            raise serializers.ValidationError({"so_dien_thoai": "Số điện thoại này đã được sử dụng."})
+
+        attrs["thu_dien_tu"] = thu_dien_tu
+        attrs["so_dien_thoai"] = so_dien_thoai
+        return attrs
 
     def create(self, du_lieu_da_xac_thuc):
         ho_ten = du_lieu_da_xac_thuc.pop("ho_ten", "").strip()
         mat_khau = du_lieu_da_xac_thuc.pop("mat_khau")
+
+        # 0. Đăng ký lại khi chưa xác thực: xóa bản cũ để tạo lại và gửi mã mới
+        self.tai_khoan_cho_xac_thuc(du_lieu_da_xac_thuc["thu_dien_tu"]).delete()
 
         # 1. Bảo toàn thu_dien_tu và đồng bộ email
         thu_dien_tu = du_lieu_da_xac_thuc.get("thu_dien_tu")
@@ -134,6 +185,11 @@ class DoiMatKhauSerializer(DualPayloadMixin, serializers.Serializer):
 
 
 class DangNhapTokenSerializer(TokenObtainPairSerializer):
+    default_error_messages = {
+        "no_active_account": "Email hoặc mật khẩu không đúng, hoặc tài khoản chưa xác thực email "
+                             "(đăng ký lại để nhận mã mới).",
+    }
+
     def to_internal_value(self, data):
         if hasattr(data, "copy"):
             data = data.copy()
@@ -143,6 +199,8 @@ class DangNhapTokenSerializer(TokenObtainPairSerializer):
             data["thu_dien_tu"] = data["email"]
         if "username" in data and "thu_dien_tu" not in data:
             data["thu_dien_tu"] = data["username"]
+        if isinstance(data.get("thu_dien_tu"), str):
+            data["thu_dien_tu"] = data["thu_dien_tu"].strip().lower()
         return super().to_internal_value(data)
 
 

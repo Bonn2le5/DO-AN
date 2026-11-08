@@ -48,7 +48,7 @@ class FSMFullMatrixStressTest(TestCase):
         return DonHang.objects.create(
             ma_don_hang=f"CHAL-{DonHang.objects.count() + 1}",
             khach_hang=self.customer,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             trang_thai=status,
             ten_khach="Test Customer",
             sdt_khach="0912345678",
@@ -190,7 +190,7 @@ class ActorAuthorizationStressTest(TestCase):
         return DonHang.objects.create(
             ma_don_hang=f"AUTH-{DonHang.objects.count() + 1}",
             khach_hang=self.customer,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             trang_thai=status,
             ten_khach="Owner Customer",
             sdt_khach="0911111111",
@@ -303,7 +303,7 @@ class BOMInventoryHooksStressTest(TestCase):
         order = DonHang.objects.create(
             ma_don_hang=f"BOM-{DonHang.objects.count() + 1}",
             khach_hang=self.customer,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             trang_thai=status,
             ten_khach="Customer BOM",
             sdt_khach="0911223344",
@@ -472,7 +472,7 @@ class ConcurrencyPessimisticLockStressTest(TransactionTestCase):
         order = DonHang.objects.create(
             ma_don_hang="RACE-001",
             khach_hang=self.customer,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
             ten_khach="Race Customer",
             sdt_khach="0933333333",
@@ -638,10 +638,13 @@ class OrderRestApiFsmStressTest(TestCase):
             password="password123",
             is_staff=True,
         )
+        # Vai trò thật để code phân quyền nhận ra nhân viên (is_staff thôi là chưa đủ).
+        from accounts.models import VaiTro
+        self.staff.danh_sach_vai_tro.add(VaiTro.objects.get_or_create(ten="quan_tri_vien")[0])
         self.order_a = DonHang.objects.create(
             ma_don_hang="API-ORD-01",
             khach_hang=self.customer_a,
-            hinh_thuc=DonHang.HinhThuc.TU_DEN_LAY,
+            hinh_thuc=DonHang.HinhThuc.TAI_CHO,
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
             ten_khach="Customer A",
             sdt_khach="0911223344",

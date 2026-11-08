@@ -1,14 +1,20 @@
 import { Link } from "react-router-dom";
-import { Heart, Plus, UtensilsCrossed } from "lucide-react";
+import { Heart, Sparkles } from "lucide-react";
 import type { Food } from "@/types";
-import PlaceholderMedia from "@/components/ui/PlaceholderMedia";
+import FoodImage from "@/components/food/FoodImage";
 import RatingStars from "@/components/ui/RatingStars";
-import { useCartStore } from "@/store/cartStore";
 import { useFavoriteStore } from "@/store/favoriteStore";
 import { formatCurrency, cn } from "@/lib/utils";
 
-export default function FoodCard({ food }: { food: Food }) {
-  const addItem = useCartStore((s) => s.addItem);
+interface FoodCardProps {
+  food: Food;
+  /** Lý do gợi ý từ AI (Explainable Recommendation) — hiển thị dưới tên món. */
+  reason?: string;
+  /** Gọi khi khách mở món (dùng để ghi lượt nhấp vào gợi ý). */
+  onOpen?: () => void;
+}
+
+export default function FoodCard({ food, reason, onOpen }: FoodCardProps) {
   const isFavorite = useFavoriteStore((s) => s.isFavorite(food.id));
   const toggleFavorite = useFavoriteStore((s) => s.toggle);
 
@@ -16,12 +22,14 @@ export default function FoodCard({ food }: { food: Food }) {
     <div className="card overflow-hidden group transition-all duration-400 hover:-translate-y-1.5 hover:shadow-lift">
       <Link
         to={`/thuc-don/${food.slug}`}
-        className="block relative aspect-4/3 overflow-hidden"
+        onClick={onOpen}
+        className="block relative aspect-4/3 overflow-hidden bg-black/5"
       >
-        <PlaceholderMedia
+        <FoodImage
+          src={food.imageUrl}
+          alt={food.name}
           tone={food.placeholderTone}
-          icon={UtensilsCrossed}
-          className="w-full h-full transition-transform duration-700 group-hover:scale-105"
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
         />
         {food.badge && (
           <span className="absolute top-3 left-3 bg-dark text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
@@ -53,32 +61,30 @@ export default function FoodCard({ food }: { food: Food }) {
         <div className="text-[11.5px] uppercase tracking-wider text-muted font-bold">
           {food.categoryLabel}
         </div>
-        <Link to={`/thuc-don/${food.slug}`}>
+        <Link to={`/thuc-don/${food.slug}`} onClick={onOpen}>
           <h3 className="font-display text-xl mt-1.5 mb-1.5 hover:text-primary transition-colors">
             {food.name}
           </h3>
         </Link>
-        <p className="text-[13.5px] text-muted leading-relaxed mb-3.5 min-h-9.5 line-clamp-2">
-          {food.description}
-        </p>
+        {reason ? (
+          <p className="flex items-start gap-1.5 text-[13px] text-primary leading-snug mb-3.5 min-h-9.5">
+            <Sparkles width={14} height={14} className="shrink-0 mt-0.5" aria-hidden="true" />
+            <span className="line-clamp-2">{reason}</span>
+          </p>
+        ) : (
+          <p className="text-[13.5px] text-muted leading-relaxed mb-3.5 min-h-9.5 line-clamp-2">
+            {food.description}
+          </p>
+        )}
         <div className="flex items-center gap-1.5 text-[12.5px] text-muted mb-3">
           <RatingStars rating={food.rating} />
           <span>
             {food.rating} · {food.reviewCount} đánh giá
           </span>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-lg font-bold text-primary">
-            {formatCurrency(food.price)}
-          </span>
-          <button
-            disabled={!food.available}
-            onClick={() => addItem(food)}
-            className="w-10 h-10 rounded-full bg-dark text-white flex items-center justify-center hover:bg-primary hover:scale-105 transition-all disabled:opacity-30 disabled:hover:bg-dark disabled:hover:scale-100"
-          >
-            <Plus width={17} height={17} />
-          </button>
-        </div>
+        <span className="text-lg font-bold text-primary">
+          {formatCurrency(food.price)}
+        </span>
       </div>
     </div>
   );

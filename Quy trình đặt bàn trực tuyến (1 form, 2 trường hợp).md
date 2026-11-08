@@ -18,7 +18,7 @@ Nguyên tắc chính:
 
 | Bước | Tên      | Nội dung                                                  | Bắt buộc |
 | ---- | -------- | --------------------------------------------------------- | -------- |
-| 1    | Đặt chỗ  | Chi nhánh, ngày, giờ, số người, chọn bàn nếu có           | Có       |
+| 1    | Đặt chỗ  | Chi nhánh, ngày, giờ, số người                            | Có       |
 | 2    | Gọi món  | Chọn món ăn dùng trước                                    | Không    |
 | 3    | Xác nhận | Thông tin liên hệ, tóm tắt đơn, thanh toán cọc nếu có món | Có       |
 
@@ -27,7 +27,7 @@ So với quy trình cũ:
 | Cũ           | Mới                                     |
 | ------------ | --------------------------------------- |
 | 1. Hình thức | Bỏ hẳn                                  |
-| 2. Chọn bàn  | Gộp vào bước 1 Đặt chỗ                  |
+| 2. Chọn bàn  | Nhân viên xếp bàn khi khách đến         |
 | 3. Chọn món  | Thành bước 2 Gọi món, không bắt buộc    |
 | 4. Xác nhận  | Thành bước 3 Xác nhận                   |
 | 5. Đặt cọc   | Gộp vào bước 3, chỉ hiện khi giỏ có món |
@@ -36,7 +36,8 @@ So với quy trình cũ:
 
 ### Bước 1: Đặt chỗ
 
-- Khách chọn chi nhánh, ngày, giờ, số người và bàn (nếu hệ thống cho chọn bàn).
+- Khách chọn chi nhánh, ngày, giờ và số người. Khách không chọn bàn và không giữ bàn tạm trên hệ thống.
+- Nhân viên xếp bàn theo tình hình thực tế của quán khi khách đến.
 - Nút chính: **Tiếp tục**.
 - Nếu khách chọn khung giờ cao điểm hoặc dịp lễ, bước 2 sẽ hiện dòng gợi ý gọi món trước.
 
@@ -99,7 +100,7 @@ Cả hai nút đều dẫn sang bước 3.
 
 ### Trường hợp 1: Chỉ đặt bàn
 
-1. Khách chọn chi nhánh, ngày, giờ, số người ở bước 1.
+1. Khách chọn chi nhánh, ngày, giờ, số người ở bước 1; nhân viên sẽ xếp bàn khi khách đến.
 2. Ở bước 2, khách bấm **Bỏ qua** vì không chọn món.
 3. Ở bước 3, khách nhập họ tên, số điện thoại, ghi chú.
 4. Khách bấm **Xác nhận đặt chỗ**. Không có thanh toán.
@@ -108,7 +109,7 @@ Cả hai nút đều dẫn sang bước 3.
 
 ### Trường hợp 2: Đặt bàn kèm gọi món trước
 
-1. Khách chọn chi nhánh, ngày, giờ, số người ở bước 1.
+1. Khách chọn chi nhánh, ngày, giờ, số người ở bước 1; nhân viên sẽ xếp bàn khi khách đến.
 2. Ở bước 2, khách thêm món và chỉnh số lượng. Hệ thống cập nhật tổng tiền và cọc dự kiến theo thời gian thực.
 3. Khách bấm **Tiếp tục** sang bước 3.
 4. Khách nhập họ tên, số điện thoại, ghi chú, xem tóm tắt món và số tiền cọc, chọn phương thức thanh toán.

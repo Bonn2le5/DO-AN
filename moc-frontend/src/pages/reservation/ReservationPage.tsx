@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ChevronLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
@@ -9,13 +10,24 @@ import ContactStep from "./ContactStep";
 import PaymentStep from "./PaymentStep";
 import ReservationSuccess from "./ReservationSuccess";
 
+const HEADINGS = {
+  branch_time: "Chọn chi nhánh, ngày và giờ",
+  food: "Gọi món trước, hoặc bỏ qua",
+  contact: "Xác nhận đặt chỗ",
+} as const;
+
 export default function ReservationPage() {
   const flow = useReservationFlow();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
+  // Mỗi lần đổi bước, đưa người dùng về đầu trang.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [flow.step]);
+
   if (!isAuthenticated) {
     return (
-      <div className="max-w-lg mx-auto px-5 py-24 text-center">
+      <div className="reservation-ui max-w-lg mx-auto px-5 py-24 text-center">
         <h1 className="font-display text-3xl mb-3">Đăng nhập để đặt bàn</h1>
         <p className="text-muted mb-7">Tài khoản giúp bạn theo dõi đặt chỗ và thanh toán cọc.</p>
         <Link to="/dang-nhap" state={{ from: "/dat-ban" }} className="btn btn-primary">Đăng nhập</Link>
@@ -23,26 +35,32 @@ export default function ReservationPage() {
     );
   }
 
+  if (flow.step === "success" && flow.reservation) {
+    return <ReservationSuccess reservation={flow.reservation} branchName={flow.selectedBranchName} onReset={flow.reset} />;
+  }
+
   const date = new Date(`${flow.date}T12:00:00`);
   const isWeekend = date.getDay() === 5 || date.getDay() === 6;
   const highPeak = isWeekend && flow.time >= "18:00" && flow.time < "21:00";
+  const canGoBack = (flow.step === "food" || flow.step === "contact") && !flow.reservation;
+  const step = flow.step === "success" ? "contact" : flow.step;
+  // Bước xác nhận (form) phải vừa một màn hình nên thu gọn phần đầu trang.
+  const compact = flow.step === "contact" && !flow.reservation;
 
   return (
-    <div className="max-w-275 mx-auto px-5 md:px-8 py-12">
-      {flow.step !== "success" && (
-        <>
-          {(flow.step === "food" || flow.step === "contact") && !flow.reservation && (
-            <button type="button" onClick={() => flow.setStep(flow.step === "food" ? "branch_time" : "food")} className="inline-flex items-center gap-1 text-sm font-semibold mb-5 hover:text-primary">
-              <ChevronLeft size={18} /> Quay lại
-            </button>
-          )}
-          <div className="mb-8">
-            <div className="eyebrow">Đặt bàn</div>
-            <h1 className="font-display text-[32px] sm:text-[38px]">Đặt bàn trước để không phải chờ</h1>
-          </div>
-          <ReservationStepper current={flow.step} />
-        </>
+    <div className={`reservation-ui max-w-275 mx-auto px-4 sm:px-5 md:px-8 ${compact ? "pt-4 lg:pt-6 pb-10" : "pt-8 sm:pt-12 pb-16"}`}>
+      {canGoBack && (
+        <button
+          type="button"
+          onClick={() => flow.setStep(flow.step === "food" ? "branch_time" : "food")}
+          className={`items-center gap-1 text-sm font-semibold text-muted hover:text-primary ${compact ? "hidden lg:inline-flex mb-1" : "inline-flex mb-4"}`}
+        >
+          <ChevronLeft size={18} /> {flow.step === "food" ? "Đổi giờ hẹn" : "Sửa món"}
+        </button>
       )}
+
+      <h1 className={`font-display leading-tight ${compact ? "max-lg:sr-only text-[28px] mb-3" : "text-[30px] sm:text-[40px] mb-6"}`}>{HEADINGS[step]}</h1>
+      <ReservationStepper current={flow.step} compact={compact} />
 
       {flow.step === "branch_time" && (
         <BranchTimeStep
@@ -54,14 +72,7 @@ export default function ReservationPage() {
           onPartySizeChange={flow.setPartySize}
           selectedTime={flow.time}
           onTimeSelect={flow.setTime}
-          tables={flow.tables}
-          tablesLoading={flow.tablesLoading}
-          selectedTableId={flow.selectedTableId}
-          holdInfo={flow.holdInfo}
-          holdLoading={flow.holdLoading}
-          holdError={flow.holdError}
-          onSelectTable={flow.selectTable}
-          onContinue={() => flow.proceedFromBranchTime(flow.selectedBranchId, flow.selectedBranchName, flow.time)}
+          onContinue={flow.proceedFromBranchTime}
         />
       )}
 
@@ -72,9 +83,14 @@ export default function ReservationPage() {
           onUpdateQty={flow.updateFoodQty}
           subtotal={flow.foodSubtotal}
           depositAmount={flow.depositAmount}
+          depositPercentage={flow.policy?.depositPercentage ?? 20}
           activeCategory={flow.foodCategory}
           onCategoryChange={flow.setFoodCategory}
           highPeak={highPeak}
+          time={flow.time}
+          date={flow.date}
+          partySize={flow.partySize}
+          branchName={flow.selectedBranchName}
           onContinue={flow.proceedToContact}
         />
       )}
@@ -82,6 +98,7 @@ export default function ReservationPage() {
       {flow.step === "contact" && flow.reservation && flow.reservation.depositAmount > 0 && (
         <PaymentStep
           reservation={flow.reservation}
+          branchName={flow.selectedBranchName}
           paymentSession={flow.paymentSession}
           error={flow.paymentError}
           retrying={flow.retryingPayment}
@@ -91,7 +108,7 @@ export default function ReservationPage() {
 
       {flow.step === "contact" && !flow.reservation && (
         <ContactStep
-          table={flow.selectedTable}
+          branchName={flow.selectedBranchName}
           date={flow.date}
           time={flow.time}
           partySize={flow.partySize}
@@ -106,11 +123,9 @@ export default function ReservationPage() {
           onValuesChange={flow.updateContact}
           submitting={flow.submitting}
           onSubmit={flow.submitContact}
+          onEditTime={() => flow.setStep("branch_time")}
+          onEditFood={() => flow.setStep("food")}
         />
-      )}
-
-      {flow.step === "success" && flow.reservation && (
-        <ReservationSuccess reservation={flow.reservation} onReset={flow.reset} />
       )}
     </div>
   );

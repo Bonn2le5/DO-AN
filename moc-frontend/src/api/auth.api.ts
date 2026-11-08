@@ -15,6 +15,7 @@ export interface AuthResult {
     id: string;
     name: string;
     email: string;
+    phone?: string;
     avatarInitial: string;
     roles?: import("@/types").UserRole[];
     danhSachVaiTro?: import("@/types").UserRole[];
@@ -22,6 +23,9 @@ export interface AuthResult {
     laNhanVien?: boolean;
     is_superuser?: boolean;
     is_restaurant_staff?: boolean;
+    isAdmin?: boolean;
+    branchId?: string;
+    chi_nhanh_quan_ly?: number | string | null;
   };
 }
 
@@ -61,17 +65,21 @@ export async function resendVerificationEmail(email: string): Promise<void> {
 
 function mapUser(raw: any): AuthResult["user"] {
   const name = raw.name || [raw.first_name, raw.last_name].filter(Boolean).join(" ") || raw.username || raw.email || raw.thu_dien_tu;
-  const isStaff = Boolean(raw.is_restaurant_staff || raw.la_nhan_vien_nha_hang || raw.is_superuser || (raw.roles && raw.roles.some((r: string) => ["admin", "staff", "quan_tri_vien", "nhan_vien"].includes(r))));
+  const roles = raw.roles || raw.danh_sach_vai_tro || [];
+  const isStaff = Boolean(raw.is_restaurant_staff || raw.la_nhan_vien_nha_hang || raw.is_superuser || roles.some((r: string) => ["admin", "staff", "branch_manager", "quan_tri_vien", "nhan_vien", "nhan_vien_ban_hang", "quan_ly_chi_nhanh"].includes(r)));
   return {
     id: String(raw.id),
     name,
     email: raw.email || raw.thu_dien_tu,
+    phone: raw.phone || raw.so_dien_thoai || "",
     avatarInitial: (name || "U").charAt(0).toUpperCase(),
-    roles: raw.roles || raw.danh_sach_vai_tro || [],
+    roles,
     isStaff,
     laNhanVien: isStaff,
-    danhSachVaiTro: raw.roles || raw.danh_sach_vai_tro || [],
+    danhSachVaiTro: roles,
     is_superuser: raw.is_superuser,
     is_restaurant_staff: isStaff,
+    isAdmin: Boolean(raw.is_superuser || raw.roles?.some((r: string) => ["admin", "quan_tri_vien"].includes(r))),
+    branchId: raw.chi_nhanh_quan_ly ? String(raw.chi_nhanh_quan_ly) : undefined,
   };
 }

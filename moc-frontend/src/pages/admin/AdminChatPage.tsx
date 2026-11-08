@@ -9,7 +9,8 @@ import {
   type AdminChatMessageItem,
 } from "@/api/admin.api";
 import { useAuthStore } from "@/store/authStore";
-import { getWebSocketUrl } from "@/services/websocket";
+import { refreshAccessToken } from "@/api/client";
+import { openAuthenticatedWebSocket, scheduleCurrentWebSocketRenewal } from "@/services/websocket";
 
 const CANNED_RESPONSES = [
   "Dạ Mộc Quán xin chào quý khách! Em có thể giúp gì cho mình ạ? 👋",
@@ -67,16 +68,22 @@ export default function AdminChatPage() {
   // WebSocket Connection per Active Room
   useEffect(() => {
     if (!activeRoom) return;
+    let closing = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let cancelRenewal: (() => void) | undefined;
 
-    const wsUrl = getWebSocketUrl(`/ws/chat/${activeRoom.id}/`);
-
-    let ws: WebSocket;
-    try {
-      ws = new WebSocket(wsUrl);
+    const connect = async () => {
+      const ws = await openAuthenticatedWebSocket(`/ws/chat/${activeRoom.id}/`);
+      if (!ws) return;
+      if (closing) {
+        ws.close();
+        return;
+      }
       wsRef.current = ws;
 
       ws.onopen = () => {
         setIsConnected(true);
+        cancelRenewal = scheduleCurrentWebSocketRenewal(ws);
       };
 
       ws.onmessage = (event) => {
@@ -114,13 +121,27 @@ export default function AdminChatPage() {
         }
       };
 
-      ws.onclose = () => setIsConnected(false);
+      ws.onclose = (event) => {
+        setIsConnected(false);
+        cancelRenewal?.();
+        if (closing || event.code === 4403) return;
+        if (event.code === 4401) {
+          void refreshAccessToken().then((token) => { if (token && !closing) return connect(); });
+        } else if (event.code === 4001) {
+          void connect();
+        } else {
+          retryTimer = setTimeout(connect, 3000);
+        }
+      };
       ws.onerror = () => setIsConnected(false);
-    } catch (err) {
-      setIsConnected(false);
-    }
+    };
+
+    void connect();
 
     return () => {
+      closing = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      cancelRenewal?.();
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;

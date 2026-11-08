@@ -100,7 +100,6 @@ INSTALLED_APPS = [
     'accounts',
     'analytics',
     'branches',
-    'carts',
     'chat',
     'foods',
     'orders',
@@ -196,9 +195,11 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # ==============================================================================
-# Email Configuration
+# Email Configuration (Resend & Django Mailers)
 # ==============================================================================
-DEFAULT_FROM_EMAIL = "Nhà hàng Mộc <noreply@mocrestaurant.com>"
+RESEND_API_KEY = env("RESEND_API_KEY", default="")
+RESEND_FROM_EMAIL = env("RESEND_FROM_EMAIL", default="Nhà hàng Mộc <onboarding@resend.dev>")
+DEFAULT_FROM_EMAIL = RESEND_FROM_EMAIL
 
 
 # Internationalization
@@ -217,6 +218,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.NguoiDung"
@@ -259,8 +262,8 @@ CACHES = {
 # ==============================================================================
 # VNPay Sandbox Payment Gateway Settings (Version 2.1.0)
 # ==============================================================================
-VNPAY_TMN_CODE = env("VNPAY_TMN_CODE", default="MOCREST1")
-VNPAY_HASH_SECRET = env("VNPAY_HASH_SECRET", default="VNPAYSECRETKEY2026MOCRESTAURANT")
+VNPAY_TMN_CODE = env("VNPAY_TMN_CODE", default="")
+VNPAY_HASH_SECRET = env("VNPAY_HASH_SECRET", default="")
 VNPAY_URL = env("VNPAY_URL", default="https://sandbox.vnpayment.vn/paymentv2/vpcpay.html")
 VNPAY_SANDBOX_URL = VNPAY_URL
 VNPAY_RETURN_URL = env(

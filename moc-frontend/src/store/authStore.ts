@@ -42,3 +42,16 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+// Token refresh can fail while the persisted Zustand session still says that
+// the user is signed in. Keep the UI session in sync with the API session.
+if (typeof window !== "undefined") {
+  window.addEventListener("auth:expired", () => {
+    useAuthStore.setState({
+      user: null,
+      nguoiDung: null,
+      isAuthenticated: false,
+      daDangNhap: false,
+    });
+  });
+}

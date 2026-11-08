@@ -99,7 +99,6 @@ class KiemThuHeThongGoiYMonAn(TestCase):
         """Kiểm tra bảng trọng số tương tác: xem=1, thich=2, gio_hang=3, dat_hang=4, danh_gia=5."""
         self.assertEqual(TRONG_SO_TUONG_TAC["xem"], 1)
         self.assertEqual(TRONG_SO_TUONG_TAC["yeu_thich"], 2)
-        self.assertEqual(TRONG_SO_TUONG_TAC["them_gio_hang"], 3)
         self.assertEqual(TRONG_SO_TUONG_TAC["dat_mon"], 4)
         self.assertEqual(TRONG_SO_TUONG_TAC["danh_gia"], 5)
 
@@ -133,9 +132,13 @@ class KiemThuHeThongGoiYMonAn(TestCase):
 
         recs = DichVuGoiY.cap_nhat_goi_y(self.user, gioi_han=3)
         self.assertEqual(len(recs), 3)
-        self.assertEqual(recs[0].mon_an.id, self.mon_lau_thai.id)
+        # Món chưa tương tác được xếp trước: Bò nướng sa tế (cùng sa tế, cay) gần Lẩu Thái hơn món chay
+        ds_id = [r.mon_an.id for r in recs]
+        self.assertLess(ds_id.index(self.mon_bo_nuong.id), ds_id.index(self.mon_chay.id))
+        # Món đã đặt vẫn nằm trong Top-N nhưng xếp sau món mới
+        self.assertEqual(ds_id[-1], self.mon_lau_thai.id)
         self.assertEqual(recs[0].phien_ban_model, MODEL_VERSION_CONTENT_BASED)
-        self.assertTrue(0.0 <= float(recs[0].diem_tuong_dong) <= 1.0)
+        self.assertTrue(all(0.0 <= float(r.diem_tuong_dong) <= 1.0 for r in recs))
 
     def test_feature_22_explainable_tags(self):
         """Kiểm tra tag giải thích khuyến nghị theo đặc trưng món ăn."""
@@ -148,7 +151,10 @@ class KiemThuHeThongGoiYMonAn(TestCase):
         )
         recs = DichVuGoiY.cap_nhat_goi_y(self.user, gioi_han=2)
         top_rec = recs[0]
-        self.assertIn("lẩu", top_rec.ly_do_goi_y.lower())
+        self.assertEqual(top_rec.mon_an.id, self.mon_bo_nuong.id)
+        # Lý do nêu đúng món khách đã thích và đặc trưng chung có thật
+        self.assertIn("đã thích Lẩu Thái Chua Cay", top_rec.ly_do_goi_y)
+        self.assertIn("sa tế", top_rec.ly_do_goi_y.lower())
 
     def test_cache_strategy_and_refresh_action(self):
         """Kiểm tra cơ chế lưu cache GoiYMonAn và xóa cache khi có tương tác mới."""
@@ -191,3 +197,44 @@ class KiemThuHeThongGoiYMonAn(TestCase):
         )
         self.assertEqual(resp.status_code, 201)
         self.assertEqual(resp.data["trong_so"], "4.00")
+
+    def test_mon_tuong_tu_item_to_item(self):
+        """Món tương tự: Lẩu Thái gần Bò nướng sa tế hơn món chay, kèm đặc trưng chung."""
+        resp = self.client.get(f"/api/recommendations/tuong-tu/?mon_an={self.mon_lau_thai.id}&limit=2")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data), 2)
+        self.assertEqual(resp.data[0]["mon_an"], self.mon_bo_nuong.id)
+        self.assertIn("sa tế", resp.data[0]["reason"].lower())
+        self.assertNotIn(self.mon_lau_thai.id, [x["mon_an"] for x in resp.data])
+
+    def test_ghi_nhan_dat_mon_vo_hieu_cache(self):
+        from recommendations.services import ghi_nhan_dat_mon
+        DichVuGoiY.cap_nhat_goi_y(self.user, gioi_han=3)
+        self.assertEqual(ghi_nhan_dat_mon(self.user, [self.mon_chay.id, self.mon_chay.id]), 1)
+        self.assertEqual(
+            TuongTacMonAn.objects.filter(nguoi_dung=self.user, loai_tuong_tac="dat_mon", trong_so=4).count(), 1
+        )
+        self.assertFalse(GoiYMonAn.objects.filter(nguoi_dung=self.user).exists())
+
+    def test_su_kien_va_ctr_conversion(self):
+        """Hiển thị 4 lượt, nhấp 2 lượt (CTR 50%); 1/2 món nhấp được đặt sau đó (Conversion 50%)."""
+        self.client.force_authenticate(user=self.user)
+        ids = [self.mon_lau_thai.id, self.mon_bo_nuong.id, self.mon_chay.id]
+        r = self.client.post("/api/recommendations/su-kien/", {"loai_su_kien": "hien_thi", "vi_tri": "trang_chu", "mon_an_ids": ids}, format="json")
+        self.assertEqual(r.status_code, 201)
+        self.client.post("/api/recommendations/su-kien/", {"loai_su_kien": "hien_thi", "vi_tri": "goi_mon", "mon_an_ids": [self.mon_chay.id]}, format="json")
+        self.client.post("/api/recommendations/su-kien/", {"loai_su_kien": "nhap", "vi_tri": "trang_chu", "mon_an_ids": [self.mon_lau_thai.id]}, format="json")
+        self.client.post("/api/recommendations/su-kien/", {"loai_su_kien": "nhap", "vi_tri": "goi_mon", "mon_an_ids": [self.mon_chay.id]}, format="json")
+        from recommendations.services import ghi_nhan_dat_mon
+        ghi_nhan_dat_mon(self.user, [self.mon_lau_thai.id])
+
+        admin = NguoiDung.objects.create_superuser(username="admin_ai", email="admin_ai@moc.vn", so_dien_thoai="0909999999", password="MatKhau@123")
+        self.client.force_authenticate(user=admin)
+        data = self.client.get("/api/analytics/ai/").data
+        self.assertEqual(data["overview"]["suggested"], 4)
+        self.assertEqual(data["overview"]["ctr"], 50.0)
+        self.assertEqual(data["overview"]["conversion"], 50.0)
+
+    def test_su_kien_tu_choi_loai_sai(self):
+        r = self.client.post("/api/recommendations/su-kien/", {"loai_su_kien": "abc", "mon_an_ids": [self.mon_chay.id]}, format="json")
+        self.assertEqual(r.status_code, 400)

@@ -18,8 +18,6 @@ export function useMenuFilters() {
 
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("popular");
-  const [vegOnly, setVegOnly] = useState(false);
-  const [maxPrice, setMaxPrice] = useState(300000);
   const [allFoods, setAllFoods] = useState<Food[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,15 +35,36 @@ export function useMenuFilters() {
 
   const filteredFoods = useMemo(() => {
     let list = [...allFoods];
-    if (activeCategory) list = list.filter((f) => f.category === activeCategory);
+    if (activeCategory) {
+      list = list.filter((f) => {
+        if (f.category === activeCategory) return true;
+        const norm = (str?: string) => (str ?? "").trim().toLowerCase();
+        const catNorm = norm(String(f.category));
+        const activeNorm = norm(activeCategory);
+        if (catNorm === activeNorm) return true;
+        if (f.categoryLabel && norm(f.categoryLabel) === activeNorm) return true;
+
+        const isAppetizer = (c: string) => c.includes("appetizer") || c.includes("khai-vi") || c.includes("khai vị");
+        const isMain = (c: string) => c.includes("main") || c.includes("mon-chinh") || c.includes("món chính");
+        const isDrink = (c: string) => c.includes("drink") || c.includes("do-uong") || c.includes("đồ uống");
+        const isDessert = (c: string) => c.includes("dessert") || c.includes("trang-mieng") || c.includes("tráng miệng");
+        const isCombo = (c: string) => c.includes("combo");
+
+        if (isAppetizer(activeNorm) && (isAppetizer(catNorm) || isAppetizer(norm(f.categoryLabel)))) return true;
+        if (isMain(activeNorm) && (isMain(catNorm) || isMain(norm(f.categoryLabel)))) return true;
+        if (isDrink(activeNorm) && (isDrink(catNorm) || isDrink(norm(f.categoryLabel)))) return true;
+        if (isDessert(activeNorm) && (isDessert(catNorm) || isDessert(norm(f.categoryLabel)))) return true;
+        if (isCombo(activeNorm) && (isCombo(catNorm) || isCombo(norm(f.categoryLabel)))) return true;
+
+        return false;
+      });
+    }
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter(
         (f) => f.name.toLowerCase().includes(q) || f.tags.some((t) => t.toLowerCase().includes(q))
       );
     }
-    if (vegOnly) list = list.filter((f) => f.isVegetarian);
-    list = list.filter((f) => f.price <= maxPrice);
 
     switch (sort) {
       case "price-asc":
@@ -57,7 +76,7 @@ export function useMenuFilters() {
       default:
         return list.sort((a, b) => b.reviewCount - a.reviewCount);
     }
-  }, [allFoods, activeCategory, search, sort, vegOnly, maxPrice]);
+  }, [allFoods, activeCategory, search, sort]);
 
   return {
     activeCategory,
@@ -66,10 +85,6 @@ export function useMenuFilters() {
     setSearch,
     sort,
     setSort,
-    vegOnly,
-    setVegOnly,
-    maxPrice,
-    setMaxPrice,
     filteredFoods,
     loading,
   };

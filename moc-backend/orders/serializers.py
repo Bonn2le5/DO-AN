@@ -20,7 +20,7 @@ class ChiTietDonHangSerializer(DualPayloadMixin, serializers.ModelSerializer):
 
     class Meta:
         model = ChiTietDonHang
-        fields = ("id", "mon_an_id", "mon_an", "don_gia_luc_dat", "so_luong", "thanh_tien")
+        fields = ("id", "mon_an_id", "mon_an", "don_gia_luc_dat", "so_luong", "thanh_tien", "ghi_chu")
         read_only_fields = ("id", "mon_an", "don_gia_luc_dat", "thanh_tien")
 
 
@@ -38,14 +38,14 @@ class DonHangSerializer(DualPayloadMixin, serializers.ModelSerializer):
         "name": "ten_khach",
         "customer_phone": "sdt_khach",
         "phone": "sdt_khach",
-        "delivery_address": "dia_chi_giao",
-        "address": "dia_chi_giao",
         "note": "ghi_chu",
         "notes": "ghi_chu",
         "branch": "chi_nhanh",
         "branch_id": "chi_nhanh",
         "table": "dat_ban",
         "table_id": "dat_ban",
+        "session": "phien_phuc_vu",
+        "session_id": "phien_phuc_vu",
         "coupon_code": "ma_khuyen_mai",
         "promotion_code": "ma_khuyen_mai",
         "items": "danh_sach_mon",
@@ -60,7 +60,7 @@ class DonHangSerializer(DualPayloadMixin, serializers.ModelSerializer):
         model = DonHang
         fields = "__all__"
         read_only_fields = (
-            "khach_hang", "ma_don_hang", "trang_thai",
+            "khach_hang", "ma_don_hang", "trang_thai", "phien_phuc_vu",
             "tien_hang", "tien_giam", "tong_tien", "khuyen_mai"
         )
 

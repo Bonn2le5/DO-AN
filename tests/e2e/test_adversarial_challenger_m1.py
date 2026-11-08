@@ -197,13 +197,13 @@ class AdversarialChallengerTestSuite(unittest.TestCase):
         data = {
             "customer_name": "Nguyen Van A",
             "phone": "0901234567",
-            "type": "tu_den_lay",
+            "type": "tai_cho",
         }
         serializer = OrderSerializer()
         internal = serializer.to_internal_value(data)
         self.assertEqual(internal.get("ten_khach"), "Nguyen Van A", "customer_name must map to ten_khach")
         self.assertEqual(internal.get("sdt_khach"), "0901234567", "phone must map to sdt_khach")
-        self.assertEqual(internal.get("hinh_thuc"), "tu_den_lay", "type must map to hinh_thuc")
+        self.assertEqual(internal.get("hinh_thuc"), "tai_cho", "type must map to hinh_thuc")
 
     # --- Group 8: QuerySet Filters & Relationships (Baseline Pass Verification) ---
 

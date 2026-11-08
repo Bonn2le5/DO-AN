@@ -14,12 +14,12 @@ class DonHang(MoHinhThoiGian):
         DA_HUY = "da_huy", "Đã hủy"
 
     class HinhThuc(models.TextChoices):
-        GIAO_HANG = "giao_hang", "Giao hàng"
-        TU_DEN_LAY = "tu_den_lay", "Tự đến lấy"
+        TAI_CHO = "tai_cho", "Dùng tại bàn"
 
     ma_don_hang = models.CharField(max_length=20, unique=True, editable=False)
     khach_hang = models.ForeignKey(
-        settings.AUTH_USER_MODEL, related_name="danh_sach_don_hang", on_delete=models.PROTECT
+        settings.AUTH_USER_MODEL, related_name="danh_sach_don_hang",
+        null=True, blank=True, on_delete=models.SET_NULL,
     )
     chi_nhanh = models.ForeignKey(
         "branches.ChiNhanh", related_name="danh_sach_don_hang",
@@ -29,14 +29,17 @@ class DonHang(MoHinhThoiGian):
         "reservations.DatBan", related_name="danh_sach_don_hang",
         null=True, blank=True, on_delete=models.SET_NULL
     )
-    hinh_thuc = models.CharField(max_length=15, choices=HinhThuc.choices)
+    phien_phuc_vu = models.OneToOneField(
+        "reservations.PhienPhucVu", related_name="don_hang",
+        null=True, blank=True, on_delete=models.SET_NULL
+    )
+    hinh_thuc = models.CharField(max_length=15, choices=HinhThuc.choices, default=HinhThuc.TAI_CHO)
     trang_thai = models.CharField(
         max_length=20, choices=TrangThai.choices,
         default=TrangThai.CHO_TIEP_NHAN, db_index=True
     )
     ten_khach = models.CharField(max_length=150)
     sdt_khach = models.CharField(max_length=20)
-    dia_chi_giao = models.TextField(null=True, blank=True)
     ghi_chu = models.TextField(blank=True)
     tien_hang = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tien_giam = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -61,8 +64,6 @@ class DonHang(MoHinhThoiGian):
         "customer_name": "ten_khach",
         "customer_phone": "sdt_khach",
         "phone": "sdt_khach",
-        "delivery_address": "dia_chi_giao",
-        "address": "dia_chi_giao",
         "note": "ghi_chu",
         "subtotal": "tien_hang",
         "discount": "tien_giam",
@@ -76,12 +77,6 @@ class DonHang(MoHinhThoiGian):
     class Meta:
         db_table = "don_hang"
         verbose_name = "Đơn hàng"
-        constraints = [
-            models.CheckConstraint(
-                condition=~models.Q(hinh_thuc="giao_hang") | models.Q(dia_chi_giao__isnull=False),
-                name="kiem_tra_giao_hang_can_dia_chi",
-            )
-        ]
 
     def save(self, *a, **kw):
         if not self.ma_don_hang:
@@ -228,22 +223,6 @@ class DonHang(MoHinhThoiGian):
         self.sdt_khach = val
 
     @property
-    def delivery_address(self):
-        return self.dia_chi_giao
-
-    @delivery_address.setter
-    def delivery_address(self, val):
-        self.dia_chi_giao = val
-
-    @property
-    def address(self):
-        return self.dia_chi_giao
-
-    @address.setter
-    def address(self, val):
-        self.dia_chi_giao = val
-
-    @property
     def note(self):
         return self.ghi_chu
 
@@ -301,6 +280,7 @@ class ChiTietDonHang(MoHinhThoiGian):
     so_luong = models.PositiveIntegerField()
     don_gia_luc_dat = models.DecimalField(max_digits=12, decimal_places=2)
     thanh_tien = models.DecimalField(max_digits=12, decimal_places=2)
+    ghi_chu = models.TextField(blank=True)
 
     _LEGACY_MAP = {
         "order": "don_hang",

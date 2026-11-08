@@ -1,22 +1,12 @@
-import { useState } from "react";
-import { Heart, Flame, Leaf, Minus, Plus } from "lucide-react";
+import { Heart, Flame, Leaf } from "lucide-react";
 import RatingStars from "@/components/ui/RatingStars";
-import { useCartStore } from "@/store/cartStore";
 import { useFavoriteStore } from "@/store/favoriteStore";
 import { formatCurrency, cn } from "@/lib/utils";
 import type { Food } from "@/types";
 
 export default function FoodPurchasePanel({ food }: { food: Food }) {
-  const [qty, setQty] = useState(1);
-  const [note, setNote] = useState("");
-  const addItem = useCartStore((s) => s.addItem);
   const isFavorite = useFavoriteStore((s) => s.isFavorite(food.id));
   const toggleFavorite = useFavoriteStore((s) => s.toggle);
-
-  const handleAdd = () => {
-    addItem(food, qty);
-    setQty(1);
-  };
 
   return (
     <div>
@@ -89,37 +79,7 @@ export default function FoodPurchasePanel({ food }: { food: Food }) {
           )}
         </div>
 
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Ghi chú cho món ăn (ví dụ: ít cay, không hành...)"
-          rows={2}
-          className="w-full px-4 py-3 rounded-xl border border-black/15 text-sm outline-none focus:border-primary mb-5 resize-none"
-        />
-
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 border border-black/15 rounded-full px-2 py-1.5">
-            <button
-              onClick={() => setQty((q) => Math.max(1, q - 1))}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/5"
-            >
-              <Minus width={14} height={14} />
-            </button>
-            <span className="w-5 text-center font-semibold">{qty}</span>
-            <button
-              onClick={() => setQty((q) => q + 1)}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/5"
-            >
-              <Plus width={14} height={14} />
-            </button>
-          </div>
-          <button
-            onClick={handleAdd}
-            disabled={!food.available}
-            className="btn btn-primary flex-1 disabled:opacity-40"
-          >
-            Thêm vào giỏ · {formatCurrency(food.price * qty)}
-          </button>
           <button
             onClick={() => toggleFavorite(food.id)}
             className="w-13 h-13 rounded-full border border-black/15 flex items-center justify-center shrink-0 hover:bg-black/5"

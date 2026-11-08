@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ChevronRight, UtensilsCrossed } from "lucide-react";
-import PlaceholderMedia from "@/components/ui/PlaceholderMedia";
+import { ghiTuongTac } from "@/api/recommendations.api";
+import { ChevronRight } from "lucide-react";
+import FoodImage from "@/components/food/FoodImage";
 import { useAsync } from "@/hooks/useAsync";
 import { getFoodBySlug } from "@/api/foods.api";
 import FoodPurchasePanel from "./FoodPurchasePanel";
@@ -17,6 +19,11 @@ import NotFoundPage from "@/pages/NotFoundPage";
 export default function FoodDetailPage() {
   const { slug } = useParams();
   const { data: food, loading } = useAsync(() => getFoodBySlug(slug!), [slug]);
+
+  // Ghi lượt xem món (trọng số 1) cho vector khẩu vị của AI gợi ý
+  useEffect(() => {
+    if (food?.id) ghiTuongTac(food.id, "xem");
+  }, [food?.id]);
 
   if (loading) {
     return (
@@ -48,11 +55,12 @@ export default function FoodDetailPage() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-12">
-        <div className="rounded-3xl overflow-hidden aspect-square sticky top-24 self-start">
-          <PlaceholderMedia
+        <div className="rounded-3xl overflow-hidden aspect-square sticky top-24 self-start bg-black/5">
+          <FoodImage
+            src={food.imageUrl}
+            alt={food.name}
             tone={food.placeholderTone}
-            icon={UtensilsCrossed}
-            className="w-full h-full"
+            className="w-full h-full object-cover"
             iconClassName="w-24 h-24"
           />
         </div>

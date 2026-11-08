@@ -2,7 +2,7 @@ from rest_framework import serializers
 from api.mixins import DualPayloadMixin
 from foods.models import MonAn, Food
 from foods.serializers import MonAnSerializer, FoodSerializer
-from .models import TuongTacMonAn, GoiYMonAn, FoodInteraction, Recommendation
+from .models import TuongTacMonAn, GoiYMonAn, SuKienGoiY, FoodInteraction, Recommendation
 from .services import TRONG_SO_TUONG_TAC, ALIAS_TRONG_SO, MODEL_VERSION_COLD_START
 
 
@@ -32,9 +32,6 @@ class TuongTacMonAnSerializer(DualPayloadMixin, serializers.ModelSerializer):
             "thich": "yeu_thich",
             "like": "yeu_thich",
             "favorite": "yeu_thich",
-            "gio_hang": "them_gio_hang",
-            "cart": "them_gio_hang",
-            "add_cart": "them_gio_hang",
             "dat_hang": "dat_mon",
             "order": "dat_mon",
             "review": "danh_gia",
@@ -95,6 +92,13 @@ class GoiYMonAnSerializer(DualPayloadMixin, serializers.ModelSerializer):
             getattr(obj, "phien_ban_model", "") == MODEL_VERSION_COLD_START
             or getattr(obj, "ly_do_goi_y", "") == "Phổ biến hôm nay"
         )
+
+
+class SuKienGoiYSerializer(serializers.Serializer):
+    loai_su_kien = serializers.ChoiceField(choices=SuKienGoiY.LoaiSuKien.choices)
+    vi_tri = serializers.ChoiceField(choices=SuKienGoiY.ViTri.choices, default=SuKienGoiY.ViTri.TRANG_CHU)
+    mon_an_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), min_length=1, max_length=50)
+    phien_ban_model = serializers.CharField(max_length=30, required=False, allow_blank=True)
 
 
 InteractionSerializer = TuongTacMonAnSerializer

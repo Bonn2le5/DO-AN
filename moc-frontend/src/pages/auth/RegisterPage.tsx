@@ -23,13 +23,20 @@ export default function RegisterPage() {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (data: FormData) => {
-    const result = await registerApi(data);
-    // Backend requires email verification before login
-    navigate(`/auth/verify-email?email=${encodeURIComponent(result.email)}`);
+    try {
+      const result = await registerApi(data);
+      // Backend requires email verification before login
+      navigate(`/auth/verify-email?email=${encodeURIComponent(result.email)}`);
+    } catch (e: any) {
+      const body = e.response?.data;
+      const message = body && typeof body === "object" ? Object.values(body).flat()[0] : null;
+      setError("root", { message: String(message ?? "Đăng ký thất bại, vui lòng thử lại.") });
+    }
   };
 
   return (
@@ -103,6 +110,9 @@ export default function RegisterPage() {
             </p>
           )}
         </div>
+        {errors.root && (
+          <p className="text-sm text-primary text-center">{errors.root.message}</p>
+        )}
         <button
           type="submit"
           disabled={isSubmitting}

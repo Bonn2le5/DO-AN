@@ -34,14 +34,26 @@ class TinNhanSerializer(DualPayloadMixin, serializers.ModelSerializer):
 
 
 class HoiThoaiSerializer(serializers.ModelSerializer):
-    danh_sach_tin_nhan = TinNhanSerializer(many=True, read_only=True)
-    messages = TinNhanSerializer(source="danh_sach_tin_nhan", many=True, read_only=True)
     customer_name = serializers.SerializerMethodField()
 
     class Meta:
         model = HoiThoai
         fields = "__all__"
         read_only_fields = ("khach_hang", "nhan_vien")
+
+    def get_customer_name(self, obj):
+        return obj.khach_hang.get_full_name() or obj.khach_hang.username
+
+
+class HoiThoaiListSerializer(serializers.ModelSerializer):
+    customer_name = serializers.SerializerMethodField()
+    last_message = serializers.CharField(read_only=True, default="")
+    unread_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = HoiThoai
+        fields = ("id", "customer_name", "trang_thai", "tin_nhan_cuoi_luc",
+                  "last_message", "unread_count")
 
     def get_customer_name(self, obj):
         return obj.khach_hang.get_full_name() or obj.khach_hang.username

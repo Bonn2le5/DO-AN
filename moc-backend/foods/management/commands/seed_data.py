@@ -343,6 +343,8 @@ class Command(BaseCommand):
         roles_data = [
             ("quan_tri_vien", "Quản trị viên hệ thống Nhà hàng Mộc"),
             ("nhan_vien", "Nhân viên phục vụ và quản trị vận hành"),
+            ("quan_ly_chi_nhanh", "Quản lý chi nhánh"),
+            ("nhan_vien_ban_hang", "Nhân viên bán hàng tại chi nhánh"),
             ("khach_hang", "Khách hàng sử dụng dịch vụ"),
         ]
 
@@ -373,7 +375,8 @@ class Command(BaseCommand):
                 "so_dien_thoai": "0912345678",
                 "is_staff": True,
                 "is_superuser": False,
-                "role": "nhan_vien",
+                "role": "nhan_vien_ban_hang",
+                "assign_branch": True,
             },
             {
                 "username": "khachhang",
@@ -416,11 +419,15 @@ class Command(BaseCommand):
             user.set_password(default_password)
             user.is_staff = u["is_staff"]
             user.is_superuser = u["is_superuser"]
+            if u.get("assign_branch"):
+                # Nhân viên phải thuộc một chi nhánh, nếu không mọi danh sách đều rỗng.
+                user.chi_nhanh_quan_ly = ChiNhanh.objects.order_by("id").first()
             user.save()
 
             role_obj = roles_map.get(u["role"])
             if role_obj:
-                NguoiDungVaiTro.objects.get_or_create(nguoi_dung=user, vai_tro=role_obj)
+                # set() thay vì add(): xoá vai trò cũ "nhan_vien" từ lần seed trước.
+                user.danh_sach_vai_tro.set([role_obj])
 
         self.stdout.write(self.style.SUCCESS(f"   -> Đã nạp {len(users_spec)} tài khoản người dùng mẫu."))
 

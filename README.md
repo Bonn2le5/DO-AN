@@ -334,3 +334,6 @@ npm run build
 ---
 
 _Chúc bạn có trải nghiệm chạy thử và nghiệm thu đồ án thành công tốt đẹp!_
+
+tổng hoá đơn đang có, tổng kháchs
+quản chi nhanh f

@@ -29,6 +29,8 @@ class DanhGiaSerializer(DualPayloadMixin, serializers.ModelSerializer):
         model = DanhGia
         fields = "__all__"
         read_only_fields = ("nguoi_dung",)
+        # Bỏ trống thì validate() tự tìm món khách đã dùng trong đơn hoàn tất.
+        extra_kwargs = {"don_hang": {"required": False}, "chi_tiet_don_hang": {"required": False}}
 
     def get_ten_nguoi_dung(self, obj):
         return obj.nguoi_dung.get_full_name() or obj.nguoi_dung.username
@@ -58,6 +60,24 @@ class DanhGiaSerializer(DualPayloadMixin, serializers.ModelSerializer):
             raise serializers.ValidationError({"chi_tiet_don_hang": "Món ăn không thuộc đơn hàng đã chọn."})
         if item and mon_an and item.mon_an_id != mon_an.id:
             raise serializers.ValidationError({"chi_tiet_don_hang": "Chi tiết đơn không khớp với món ăn."})
+        if not item:
+            if not mon_an:
+                raise serializers.ValidationError({"mon_an": "Cần chọn món để đánh giá."})
+            item = (
+                ChiTietDonHang.objects.filter(
+                    don_hang__khach_hang=request.user,
+                    don_hang__trang_thai=DonHang.TrangThai.HOAN_TAT,
+                    mon_an=mon_an,
+                    danh_gia__isnull=True,
+                    **({"don_hang": don_hang} if don_hang else {}),
+                ).select_related("don_hang").order_by("-don_hang__tao_luc").first()
+            )
+            if not item:
+                raise serializers.ValidationError(
+                    {"mon_an": "Bạn chỉ đánh giá được món đã dùng tại nhà hàng (đơn đã hoàn tất) và chưa đánh giá."}
+                )
+            attrs["chi_tiet_don_hang"] = item
+            attrs["don_hang"] = item.don_hang
         return attrs
 
 

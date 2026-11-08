@@ -42,22 +42,18 @@ const ALL: Action[] = ["view", "create", "update", "delete"];
  */
 export const MATRIX: Record<RoleName, Partial<Record<Module, Action[]>>> = {
   admin: Object.fromEntries(MODULES.map((m) => [m.key, ALL])),
-  staff: {
+  branch_manager: {
     dashboard: ["view"],
-    orders: ["view", "update"],
-    reservations: ["view", "update"],
-    tables: ["view", "update"],
-    chat: ["view", "create", "update"],
-    foods: ["view", "update"],
-    categories: ["view"],
-    ingredients: ["view", "create", "update"],
-    promotions: ["view"],
-    posts: ["view", "create", "update"],
-    reviews: ["view", "update"],
-    payments: ["view", "update"],
-    deposit: ["view"],
-    branches: ["view"],
-    settings: ["view", "update"],
+    orders: ["view", "create", "update"],
+    reservations: ["view", "create", "update"],
+    tables: ["view", "create", "update", "delete"],
+    payments: ["view", "create", "update"],
+  },
+  staff: {
+    orders: ["view", "create", "update"],
+    reservations: ["view", "create", "update"],
+    tables: ["view"],
+    payments: ["view", "create", "update"],
   },
 };
 
@@ -68,10 +64,12 @@ export const usePreviewRole = create<{ role: RoleName; setRole: (r: RoleName) =>
 
 export function useRole(): RoleName | null {
   const previewRole = usePreviewRole((s) => s.role);
-  const roles = useAuthStore((s) => s.user?.roles ?? EMPTY_ROLES);
+  const user = useAuthStore((s) => s.user);
+  const roles = user?.roles ?? EMPTY_ROLES;
   if (PREVIEW) return previewRole;
   if (roles.some((r) => ["admin", "quan_tri_vien"].includes(String(r).toLowerCase()))) return "admin";
-  if (roles.some((r) => ["staff", "nhan_vien"].includes(String(r).toLowerCase()))) return "staff";
+  if (roles.some((r) => ["branch_manager", "quan_ly_chi_nhanh"].includes(String(r).toLowerCase())) || (roles.includes("nhan_vien") && !!user?.branchId)) return "branch_manager";
+  if (roles.some((r) => ["staff", "nhan_vien_ban_hang"].includes(String(r).toLowerCase())) || roles.includes("nhan_vien")) return "staff";
   return null;
 }
 
