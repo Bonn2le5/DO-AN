@@ -175,6 +175,7 @@ class DatBanSerializer(DualPayloadMixin, serializers.ModelSerializer):
     so_ban = serializers.CharField(source="ban_an.so_ban", read_only=True)
     ten_ban = serializers.CharField(source="ban_an.so_ban", read_only=True)
     ban_an_id = serializers.IntegerField(source="ban_an.id", read_only=True)
+    ten_chi_nhanh = serializers.CharField(source="chi_nhanh.ten", read_only=True)
     refund_record = serializers.SerializerMethodField()
     phien_phuc_vu_id = serializers.SerializerMethodField()
     don_hang_id = serializers.SerializerMethodField()

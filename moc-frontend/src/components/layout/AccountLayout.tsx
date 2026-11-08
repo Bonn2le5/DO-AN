@@ -1,11 +1,14 @@
 import { NavLink, Outlet, Navigate, Link } from "react-router-dom";
-import { User, Heart, LogOut, ShieldCheck } from "lucide-react";
+import { User, Heart, LogOut, ShieldCheck, CalendarDays, KeyRound, Star } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { to: "/tai-khoan", label: "Hồ sơ", icon: User, end: true },
+  { to: "/tai-khoan/dat-ban", label: "Lịch sử đặt bàn", icon: CalendarDays, end: false },
+  { to: "/tai-khoan/danh-gia", label: "Đánh giá của tôi", icon: Star, end: false },
   { to: "/tai-khoan/yeu-thich", label: "Yêu thích", icon: Heart, end: false },
+  { to: "/tai-khoan/bao-mat", label: "Bảo mật", icon: KeyRound, end: false },
 ];
 
 export default function AccountLayout() {

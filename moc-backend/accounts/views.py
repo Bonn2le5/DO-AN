@@ -139,6 +139,11 @@ class XacThucViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["get", "patch", "put"], permission_classes=[IsAuthenticated])
     def ho_so(self, request):
         if request.method in ["PATCH", "PUT"]:
+            email_moi = request.data.get("thu_dien_tu") or request.data.get("email")
+            if email_moi and email_moi.strip().lower() != request.user.thu_dien_tu.lower():
+                # Đổi email = đổi thông tin đăng nhập, nên phải nhập lại mật khẩu.
+                if not request.user.check_password(request.data.get("mat_khau_hien_tai") or ""):
+                    return Response({"mat_khau_hien_tai": ["Mật khẩu hiện tại không đúng."]}, status=400)
             s = NguoiDungSerializer(request.user, data=request.data, partial=True)
             s.is_valid(raise_exception=True)
             s.save()

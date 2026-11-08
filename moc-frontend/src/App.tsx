@@ -15,6 +15,9 @@ import RegisterPage from "@/pages/auth/RegisterPage";
 import EmailVerificationPage from "@/pages/auth/EmailVerificationPage";
 import AccountProfilePage from "@/pages/account/AccountProfilePage";
 import AccountFavoritesPage from "@/pages/account/AccountFavoritesPage";
+import AccountBookingsPage from "@/pages/account/AccountBookingsPage";
+import AccountSecurityPage from "@/pages/account/AccountSecurityPage";
+import AccountReviewsPage from "@/pages/account/AccountReviewsPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 
 import { adminRoutes } from "@/admin/routes";
@@ -59,6 +62,9 @@ export default function App() {
           <Route path="tai-khoan" element={<AccountLayout />}>
             <Route index element={<AccountProfilePage />} />
             <Route path="yeu-thich" element={<AccountFavoritesPage />} />
+            <Route path="dat-ban" element={<AccountBookingsPage />} />
+            <Route path="danh-gia" element={<AccountReviewsPage />} />
+            <Route path="bao-mat" element={<AccountSecurityPage />} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Route>

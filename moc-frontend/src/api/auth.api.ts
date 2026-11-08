@@ -63,6 +63,24 @@ export async function resendVerificationEmail(email: string): Promise<void> {
   await apiClient.post("/auth/gui-ma-xac-thuc/", { email });
 }
 
+export async function updateProfile(payload: Record<string, string>): Promise<AuthResult["user"]> {
+  const { data } = await apiClient.patch("/auth/profile/", payload);
+  return mapUser(data);
+}
+
+export async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
+  await apiClient.post("/auth/change-password/", { old_password: oldPassword, new_password: newPassword });
+}
+
+/** Lấy thông báo lỗi đầu tiên từ phản hồi DRF. */
+export function apiErrorMessage(e: any, fallback: string): string {
+  const data = e?.response?.data;
+  if (!data || typeof data !== "object") return fallback;
+  if (data.detail) return String(data.detail);
+  const first = Object.values(data).flat()[0];
+  return first ? String(first) : fallback;
+}
+
 function mapUser(raw: any): AuthResult["user"] {
   const name = raw.name || [raw.first_name, raw.last_name].filter(Boolean).join(" ") || raw.username || raw.email || raw.thu_dien_tu;
   const roles = raw.roles || raw.danh_sach_vai_tro || [];

@@ -32,6 +32,26 @@ class AuthProfileTestCase(TestCase):
         self.assertEqual(response.data["email"], "profile_test@moc.vn")
         self.assertEqual(response.data["name"], "Văn Vũ")
 
+    def test_doi_email_can_mat_khau(self):
+        url = "/api/auth/profile/"
+        r = self.client.patch(url, {"email": "moi@moc.vn"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        r = self.client.patch(url, {"email": "moi@moc.vn", "mat_khau_hien_tai": "sai"}, format="json")
+        self.assertEqual(r.status_code, 400)
+        r = self.client.patch(url, {"email": "moi@moc.vn", "mat_khau_hien_tai": "Password@123"}, format="json")
+        self.assertEqual(r.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.thu_dien_tu, "moi@moc.vn")
+
+    def test_sua_ho_ten_khong_can_mat_khau(self):
+        r = self.client.patch("/api/auth/profile/", {"first_name": "Mai", "last_name": "Nguyễn", "email": "profile_test@moc.vn"}, format="json")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.data["name"], "Mai Nguyễn")
+
+    def test_danh_gia_mine_chi_tra_cua_minh(self):
+        self.assertEqual(self.client.get("/api/reviews/", {"mine": 1}).status_code, 200)
+        self.assertEqual(len(APIClient().get("/api/reviews/", {"mine": 1}).data), 0)  # khách vãng lai không thấy gì
+
 
 
 class DangKyTestCase(TestCase):

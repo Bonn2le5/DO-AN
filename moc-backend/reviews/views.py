@@ -23,6 +23,9 @@ class DanhGiaViewSet(viewsets.ModelViewSet):
             "nguoi_dung", "mon_an", "don_hang", "chi_tiet_don_hang"
         )
         user = self.request.user
+        if self.request.query_params.get("mine"):
+            # Chủ đánh giá thấy cả đánh giá đang bị ẩn của mình.
+            return q.filter(nguoi_dung=user).order_by("-tao_luc") if user.is_authenticated else q.none()
         is_staff = user.is_authenticated and (user.is_staff or getattr(user, "la_nhan_vien_nha_hang", False))
         if not is_staff:
             q = q.filter(hien_thi=True)

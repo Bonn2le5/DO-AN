@@ -142,6 +142,8 @@ export function mapThongTinDatBan(raw: any): Reservation {
 
   return {
     id: String(raw.id),
+    code: raw.ma_dat_ban ?? "",
+    branchName: raw.ten_chi_nhanh ?? "",
     tableId,
     tableLabel,
     date,
@@ -226,6 +228,7 @@ export function mapDanhGia(raw: any): Review {
   return {
     id: String(raw.id),
     foodId,
+    foodName: raw.food_name ?? "",
     author,
     rating,
     comment,

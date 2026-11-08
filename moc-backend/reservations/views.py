@@ -151,6 +151,9 @@ class DatBanViewSet(viewsets.ModelViewSet):
             "ban_an", "chi_nhanh", "nguoi_dung", "phien_phuc_vu__don_hang"
         ).prefetch_related("danh_sach_mon__mon_an").order_by("-tao_luc")
         user = self.request.user
+        # ?mine=1: trang tài khoản — kể cả nhân viên chỉ thấy bàn mình đặt.
+        if user.is_authenticated and self.request.query_params.get("mine"):
+            return danh_sach.filter(nguoi_dung=user)
         # Match LaNhanVienNhaHang permissions: Django staff accounts may access
         # this endpoint even when they don't have an application role attached.
         if user.is_authenticated and (user.is_staff or getattr(user, "la_nhan_vien_nha_hang", False)):

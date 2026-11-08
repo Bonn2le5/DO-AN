@@ -89,6 +89,7 @@ export type ComboMonAn = ComboItem;
 export interface Review {
   id: string;
   foodId: string;
+  foodName?: string;
   author: string;
   rating: number;
   comment: string;
@@ -211,6 +212,8 @@ export type MonAnDatBan = ReservationFoodItem;
 
 export interface Reservation {
   id: string;
+  code?: string;
+  branchName?: string;
   tableId: string;
   tableLabel?: string;
   date: string;

@@ -133,6 +133,11 @@ export async function layDatBanTheoId(id: string): Promise<Reservation> {
   return mapThongTinDatBan(data);
 }
 
+export async function layDatBanCuaToi(): Promise<Reservation[]> {
+  const { data } = await apiClient.get("/reservations/", { params: { mine: 1 } });
+  return (Array.isArray(data) ? data : data.results).map(mapThongTinDatBan);
+}
+
 export async function taoPhienThanhToanVNPay(
   idDatBan: string
 ): Promise<VNPayPaymentSession> {
