@@ -29,7 +29,7 @@ export default function DirectionsMap({
     : [branches[0]?.lat ?? 10.7769, branches[0]?.lng ?? 106.7009];
 
   return (
-    <div className="rounded-[20px] overflow-hidden border border-black/820px] md:h-140">
+    <div className="rounded-[20px] overflow-hidden border border-black/8 h-[420px] md:h-140">
       <MapContainer
         center={center}
         zoom={13}
@@ -37,8 +37,10 @@ export default function DirectionsMap({
         scrollWheelZoom
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          // tile.openstreetmap.org is unreachable on some networks; OSM France mirror needs no API key.
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, tiles by <a href="https://www.openstreetmap.fr">OSM France</a>'
+          url="https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png"
+          maxZoom={20}
         />
 
         {branches.map((b) => (
