@@ -2,6 +2,7 @@ import logging
 import resend
 from django.conf import settings
 from django.core.mail import send_mail
+from django.utils.html import escape
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,8 @@ def gui_email_xac_thuc(thu_dien_tu: str, ten_nguoi_nhan: str, ma_otp: str) -> bo
     from_email = getattr(settings, "RESEND_FROM_EMAIL", "onboarding@resend.dev")
 
     tieu_de = f"[{ma_otp}] Mã xác thực tài khoản Nhà hàng Mộc"
-    
+    ten_html = escape(ten_nguoi_nhan or "Quý khách")
+
     noi_dung_html = f"""
     <!DOCTYPE html>
     <html lang="vi">
@@ -38,7 +40,7 @@ def gui_email_xac_thuc(thu_dien_tu: str, ten_nguoi_nhan: str, ma_otp: str) -> bo
         <div class="header">
           <h1>🌿 Nhà Hàng Mộc</h1>
         </div>
-        <p>Xin chào <strong>{ten_nguoi_nhan or 'Quý khách'}</strong>,</p>
+        <p>Xin chào <strong>{ten_html}</strong>,</p>
         <p>Cảm ơn bạn đã đăng ký tài khoản tại Nhà hàng Mộc. Dưới đây là mã xác thực tài khoản của bạn:</p>
         
         <div class="otp-box">

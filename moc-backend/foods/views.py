@@ -69,18 +69,15 @@ def _download_food_image(url):
     if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
         raise ValueError("URL ảnh phải là liên kết HTTP/HTTPS hợp lệ.")
 
-    is_debug = getattr(settings, "DEBUG", False)
-    is_loopback = parsed.hostname in ("localhost", "127.0.0.1", "0.0.0.0", "::1")
-
-    if not (is_debug or is_loopback):
-        if parsed.port and parsed.port not in (80, 443):
-            raise ValueError("URL ảnh dùng cổng không được hỗ trợ.")
-        try:
-            addresses = socket.getaddrinfo(parsed.hostname, parsed.port or (443 if parsed.scheme == "https" else 80), type=socket.SOCK_STREAM)
-            if not addresses or any(not ipaddress.ip_address(item[4][0]).is_global for item in addresses):
-                raise ValueError("URL ảnh phải trỏ đến máy chủ công khai.")
-        except (OSError, ValueError) as exc:
-            raise ValueError("Không xác minh được máy chủ của URL ảnh.") from exc
+    # Luôn chặn địa chỉ nội bộ/loopback (kể cả khi DEBUG) để tránh SSRF.
+    if parsed.port and parsed.port not in (80, 443):
+        raise ValueError("URL ảnh dùng cổng không được hỗ trợ.")
+    try:
+        addresses = socket.getaddrinfo(parsed.hostname, parsed.port or (443 if parsed.scheme == "https" else 80), type=socket.SOCK_STREAM)
+        if not addresses or any(not ipaddress.ip_address(item[4][0]).is_global for item in addresses):
+            raise ValueError("URL ảnh phải trỏ đến máy chủ công khai.")
+    except (OSError, ValueError) as exc:
+        raise ValueError("Không xác minh được máy chủ của URL ảnh.") from exc
 
     class NoRedirect(HTTPRedirectHandler):
         def redirect_request(self, req, fp, code, msg, headers, newurl):
