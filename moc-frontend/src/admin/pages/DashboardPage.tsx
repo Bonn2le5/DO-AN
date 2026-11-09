@@ -9,11 +9,13 @@ import { PageHeader } from "../components/primitives";
 
 const CELL: Record<LiveTableState, { cls: string; label: string }> = {
   busy: { cls: "bg-primary text-white", label: "Có khách" },
-  cleaning: { cls: "bg-secondary text-dark", label: "Chờ dọn" },
-  held: { cls: "bg-sky-200 text-sky-900", label: "Đang giữ" },
-  free: { cls: "text-white/75 ring-1 ring-inset ring-white/45", label: "Trống" },
-  maintenance: { cls: "bg-white/[0.07] text-white/30 bg-[repeating-linear-gradient(135deg,transparent_0_4px,rgb(255_255_255/0.08)_4px_6px)]", label: "Bảo trì" },
+  cleaning: { cls: "bg-secondary text-[#3a2a1f]", label: "Chờ dọn" },
+  held: { cls: "text-[#3a2a1f] ring-[1.5px] ring-inset ring-[#3a2a1f]/80 bg-[radial-gradient(circle,rgb(58_42_31/0.8)_0_2px,transparent_2.5px)]", label: "Đang giữ" },
+  free: { cls: "bg-white text-[#3a2a1f]/60 ring-1 ring-inset ring-[#3a2a1f]/25", label: "Trống" },
+  maintenance: { cls: "text-[#3a2a1f]/30 bg-[repeating-linear-gradient(135deg,transparent_0_4px,rgb(58_42_31/0.14)_4px_6px)]", label: "Bảo trì" },
 };
+// Trang Tổng quan dùng Be Vietnam Pro: dựng riêng cho dấu tiếng Việt, số liệu rõ.
+const FONT = '"Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif';
 const RES_LABEL: Record<string, string> = { cho_xac_nhan: "Chờ xác nhận", cho_thanh_toan: "Chờ cọc", da_xac_nhan: "Đã xác nhận" };
 const shortName = (name: string) => name.replace(/^Nhà hàng Mộc\s*-\s*/i, "");
 const compact = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} tr` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(Math.round(n));
@@ -30,7 +32,7 @@ export default function DashboardPage() {
   const single = data?.live.length === 1 ? data.live[0] : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" style={{ "--font-body": FONT, "--font-display": FONT, fontFamily: FONT } as React.CSSProperties}>
       <PageHeader
         title="Tổng quan"
         subtitle={single ? single.name : "Tất cả chi nhánh"}
@@ -40,86 +42,88 @@ export default function DashboardPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-6">
           <NowSection data={data} single={single} />
-          <TodaySentence data={data} />
           <RevenueSection data={data} range={range} setRange={setRange} isAdmin={isAdmin} />
         </div>
         <aside className="space-y-6">
           <TasksSection data={data} can={can} />
           <UpcomingSection data={data} multiBranch={!single} />
-          <TopFoods data={data} range={range} />
+          {isAdmin ? <LeaksSection data={data} range={range} /> : <TopFoods data={data} range={range} />}
         </aside>
       </div>
     </div>
   );
 }
 
-/** Lúc này: mỗi bàn là một ô; admin thấy các chi nhánh xếp chồng để so sánh. */
+/** Lúc này: ba chỉ số nằm ở hàng tiêu đề một lần; mỗi chi nhánh là một dòng, dòng cuối cộng dồn. */
 function NowSection({ data, single }: { data?: DashboardData; single: DashboardBranch | null }) {
+  const rows = (data?.live ?? []).map((b) => ({ ...b, busy: b.tables.filter((t) => t.state === "busy").length, active: b.tables.filter((t) => t.state !== "maintenance").length }));
+  const sum = (k: "busy" | "active" | "guests" | "openTotal") => rows.reduce((n, r) => n + r[k], 0);
+  const head = "px-2 py-2.5 text-right align-bottom text-xs font-normal leading-tight text-[#3a2a1f]/60 sm:px-3 sm:whitespace-nowrap";
+  const num = "px-2 py-3 text-right font-display text-lg font-semibold tabular-nums leading-none whitespace-nowrap sm:px-3 sm:text-xl";
   return (
-    <section aria-labelledby="now-title" className="rounded-2xl bg-dark p-5 text-white sm:p-6">
-      <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
+    <section aria-labelledby="now-title" className="rounded-2xl bg-[#F5F0E6] p-5 ring-1 ring-[#3a2a1f]/10 text-[#3a2a1f] sm:p-6">
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="now-title" className="font-display text-xl font-semibold">Lúc này ở nhà hàng</h2>
-        <Link to="/admin/tables" className="text-sm text-white/70 hover:text-white">Mở sơ đồ bàn</Link>
+        <Link to="/admin/tables" className="text-sm text-[#3a2a1f]/70 hover:text-[#3a2a1f] hover:underline">Mở sơ đồ bàn</Link>
       </div>
-      {!data ? <div className="h-24 animate-pulse rounded-xl bg-white/10" /> : (
-        <div className="space-y-6">
-          {data.live.map((b) => {
-            const active = b.tables.filter((t) => t.state !== "maintenance");
-            const busy = b.tables.filter((t) => t.state === "busy").length;
-            return (
-              <div key={b.id}>
-                {!single && <h3 className="mb-2 truncate text-sm font-medium text-white/85">{shortName(b.name)}</h3>}
-                <div className="grid items-end gap-x-8 gap-y-3 md:grid-cols-[minmax(0,1fr)_auto]">
-                  <ul className="flex flex-wrap gap-1.5" aria-label={`Bàn tại ${b.name}`}>
-                    {b.tables.map((t) => (
-                      <li key={t.name} title={`${t.name}: ${CELL[t.state].label}, ${t.seats} ghế`}
-                        className={`flex items-center justify-center rounded-md text-[11px] font-semibold tabular-nums ${CELL[t.state].cls} ${single ? "h-14 w-14" : "h-8 w-8"}`}>
-                        {single ? t.name.replace(/^.*?(\d+)$/, "$1") : null}
-                        <span className="sr-only">{t.name} {CELL[t.state].label}</span>
-                      </li>
-                    ))}
-                    {b.tables.length === 0 && <li className="text-sm text-white/50">Chưa có bàn</li>}
-                  </ul>
-                  <dl className="grid grid-cols-3 gap-6 text-sm md:w-[300px]">
-                    <Fig label="bàn có khách" value={`${busy}/${active.length}`} />
-                    <Fig label="khách" value={String(b.guests)} />
-                    <Fig label="hoá đơn đang mở" value={b.openTotal ? compact(b.openTotal) : "0"} />
-                  </dl>
-                </div>
-              </div>
-            );
-          })}
-          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/60" aria-label="Chú thích">
-            {(["busy", "cleaning", "free", "maintenance"] as const).map((k) => <li key={k} className="inline-flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-sm ${CELL[k].cls}`} />{CELL[k].label}</li>)}
+      {!data ? <div className="h-24 animate-pulse rounded-xl bg-[#3a2a1f]/10" /> : (
+        <>
+          <div className="-mx-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-[#3a2a1f]/15">
+                <tr>
+                  <th scope="col" className="px-3 py-2.5 text-left text-xs font-normal text-[#3a2a1f]/60">{single ? "Sơ đồ bàn" : "Chi nhánh"}</th>
+                  <th scope="col" className={`${head} sm:w-28`}>Bàn có khách</th>
+                  <th scope="col" className={`${head} sm:w-20`}>Khách</th>
+                  <th scope="col" className={`${head} sm:w-32`}>Hoá đơn đang mở</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#3a2a1f]/10">
+                {rows.map((b) => (
+                  <tr key={b.id} className="align-top">
+                    <th scope="row" className="px-3 py-3 text-left font-normal">
+                      {!single && <span className="mb-2 block text-sm font-medium leading-snug text-[#3a2a1f]/90 sm:max-w-[22rem] sm:truncate" title={b.name}>{shortName(b.name)}</span>}
+                      <TableCells b={b} big={!!single} />
+                    </th>
+                    <td className={num}>{b.busy}<span className="text-sm font-normal text-[#3a2a1f]/45">/{b.active}</span></td>
+                    <td className={num}>{b.guests}</td>
+                    <td className={num}>{b.openTotal ? compact(b.openTotal) : "0"}</td>
+                  </tr>
+                ))}
+              </tbody>
+              {!single && rows.length > 1 && (
+                <tfoot className="border-t border-[#3a2a1f]/25">
+                  <tr>
+                    <th scope="row" className="px-3 py-3 text-left text-sm font-medium">Toàn hệ thống</th>
+                    <td className={`${num} text-primary`}>{sum("busy")}<span className="text-sm font-normal text-[#3a2a1f]/45">/{sum("active")}</span></td>
+                    <td className={`${num} text-primary`}>{sum("guests")}</td>
+                    <td className={`${num} text-primary`}>{sum("openTotal") ? compact(sum("openTotal")) : "0"}</td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+          <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#3a2a1f]/60" aria-label="Chú thích">
+            {(["busy", "cleaning", "held", "free", "maintenance"] as const).map((k) => <li key={k} className="inline-flex items-center gap-1.5"><span className={`h-2.5 w-2.5 rounded-sm ${CELL[k].cls}`} />{CELL[k].label}</li>)}
           </ul>
-        </div>
+        </>
       )}
     </section>
   );
 }
 
-function Fig({ label, value }: { label: string; value: string }) {
-  return <div><dt className="sr-only">{label}</dt><dd className="font-display text-2xl font-semibold tabular-nums leading-none">{value}</dd><dd className="mt-1 text-xs text-white/60 md:whitespace-nowrap">{label}</dd></div>;
-}
-
-/** Số liệu hôm nay viết thành câu, đọc một lần là hiểu. */
-function TodaySentence({ data }: { data?: DashboardData }) {
-  if (!data) return <div className="h-20 animate-pulse rounded-2xl bg-black/[0.04]" />;
-  const { revenue, bills, lastWeekSameTime, reservations, upcomingCount } = data.today;
-  const diff = revenue - lastWeekSameTime;
+function TableCells({ b, big }: { b: DashboardBranch; big: boolean }) {
+  if (b.tables.length === 0) return <span className="text-sm text-[#3a2a1f]/50">Chưa có bàn</span>;
   return (
-    <section aria-label="Hôm nay" className="px-1">
-      <p className="font-display text-2xl leading-snug sm:text-[28px]">
-        Hôm nay đã thu <span className="font-bold tabular-nums">{formatCurrency(revenue)}</span> từ {bills} hoá đơn
-        {bills > 0 && <>, trung bình {formatCurrency(Math.round(revenue / bills))} mỗi hoá đơn</>}.
-      </p>
-      <p className="mt-2 text-sm text-muted">
-        {lastWeekSameTime > 0
-          ? <>{diff >= 0 ? "Cao hơn" : "Thấp hơn"} {formatCurrency(Math.abs(diff))} so với cùng giờ tuần trước. </>
-          : "Cùng giờ tuần trước chưa có doanh thu để so sánh. "}
-        {reservations > 0 ? `${reservations} lượt đặt bàn hôm nay, còn ${upcomingCount} lượt chưa đến.` : "Hôm nay không có lượt đặt bàn."}
-      </p>
-    </section>
+    <ul className={`flex flex-wrap ${big ? "gap-1.5" : "gap-1"}`} aria-label={`Bàn tại ${b.name}`}>
+      {b.tables.map((t) => (
+        <li key={t.name} title={`${t.name}: ${CELL[t.state].label}, ${t.seats} ghế`}
+          className={`flex items-center justify-center rounded-md text-[11px] font-semibold tabular-nums ${CELL[t.state].cls} ${big ? "h-12 w-12" : "h-6 w-6 rounded-[4px]"}`}>
+          {big ? t.name.replace(/^.*?(\d+)$/, "$1") : null}
+          <span className="sr-only">{t.name} {CELL[t.state].label}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -268,6 +272,42 @@ function TopFoods({ data, range }: { data?: DashboardData; range: Range }) {
             </li>
           ))}
         </ol>
+      )}
+    </section>
+  );
+}
+
+/** Cho chủ nhà hàng: những khoản lẽ ra thành doanh thu nhưng đã hụt, kèm chi nhánh hụt nhiều nhất. */
+function LeaksSection({ data, range }: { data?: DashboardData; range: Range }) {
+  const l = data?.leaks;
+  const items = l ? [
+    { key: "discount", big: formatCurrency(l.discount.value), text: `đã giảm giá trên ${l.discount.count} hoá đơn`, to: "/admin/promotions", w: l.discount.worstBranch, show: l.discount.count > 0 },
+    { key: "cancelled", big: formatCurrency(l.cancelled.value), text: `nằm trong ${l.cancelled.count} hoá đơn bị huỷ`, to: "/admin/orders", w: l.cancelled.worstBranch, show: l.cancelled.count > 0 },
+    { key: "noShow", big: `${l.noShow.count} lượt`, text: `đặt bàn rồi không đến, giữ chỗ cho ${l.noShow.value} khách`, to: "/admin/reservations", w: l.noShow.worstBranch, show: l.noShow.count > 0 },
+    { key: "lowReviews", big: `${l.lowReviews.count} đánh giá`, text: "chỉ 1–2 sao, nên đọc để biết món hay khâu nào có vấn đề", to: "/admin/reviews", w: l.lowReviews.worstBranch, show: l.lowReviews.count > 0 },
+  ].filter((i) => i.show) : null;
+  const lost = l ? l.discount.value + l.cancelled.value : 0;
+  return (
+    <section aria-labelledby="leak-title">
+      <h2 id="leak-title" className="font-display text-lg font-semibold">Khoản hụt {range} ngày</h2>
+      <p className="mb-3 text-sm text-muted">{l ? (lost > 0 ? <>Doanh thu đã hụt <span className="font-medium text-dark tabular-nums">{formatCurrency(lost)}</span> vì giảm giá và huỷ đơn.</> : "Chưa hụt đồng nào vì giảm giá hay huỷ đơn.") : "…"}</p>
+      {!items ? <div className="h-28 animate-pulse rounded-2xl bg-black/[0.04]" /> : items.length === 0 ? (
+        <p className="rounded-2xl bg-white px-4 py-5 text-sm text-muted ring-1 ring-black/[0.06]">Không có huỷ đơn, khách bỏ bàn hay đánh giá thấp trong khoảng này.</p>
+      ) : (
+        <ul className="divide-y divide-black/[0.06] overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.06]">
+          {items.map((i) => (
+            <li key={i.key}>
+              <Link to={i.to} className="flex items-start gap-3 px-4 py-3 hover:bg-black/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+                <span className="min-w-0 flex-1">
+                  <span className="block font-display text-lg font-semibold tabular-nums leading-tight">{i.big}</span>
+                  <span className="block text-sm">{i.text}</span>
+                  {i.w && <span className="mt-0.5 block truncate text-xs text-muted">Nhiều nhất ở {shortName(i.w)}</span>}
+                </span>
+                <ChevronRight size={16} className="mt-1.5 text-muted" />
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );

@@ -183,12 +183,33 @@ class DashboardViewSet(viewsets.ViewSet):
         } for r in upcoming_qs[:6]]
 
         unassigned = None
+        leaks = None
         if is_admin:
+            # Khoản hụt: những chỗ tiền lẽ ra vào túi nhưng không vào, chỉ chủ nhà hàng cần nhìn tổng.
+            from reviews.models import DanhGia
+            per_branch = lambda qs, key: {r["k"]: r for r in qs.values(k=F(key)).annotate(n=Count("id"), v=Sum("_v"))}
+            orders = DonHang.objects.annotate(cn=BRANCH_OF_ORDER).filter(tao_luc__gte=start)
+            discount = orders.filter(trang_thai=DonHang.TrangThai.HOAN_TAT, tien_giam__gt=0).annotate(_v=F("tien_giam"))
+            cancelled = orders.filter(trang_thai=DonHang.TrangThai.DA_HUY).annotate(_v=F("tong_tien"))
+            no_show = DatBan.objects.filter(trang_thai=DatBan.TrangThai.KHACH_KHONG_DEN, ngay_dat__gte=start.date(), ngay_dat__lte=today_vn).annotate(_v=F("so_luong_khach"))
+            low = DanhGia.objects.filter(tao_luc__gte=start, diem_danh_gia__lte=2).annotate(cn=Coalesce("don_hang__chi_nhanh_id", "don_hang__phien_phuc_vu__chi_nhanh_id"), _v=F("diem_danh_gia"))
+            names = {b.id: b.ten for b in branches}
+
+            def pack(qs, key):
+                rows = per_branch(qs, key)
+                worst = max(rows.values(), key=lambda r: r["n"], default=None)
+                return {
+                    "count": sum(r["n"] for r in rows.values()), "value": float(sum((r["v"] or 0) for r in rows.values())),
+                    "worst_branch": names.get(worst["k"]) if worst and len(rows) > 1 else None,
+                }
+            leaks = {"discount": pack(discount, "cn"), "cancelled": pack(cancelled, "cn"), "no_show": pack(no_show, "chi_nhanh_id"), "low_reviews": pack(low, "cn")}
+
             row = DonHang.objects.annotate(cn=BRANCH_OF_ORDER).filter(cn__isnull=True, trang_thai=DonHang.TrangThai.HOAN_TAT, tao_luc__gte=start).aggregate(revenue=Sum("tong_tien"), bills=Count("id"))
             if row["bills"]:
                 unassigned = {"revenue": float(row["revenue"] or 0), "bills": row["bills"]}
 
         return {
+            "leaks": leaks,
             "unassigned": unassigned,
             "now": timezone.localtime(now, VN).strftime("%H:%M"),
             "live": live,

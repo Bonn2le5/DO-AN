@@ -212,14 +212,17 @@ export async function deleteRecipe(id: string) { await apiClient.delete(`/dinh-m
 export type Range = 1 | 7 | 30;
 export type LiveTableState = "free" | "busy" | "cleaning" | "maintenance" | "held";
 export interface DashboardBranch { id: string; name: string; tables: { name: string; seats: number; state: LiveTableState }[]; guests: number; openTotal: number; todayRevenue: number; todayBills: number; rangeRevenue: number; rangeBills: number; rangeGuests: number }
+export interface DashboardLeak { count: number; value: number; worstBranch: string | null }
 export interface DashboardData {
   revenue: number; orderCount: number; reservationsToday: number; newCustomers: number; series: { label: string; value: number }[]; byStatus: { status: OrderStatus; value: number }[]; topFoods: [string, number][];
   tasks: { pendingOrders: number; pendingDeposits: number; refundQueue: number; lowStock: number; unreadChats: number; pendingConfirm: number };
   now: string; live: DashboardBranch[]; unassigned: { revenue: number; bills: number } | null;
+  leaks: Record<"discount" | "cancelled" | "noShow" | "lowReviews", DashboardLeak> | null;
   today: { revenue: number; bills: number; lastWeekSameTime: number; reservations: number; upcomingCount: number };
   upcoming: { id: string; time: string; customer: string; party: number; status: string; branch: string; preorder: boolean }[];
 }
 export async function getDashboard(range: Range): Promise<DashboardData> { const { data } = await apiClient.get("/analytics/dashboard/", { params: { days: range } }); return { revenue: num(val(data, "revenue", "doanh_thu")), orderCount: num(val(data, "orders", "so_don_hang")), reservationsToday: num(val(data, "reservations_today", "so_dat_ban_hom_nay", "reservations")), newCustomers: num(val(data, "new_customers", "khach_hang_moi")), series: data.revenue_by_day ?? data.series ?? [], byStatus: (data.orders_by_status ?? []).map((x: Raw) => ({ status: stateMap(val(x, "status", "trang_thai"), orderState) as OrderStatus, value: num(val(x, "count", "value")) })), topFoods: data.top_foods ?? [], tasks: { pendingOrders: 0, pendingDeposits: 0, refundQueue: 0, lowStock: 0, unreadChats: 0, pendingConfirm: 0, ...(data.tasks ?? {}) },
+    leaks: data.leaks ? Object.fromEntries((["discount", "cancelled", "no_show", "low_reviews"] as const).map((k) => [k.replace(/_(\w)/, (_, c: string) => c.toUpperCase()), { count: num(data.leaks[k]?.count), value: num(data.leaks[k]?.value), worstBranch: data.leaks[k]?.worst_branch ? text(data.leaks[k].worst_branch) : null }])) as DashboardData["leaks"] : null,
     now: text(data.now), unassigned: data.unassigned ? { revenue: num(data.unassigned.revenue), bills: num(data.unassigned.bills) } : null,
     live: (data.live ?? []).map((b: Raw) => ({ id: text(b.id), name: text(b.name), tables: b.tables ?? [], guests: num(b.guests), openTotal: num(b.open_total), todayRevenue: num(b.today_revenue), todayBills: num(b.today_bills), rangeRevenue: num(b.range_revenue), rangeBills: num(b.range_bills), rangeGuests: num(b.range_guests) })),
     today: { revenue: num(data.today?.revenue), bills: num(data.today?.bills), lastWeekSameTime: num(data.today?.last_week_same_time), reservations: num(data.today?.reservations), upcomingCount: num(data.today?.upcoming_count) },
