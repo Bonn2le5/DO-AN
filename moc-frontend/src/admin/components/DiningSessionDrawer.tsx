@@ -4,18 +4,21 @@ import { useToast } from "./toast";
 import { inputCls } from "./primitives";
 import { useAsync } from "@/hooks/useAsync";
 import { formatCurrency } from "@/lib/utils";
+import ConfirmModal from "./ConfirmModal";
 import {
+  cancelDiningSession,
   checkoutDiningSession,
   confirmDiningSessionCleaned,
   foodsStore,
   getDiningSession,
+  getStockAlerts,
   moveDiningSession,
   ordersStore,
   replaceDiningSessionItems,
   setOrderStatus,
   lowStockMessage,
 } from "../api/admin.api";
-import { useCan } from "../permissions";
+import { useCan, useRole } from "../permissions";
 import { ORDER_META, ORDER_NEXT } from "../statusMeta";
 import type { AdminFood } from "../data/mockCatalog";
 import type { AdminDiningSession, AdminOrder, AdminTable } from "../types";
@@ -52,6 +55,11 @@ function minutesSince(iso: string | undefined) {
 
 export default function DiningSessionDrawer({ session, tables, onClose, onChanged }: Props) {
   const can = useCan();
+  const role = useRole();
+  const isManager = role === "admin" || role === "branch_manager";
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [releaseOpen, setReleaseOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const push = useToast((state) => state.push);
   const searchRef = useRef<HTMLInputElement>(null);
   const [screen, setScreen] = useState<Screen>("menu");
@@ -71,13 +79,19 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
 
   const { data, loading, refetch } = useAsync(async () => {
     if (!session) return undefined;
-    const [orders, foods, current] = await Promise.all([ordersStore.list(), foodsStore.list(), getDiningSession(session.id)]);
-    return { orders, foods, current };
+    const [orders, foods, current, alerts] = await Promise.all([ordersStore.list(), foodsStore.list(), getDiningSession(session.id), getStockAlerts().catch(() => [])]);
+    return { orders, foods, current, alerts };
   }, [session?.id]);
 
   const current = data?.current ?? session;
   const order = data?.orders.find((item) => item.id === current?.orderId);
   const foods = useMemo(() => data?.foods.filter((item) => item.available) ?? [], [data?.foods]);
+  // Món có nguyên liệu dưới mức tối thiểu: đánh dấu để nhân viên báo khách trước khi gọi.
+  const shortFoods = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const a of data?.alerts ?? []) for (const name of a.foods) map.set(name, [...(map.get(name) ?? []), a.stock <= 0 ? `${a.name} đã hết` : `${a.name} còn ${a.stock}${a.unit ? " " + a.unit : ""}`]);
+    return map;
+  }, [data?.alerts]);
   const categories = useMemo(() => [ALL, ...new Set(foods.map((food) => food.category).filter(Boolean))], [foods]);
   const visibleFoods = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -143,10 +157,14 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
     return () => { window.clearTimeout(timer); window.removeEventListener("afterprint", reset); };
   }, [printJob]);
 
+  // Bàn chưa có món nào gửi bếp (hoặc hoá đơn đã bị huỷ): thoát ra thì đề nghị giải phóng bàn,
+  // tránh bàn trống mà vẫn hiện "đang dùng" và đếm giờ.
+  const releasable = canOperate && current?.status === "active" && ((cart.length === 0 && !sentToKitchen) || order?.status === "cancelled");
   const requestClose = useCallback(() => {
-    if (dirty && editable) setGuardOpen(true);
+    if (releasable) setReleaseOpen(true);
+    else if (dirty && editable) setGuardOpen(true);
     else onClose();
-  }, [dirty, editable, onClose]);
+  }, [releasable, dirty, editable, onClose]);
 
   useEffect(() => {
     if (!session) return;
@@ -154,6 +172,7 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
       const typing = event.target instanceof HTMLElement && ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName);
       if (event.key === "Escape") {
         if (guardOpen) return setGuardOpen(false);
+        if (releaseOpen) return setReleaseOpen(false);
         if (typing && event.target === searchRef.current && search) return setSearch("");
         if (screen === "invoice") return setScreen("menu");
         requestClose();
@@ -164,7 +183,7 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [session, guardOpen, search, screen, requestClose]);
+  }, [session, guardOpen, releaseOpen, search, screen, requestClose]);
 
   const refresh = async () => { await refetch(); onChanged(); };
 
@@ -183,7 +202,7 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
   }));
   const setNote = (index: number, note: string) => setCart((rows) => rows.map((line, i) => i === index ? { ...line, note } : line));
 
-  const saveCart = async () => {
+  const saveCart = async (): Promise<string | null | false> => {
     if (!current) return false;
     if (cart.some((line) => !line.foodId)) {
       push("Một món trong phiếu không còn trong thực đơn. Xoá món đó rồi thử lại.", "err");
@@ -193,25 +212,33 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
     try {
       const res = await replaceDiningSessionItems(current.id, cart.map((line) => ({ foodId: line.foodId, quantity: line.qty, note: line.note.trim() })));
       if (sentToKitchen && res.lowStock.length) push(lowStockMessage(res.lowStock), "warn");
-      const savedOrder = (await ordersStore.list()).find((item) => item.id === current.orderId);
-      if (savedOrder) { const lines = linesFromOrder(savedOrder, data?.foods ?? []); setCart(lines); setSaved(lines); }
+      const orderId = res.orderId ?? null;
+      const savedOrder = orderId ? (await ordersStore.list()).find((item) => item.id === orderId) : undefined;
+      const lines = savedOrder ? linesFromOrder(savedOrder, data?.foods ?? []) : [];
+      setCart(lines); setSaved(lines);
       await refresh();
-      return true;
+      return orderId;
     } catch (error) {
       push(error instanceof Error ? error.message : "Không lưu được phiếu gọi món.", "err");
       return false;
     } finally { setBusy(false); }
   };
 
+  // Hoá đơn chỉ sinh ra ở bước này: lưu món (tạo hoá đơn nếu chưa có) rồi chuyển sang bếp.
   const sendToKitchen = async () => {
-    if (!order) return false;
     const kot = newLines;
     if (!kot.length && !dirty) { push("Không có món mới để gửi bếp.", "err"); return false; }
-    if (dirty && !(await saveCart())) return false;
+    let orderId: string | null | undefined = order?.id;
+    if (dirty) {
+      const saved = await saveCart();
+      if (saved === false) return false;
+      orderId = saved;
+    }
     setBusy(true);
     try {
-      if (order.status === "pending") {
-        const confirmed = await setOrderStatus(order, "confirmed", "Gửi bếp từ màn gọi món");
+      const latest = orderId ? (await ordersStore.list()).find((item) => item.id === orderId) : undefined;
+      if (latest?.status === "pending") {
+        const confirmed = await setOrderStatus(latest, "confirmed", "Gửi bếp từ màn gọi món");
         if (confirmed.lowStock.length) push(lowStockMessage(confirmed.lowStock), "warn");
       }
       await refresh();
@@ -228,12 +255,12 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
 
   const openInvoice = async () => {
     if (!cart.length) return push("Phiếu chưa có món nào để thanh toán.", "err");
-    if (!dirty || await saveCart()) setScreen("invoice");
+    if (!dirty || (await saveCart()) !== false) setScreen("invoice");
   };
 
   const printBill = async () => {
     if (!cart.length) return push("Phiếu chưa có món nào để in.", "err");
-    if (!dirty || await saveCart()) setPrintJob({ mode: "bill", lines: cart });
+    if (!dirty || (await saveCart()) !== false) setPrintJob({ mode: "bill", lines: cart });
   };
 
   const advanceOrder = async () => {
@@ -284,11 +311,20 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
     } finally { setBusy(false); }
   };
 
+  const cancelTable = async () => {
+    if (!current) return;
+    setBusy(true);
+    try {
+      await cancelDiningSession(current.id, cancelReason.trim());
+      push(sentToKitchen && order?.status !== "cancelled" ? `Đã huỷ hoá đơn ${order?.code ?? ""}. ${current.tableLabel} đã trống.` : `Đã giải phóng ${current.tableLabel}. Bàn đã trống.`);
+      setCancelOpen(false); setReleaseOpen(false); onChanged(); onClose();
+    } catch (error) {
+      push(error instanceof Error ? error.message : "Không huỷ được bàn.", "err");
+    } finally { setBusy(false); }
+  };
+
   const closeFromGuard = async (action: "save" | "discard") => {
-    if (action === "save") {
-      const ok = sentToKitchen ? await sendToKitchen() : await saveCart();
-      if (!ok) return;
-    }
+    if (action === "save" && !(await sendToKitchen())) return;
     setGuardOpen(false);
     onClose();
   };
@@ -360,13 +396,14 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
                 <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                   {visibleFoods.map((food) => {
                     const qty = qtyByFood.get(food.id) ?? 0;
+                    const short = shortFoods.get(food.name);
                     return (
                       <button key={food.id} type="button" disabled={!editable || busy} onClick={() => addFood(food)} aria-label={`Thêm ${food.name}, ${formatCurrency(food.price)}${qty ? `, đang có ${qty}` : ""}`}
                         className={`relative flex min-h-[88px] items-start gap-3 rounded-xl border bg-white p-3 text-left transition-[border-color,box-shadow] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${qty ? "border-primary/60 shadow-[inset_0_0_0_1px_var(--color-primary)]" : "border-black/[0.08] hover:border-black/20"}`}>
                         {food.image && <img src={food.image} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />}
                         <span className="flex min-w-0 flex-1 flex-col self-stretch">
                           <span className="line-clamp-2 pr-6 text-sm font-medium leading-snug">{food.name}</span>
-                          <span className="mt-auto pt-1 text-sm tabular-nums text-muted">{formatCurrency(food.price)}</span>
+                          <span className="mt-auto flex items-center gap-2 pt-1 text-sm tabular-nums text-muted">{formatCurrency(food.price)}{short && <span title={short.join(", ")} className="rounded bg-secondary/25 px-1.5 py-0.5 text-[11px] font-medium text-[#8a6416]">Sắp hết NL</span>}</span>
                         </span>
                         {qty > 0 && <span className="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold tabular-nums text-white">{qty}</span>}
                       </button>
@@ -418,7 +455,9 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
                     {editable && (
                       <div className="mt-2 flex items-center gap-2">
                         <div className="inline-flex items-center rounded-lg border border-black/10">
-                          <button onClick={() => changeQuantity(index, -1)} aria-label={`Bớt ${line.name}`} className="flex h-9 w-9 items-center justify-center text-dark/70 hover:text-primary"><Minus size={15} /></button>
+                          <button onClick={() => changeQuantity(index, -1)} disabled={!isManager && sentToKitchen && line.qty <= (savedQty.get(lineKey(line)) ?? 0)}
+                            title={!isManager && sentToKitchen && line.qty <= (savedQty.get(lineKey(line)) ?? 0) ? "Món đã gửi bếp: cần quản lý chi nhánh bớt" : undefined}
+                            aria-label={`Bớt ${line.name}`} className="flex h-9 w-9 items-center justify-center text-dark/70 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"><Minus size={15} /></button>
                           <span className="w-7 text-center text-sm font-semibold tabular-nums" aria-live="polite">{line.qty}</span>
                           <button onClick={() => changeQuantity(index, 1)} aria-label={`Thêm ${line.name}`} className="flex h-9 w-9 items-center justify-center text-dark/70 hover:text-primary"><Plus size={15} /></button>
                         </div>
@@ -439,8 +478,9 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
               </div>
               {deposit > 0 && <p className="-mt-2 text-right text-xs text-muted tabular-nums">Đã cọc {formatCurrency(deposit)}, còn thu {formatCurrency(due)}</p>}
               {orderClosed && order && <p className="rounded-lg bg-black/[0.05] px-3 py-2 text-xs text-dark/80">Đơn {order.code} đã {order.status === "cancelled" ? "bị huỷ" : "hoàn tất"}, nên không thêm hay sửa món được nữa.</p>}
+              {order?.status === "cancelled" && canOperate && current.status === "active" && <button disabled={busy} onClick={() => void cancelTable()} className="btn btn-primary w-full py-3!">Giải phóng bàn</button>}
               {reducedSent && <p className="rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary-dark">Bạn đã bớt món đã gửi bếp. Báo bếp trực tiếp để huỷ phần đó.</p>}
-              {current.status === "cleaning" ? (
+              {order?.status === "cancelled" ? null : current.status === "cleaning" ? (
                 <button disabled={busy} onClick={() => void confirmCleaned()} className="btn w-full bg-secondary! py-3! text-dark!"><Check size={17} />Đã dọn xong bàn</button>
               ) : (
                 <>
@@ -449,9 +489,14 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
                   </button>
                   <div className="grid grid-cols-2 gap-2">
                     <button disabled={busy || !cart.length} onClick={() => void printBill()} className="btn btn-outline py-2.5! disabled:opacity-45"><Printer size={16} />In tạm tính</button>
-                    <button disabled={busy || !cart.length || !canOperate || order?.status === "cancelled"} onClick={() => void openInvoice()} className="btn bg-dark! py-2.5! text-white! hover:bg-black! disabled:opacity-45">Thanh toán</button>
+                    <button disabled={busy || !cart.length || !canOperate} onClick={() => void openInvoice()} className="btn bg-dark! py-2.5! text-white! hover:bg-black! disabled:opacity-45">Thanh toán</button>
                   </div>
-                  {editable && dirty && !sentToKitchen && <button disabled={busy} onClick={() => void saveCart()} className="w-full text-center text-xs font-medium text-muted hover:text-dark">Lưu phiếu, chưa gửi bếp</button>}
+                  {editable && (!sentToKitchen || isManager) && (
+                    <button disabled={busy} onClick={() => { setCancelReason(""); setCancelOpen(true); }} className="w-full text-center text-xs font-medium text-primary/80 hover:text-primary">
+                      {sentToKitchen ? "Huỷ hoá đơn (quản lý)" : "Huỷ bàn, khách không dùng bữa"}
+                    </button>
+                  )}
+                  {editable && sentToKitchen && !isManager && <p className="text-center text-xs text-muted">Bớt món hoặc huỷ hoá đơn đã gửi bếp cần quản lý chi nhánh.</p>}
                 </>
               )}
             </div>
@@ -459,13 +504,40 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
         </div>
       )}
 
+      <ConfirmModal
+        open={cancelOpen} danger busy={busy}
+        title={sentToKitchen ? `Huỷ hoá đơn ${order?.code ?? ""}?` : `Huỷ ${current.tableLabel}?`}
+        message={sentToKitchen ? "Hoá đơn chuyển sang Đã huỷ, nguyên liệu đã xuất được hoàn lại kho, bàn trở về trống." : "Bàn trở về trống. Các món chưa gửi bếp bị bỏ, không tạo hoá đơn."}
+        confirmLabel={sentToKitchen ? "Huỷ hoá đơn" : "Huỷ bàn"}
+        onConfirm={() => void cancelTable()} onCancel={() => setCancelOpen(false)}
+      >
+        {sentToKitchen && <>
+          <label className="mb-1.5 block text-[13px] font-semibold text-muted" htmlFor="cancel-reason">Lý do huỷ</label>
+          <input id="cancel-reason" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} className={inputCls} placeholder="Ví dụ: khách đổi ý, gọi nhầm bàn" />
+        </>}
+      </ConfirmModal>
+
+      {releaseOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-dark/40 p-4" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setReleaseOpen(false); }}>
+          <div role="alertdialog" aria-modal="true" aria-labelledby="release-title" className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-lift">
+            <h2 id="release-title" className="font-display text-lg font-semibold">{order?.status === "cancelled" ? `Hoá đơn ${order.code} đã bị huỷ` : `${current?.tableLabel ?? "Bàn"} chưa gọi món`}</h2>
+            <p className="mt-1.5 text-sm text-muted">{order?.status === "cancelled" ? "Giải phóng bàn để đón khách khác." : "Chưa có món nào gửi bếp. Giải phóng bàn để đón khách khác, hoặc giữ bàn nếu khách vẫn đang xem thực đơn."}</p>
+            <div className="mt-5 flex flex-col gap-2">
+              <button disabled={busy} onClick={() => void cancelTable()} className="btn btn-primary py-2.5!">{busy ? "Đang giải phóng…" : "Giải phóng bàn"}</button>
+              {order?.status !== "cancelled" && <button disabled={busy} onClick={() => { setReleaseOpen(false); onClose(); }} className="btn btn-outline py-2.5!">Giữ bàn, khách đang chọn món</button>}
+              <button onClick={() => setReleaseOpen(false)} className="py-2 text-sm text-muted hover:text-dark">Ở lại</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {guardOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-dark/40 p-4" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setGuardOpen(false); }}>
           <div role="alertdialog" aria-modal="true" aria-labelledby="guard-title" className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-lift">
-            <h2 id="guard-title" className="font-display text-lg font-semibold">Phiếu còn món chưa {sentToKitchen ? "gửi bếp" : "lưu"}</h2>
+            <h2 id="guard-title" className="font-display text-lg font-semibold">Phiếu còn món chưa gửi bếp</h2>
             <p className="mt-1.5 text-sm text-muted">Nếu đóng bây giờ, các thay đổi ở {current.tableLabel} sẽ mất.</p>
             <div className="mt-5 flex flex-col gap-2">
-              <button disabled={busy} onClick={() => void closeFromGuard("save")} className="btn btn-primary py-2.5!">{sentToKitchen ? "Gửi bếp rồi đóng" : "Lưu rồi đóng"}</button>
+              <button disabled={busy} onClick={() => void closeFromGuard("save")} className="btn btn-primary py-2.5!">Gửi bếp rồi đóng</button>
               <button disabled={busy} onClick={() => void closeFromGuard("discard")} className="btn btn-outline py-2.5! text-primary!">Bỏ thay đổi</button>
               <button onClick={() => setGuardOpen(false)} className="py-2 text-sm text-muted hover:text-dark">Ở lại</button>
             </div>

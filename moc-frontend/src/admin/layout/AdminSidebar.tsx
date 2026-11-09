@@ -4,7 +4,7 @@ import {
   Newspaper, Star, CreditCard, Landmark, MapPin, Users, ShieldCheck, Sparkles, Settings, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useCan } from "../permissions";
+import { useCan, useRole } from "../permissions";
 import type { Module } from "../types";
 
 type Item = { to: string; label: string; icon: typeof Tag; module: Module; end?: boolean };
@@ -41,6 +41,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
 
 export default function AdminSidebar({ open, collapsed, unreadChatCount = 0, onClose }: { open: boolean; collapsed: boolean; unreadChatCount?: number; onClose: () => void }) {
   const can = useCan();
+  const isManager = useRole() === "branch_manager";
   return (
     <>
       <div className={cn("lg:hidden fixed inset-0 z-50 bg-dark/50 transition-opacity", open ? "opacity-100" : "opacity-0 pointer-events-none")} onClick={onClose} />
@@ -68,7 +69,7 @@ export default function AdminSidebar({ open, collapsed, unreadChatCount = 0, onC
                     key={i.to} to={i.to} end={i.end} onClick={onClose}
                     className={({ isActive }) => cn("flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] transition-colors", isActive ? "bg-primary text-white" : "hover:bg-white/8 hover:text-white")}
                   >
-                    <i.icon width={17} height={17} />{i.label}{i.module === "chat" && unreadChatCount > 0 && <span className="ml-auto min-w-5 h-5 px-1 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">{unreadChatCount}</span>}
+                    <i.icon width={17} height={17} />{isManager && i.module === "users" ? "Nhân viên chi nhánh" : i.label}{i.module === "chat" && unreadChatCount > 0 && <span className="ml-auto min-w-5 h-5 px-1 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">{unreadChatCount}</span>}
                   </NavLink>
                 ))}
               </div>

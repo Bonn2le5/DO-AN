@@ -42,12 +42,16 @@ const ALL: Action[] = ["view", "create", "update", "delete"];
  */
 export const MATRIX: Record<RoleName, Partial<Record<Module, Action[]>>> = {
   admin: Object.fromEntries(MODULES.map((m) => [m.key, ALL])),
+  // Quản lý chi nhánh: vận hành như nhân viên, cộng thêm huỷ đặt bàn/hoá đơn đã gửi bếp,
+  // cấu hình bàn, kho nguyên liệu và nhân viên của chi nhánh mình.
   branch_manager: {
     dashboard: ["view"],
-    orders: ["view", "create", "update"],
-    reservations: ["view", "create", "update"],
+    orders: ["view", "create", "update", "delete"],
+    reservations: ["view", "create", "update", "delete"],
     tables: ["view", "create", "update", "delete"],
     payments: ["view", "create", "update"],
+    ingredients: ["view", "create", "update", "delete"],
+    users: ["view", "create", "update"],
   },
   staff: {
     orders: ["view", "create", "update"],

@@ -50,7 +50,7 @@ export default function ReservationDrawer({ res, tables, policy, onClose, onChan
     try {
       if (res.status === "confirmed") await checkInReservation(res.id, res.version);
       const session = await startReservationSession(res.id, selectedTableId);
-      push(`Đã check-in ${res.customer || "khách"}, xếp bàn và tạo hóa đơn.`);
+      push(`Đã check-in ${res.customer || "khách"} và xếp bàn.`);
       onChanged();
       onOpenSession?.(session);
     } catch (e) {
@@ -74,8 +74,10 @@ export default function ReservationDrawer({ res, tables, policy, onClose, onChan
 
   const editable = can("reservations", "update");
   const canSeat = !!res && !res.sessionId && (res.status === "confirmed" || res.status === "seated");
-  const actions = res ? ACTIONS[res.status] ?? [] : [];
-  const canCancel = res && (["pending_confirmation", "pending_payment", "confirmed"] as ReservationStatus[]).includes(res.status);
+  // Huỷ đặt bàn và báo khách không đến ảnh hưởng tiền cọc: chỉ quản lý chi nhánh.
+  const canVoid = can("reservations", "delete");
+  const actions = (res ? ACTIONS[res.status] ?? [] : []).filter((a) => canVoid || (a.to !== "no_show" && a.to !== "cancelled"));
+  const canCancel = canVoid && res && (["pending_confirmation", "pending_payment", "confirmed"] as ReservationStatus[]).includes(res.status);
 
   return (
     <>
@@ -104,7 +106,7 @@ export default function ReservationDrawer({ res, tables, policy, onClose, onChan
                 <div key={k}><div className="text-xs text-muted">{k}</div><div className="font-medium">{v}</div></div>
               ))}
             </section>
-            {res.status === "confirmed" && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">Khách tới: chọn bàn rồi bấm “Check-in & xếp bàn” để check-in, xếp bàn và tạo hóa đơn một lần. Chưa có bàn trống thì bấm “Chỉ check-in”.</div>}
+            {res.status === "confirmed" && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">Khách tới: chọn bàn rồi bấm “Check-in & xếp bàn” để check-in và xếp bàn một lần. Hoá đơn được tạo khi gửi món đầu tiên xuống bếp. Chưa có bàn trống thì bấm “Chỉ check-in”.</div>}
             {res.status === "seated" && !res.tableLabel && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-5 text-emerald-900">Đã check-in · chọn bàn còn trống đủ {res.partySize} chỗ để xếp bàn.</div>}
             {res.status === "seated" && res.sessionId && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-5 text-emerald-900">Đã bắt đầu phục vụ tại <b>{res.tableLabel}</b>. Hóa đơn {res.orderCode || "đã được tạo"}.</div>}
             {editable && canSeat && (

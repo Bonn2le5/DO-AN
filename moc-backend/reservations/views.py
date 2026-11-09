@@ -250,6 +250,8 @@ class DatBanViewSet(viewsets.ModelViewSet):
         dat_ban = self.get_object()
         if dat_ban.nguoi_dung_id != request.user.id and not getattr(request.user, "la_nhan_vien_nha_hang", False):
             return Response({"chi_tiet": "Không có quyền hủy đặt bàn này."}, status=403)
+        if dat_ban.nguoi_dung_id != request.user.id and not DichVuPhienPhucVu.la_quan_ly(request.user):
+            raise PermissionDenied("Chỉ quản lý chi nhánh mới được huỷ đặt bàn hoặc báo khách không đến.")
 
         if dat_ban.trang_thai in [DatBan.TrangThai.DA_HUY, DatBan.TrangThai.HOAN_TAT]:
             return Response(
@@ -286,6 +288,8 @@ class DatBanViewSet(viewsets.ModelViewSet):
         requested_status = request.data.get("status")
         if requested_status in {DatBan.TrangThai.KHACH_DA_DEN, DatBan.TrangThai.HOAN_TAT}:
             raise ValidationError({"status": "Dùng thao tác check-in hoặc checkout của phiên phục vụ."})
+        if requested_status in {DatBan.TrangThai.DA_HUY, DatBan.TrangThai.KHACH_KHONG_DEN, "cancelled", "no_show"} and not DichVuPhienPhucVu.la_quan_ly(request.user):
+            raise PermissionDenied("Chỉ quản lý chi nhánh mới được huỷ đặt bàn hoặc báo khách không đến.")
         dat_ban = DichVuDatBan.doi_trang_thai(
             current,
             requested_status,
@@ -502,11 +506,31 @@ class PhienPhucVuViewSet(viewsets.ReadOnlyModelViewSet):
                 danh_sach_item=serializer.validated_data["danh_sach_mon"],
             )
         from foods.services import DichVuKho
+        from orders.models import ChiTietDonHang
         data = dict(self.get_serializer(phien).data)
         data["canh_bao_kho"] = DichVuKho.canh_bao_sap_het(
-            phien.don_hang.danh_sach_mon.values_list("mon_an_id", flat=True)
+            ChiTietDonHang.objects.filter(don_hang__phien_phuc_vu=phien).values_list("mon_an_id", flat=True)
         )
         return Response(data)
+
+    @action(detail=True, methods=["post"], url_path="cancel")
+    def cancel(self, request, pk=None):
+        """Huỷ bàn: nhân viên khi chưa gửi bếp, quản lý khi đã gửi bếp."""
+        phien = self.get_object()
+        self._assert_branch_access(phien.chi_nhanh_id)
+        phien = DichVuPhienPhucVu.huy_phien(
+            nguoi_dung=request.user, phien_id=phien.id,
+            ly_do=str(request.data.get("ly_do") or request.data.get("reason") or ""),
+        )
+        return Response(self.get_serializer(phien).data)
+
+    @action(detail=False, methods=["get"], url_path="canh-bao-kho")
+    def canh_bao_kho(self, request):
+        """Món đang thiếu nguyên liệu, để màn gọi món đánh dấu trước khi khách gọi."""
+        from foods.models import DinhMucNguyenLieu
+        from foods.services import DichVuKho
+        mon_ids = DinhMucNguyenLieu.objects.values_list("mon_an_id", flat=True).distinct()
+        return Response(DichVuKho.canh_bao_sap_het(mon_ids))
 
     @action(detail=True, methods=["post"], url_path="move-table")
     def move_table(self, request, pk=None):

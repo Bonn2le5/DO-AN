@@ -139,6 +139,16 @@ export async function checkoutDiningSession(sessionId: string, paymentMethod: "c
   const { data } = await apiClient.post(`/dining-sessions/${sessionId}/checkout/`, { phuong_thuc: paymentMethod === "cod" ? "tien_mat" : paymentMethod === "bank" ? "chuyen_khoan" : "vnpay", ma_tham_chieu: reference ?? "" });
   return mapDiningSession(data);
 }
+/** Huỷ bàn: nhân viên khi chưa gửi bếp, quản lý khi đã gửi bếp (hoá đơn chuyển "Đã huỷ"). */
+export async function cancelDiningSession(sessionId: string, reason = ""): Promise<AdminDiningSession> {
+  const { data } = await apiClient.post(`/dining-sessions/${sessionId}/cancel/`, { ly_do: reason });
+  return mapDiningSession(data);
+}
+/** Nguyên liệu đang thiếu và các món bị ảnh hưởng, để đánh dấu trên thực đơn. */
+export async function getStockAlerts(): Promise<LowStockWarning[]> {
+  const { data } = await apiClient.get("/dining-sessions/canh-bao-kho/");
+  return mapLowStock(data);
+}
 export async function confirmDiningSessionCleaned(sessionId: string): Promise<AdminDiningSession> {
   const { data } = await apiClient.post(`/dining-sessions/${sessionId}/confirm-cleaned/`);
   return mapDiningSession(data);

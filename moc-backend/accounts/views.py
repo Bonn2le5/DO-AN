@@ -184,17 +184,55 @@ class NguoiDungViewSet(viewsets.ModelViewSet):
     serializer_class = NguoiDungSerializer
     permission_classes = [LaNhanVienNhaHang]
 
+    def _is_admin(self):
+        return bool(self.request.user.is_superuser or getattr(self.request.user, "la_quan_tri_vien", False))
+
+    def _managed_branch_id(self):
+        """Chi nhánh mà quản lý được quản lý nhân viên; None nếu không phải quản lý chi nhánh."""
+        user = self.request.user
+        if self._is_admin() or not getattr(user, "la_quan_ly_chi_nhanh", False):
+            return None
+        return user.chi_nhanh_quan_ly_id
+
     def _require_admin(self):
-        if not (self.request.user.is_superuser or getattr(self.request.user, "la_quan_tri_vien", False)):
+        if not self._is_admin():
             raise PermissionDenied("Chỉ quản trị viên mới được quản lý tài khoản.")
+
+    def _require_admin_or_manager(self):
+        if not (self._is_admin() or self._managed_branch_id()):
+            raise PermissionDenied("Chỉ quản trị viên hoặc quản lý chi nhánh mới được quản lý nhân viên.")
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self._is_admin():
+            return qs
+        branch_id = self._managed_branch_id()
+        if not branch_id:
+            return qs.none()
+        # Quản lý chỉ thấy nhân viên bán hàng của chi nhánh mình.
+        return qs.filter(chi_nhanh_quan_ly_id=branch_id, danh_sach_vai_tro__ten="nhan_vien_ban_hang").distinct()
+
+    # CRUD mặc định chỉ dành cho admin; quản lý dùng admin_create / admin_update.
+    def create(self, request, *args, **kwargs):
+        self._require_admin(); return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        self._require_admin(); return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        self._require_admin(); return super().destroy(request, *args, **kwargs)
 
     @action(detail=False, methods=["post"], url_path="admin_create")
     def admin_create(self, request):
-        self._require_admin()
+        self._require_admin_or_manager()
         email = str(request.data.get("email", "")).strip().lower()
         password = str(request.data.get("password", ""))
         name = str(request.data.get("name", "")).strip()
         role_key = request.data.get("role", "customer")
+        manager_branch = self._managed_branch_id()
+        if manager_branch:
+            # Quản lý chỉ tạo được nhân viên bán hàng cho chi nhánh mình.
+            role_key = "staff"
         if not email:
             raise ValidationError({"email": "Email là bắt buộc."})
         try:
@@ -214,7 +252,7 @@ class NguoiDungViewSet(viewsets.ModelViewSet):
         normalized_role = role_aliases.get(str(role_key))
         if normalized_role is None:
             raise ValidationError({"role": "Vai trò không hợp lệ."})
-        branch_id = request.data.get("branch_id")
+        branch_id = manager_branch or request.data.get("branch_id")
         if normalized_role in {"staff", "branch_manager"} and not branch_id:
             raise ValidationError({"branch_id": "Nhân viên và quản lý chi nhánh phải được gán một chi nhánh."})
         if NguoiDung.objects.filter(thu_dien_tu__iexact=email).exists():
@@ -241,8 +279,15 @@ class NguoiDungViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["patch"], url_path="admin_update")
     def admin_update(self, request, pk=None):
-        self._require_admin()
+        self._require_admin_or_manager()
         user = self.get_object()
+        manager_branch = self._managed_branch_id()
+        if manager_branch:
+            # Form gửi kèm vai trò/chi nhánh hiện tại: chấp nhận, nhưng không cho đổi sang giá trị khác.
+            role = request.data.get("role")
+            branch = request.data.get("branch_id")
+            if role not in (None, "", "staff", "nhan_vien_ban_hang") or (branch not in (None, "") and str(branch) != str(manager_branch)):
+                raise PermissionDenied("Quản lý chi nhánh không đổi được vai trò hay chi nhánh của nhân viên.")
         requested_role = request.data.get("role")
         if requested_role in {"staff", "employee", "nhan_vien_ban_hang", "branch_manager", "quan_ly_chi_nhanh", "nhan_vien"} and not (
             request.data.get("branch_id") or user.chi_nhanh_quan_ly_id
@@ -256,13 +301,13 @@ class NguoiDungViewSet(viewsets.ModelViewSet):
         if "name" in request.data: user.name = str(request.data["name"]).strip()
         if "phone" in request.data: user.so_dien_thoai = str(request.data["phone"] or "")
         if "active" in request.data: user.is_active = bool(request.data["active"])
-        if "branch_id" in request.data:
+        if "branch_id" in request.data and not manager_branch:
             self._set_managed_branch(user, request.data.get("branch_id"))
         if request.data.get("password"):
             if len(str(request.data["password"])) < 8: raise ValidationError({"password": "Mật khẩu tối thiểu 8 ký tự."})
             user.set_password(str(request.data["password"]))
         user.save()
-        if "role" in request.data: self._set_admin_role(user, request.data["role"])
+        if "role" in request.data and not manager_branch: self._set_admin_role(user, request.data["role"])
         return Response(self.get_serializer(user).data)
 
     @staticmethod

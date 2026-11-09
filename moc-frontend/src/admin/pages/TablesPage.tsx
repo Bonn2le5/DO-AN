@@ -217,7 +217,7 @@ export default function TablesPage() {
       const session = await startWalkIn({ tableId: walkInTable.id, ...input });
       setWalkInTable(null);
       if (openMenuOnSelect) setOpenSession(session);
-      push(`Đã mở ${walkInTable.number} và tạo hoá đơn ${session.orderCode ?? ""}.`.trim());
+      push(`Đã mở ${walkInTable.number}. Hoá đơn được tạo khi gửi món đầu tiên xuống bếp.`);
       await loadBranchData(true);
     } catch (error) {
       push(error instanceof Error ? error.message : "Không thể mở bàn này.", "err");
@@ -232,7 +232,7 @@ export default function TablesPage() {
     try {
       if (seating.status === "confirmed") await checkInReservation(seating.id, seating.version);
       const session = await startReservationSession(seating.id, seatTarget.id);
-      push(`Đã check-in ${seating.customer || "khách"} và mở hoá đơn tại ${seatTarget.number}.`);
+      push(`Đã check-in ${seating.customer || "khách"} và xếp vào ${seatTarget.number}.`);
       setSeatTarget(null);
       setSeating(null);
       setOpenSession(session);
@@ -508,8 +508,8 @@ export default function TablesPage() {
         open={!!seatTarget && !!seating}
         busy={saving}
         title={`Xếp ${seating?.customer || "khách"} vào ${seatTarget?.number ?? ""}?`}
-        message={`${seating?.partySize ?? 0} khách · bàn ${seatTarget?.capacity ?? 0} ghế. Hệ thống sẽ ${seating?.status === "confirmed" ? "check-in, " : ""}xếp bàn và tạo hoá đơn${seating?.foodItems.length ? " kèm các món đặt trước" : ""}, rồi mở màn gọi món.`}
-        confirmLabel={saving ? "Đang xếp bàn…" : "Xếp bàn & mở hoá đơn"}
+        message={`${seating?.partySize ?? 0} khách · bàn ${seatTarget?.capacity ?? 0} ghế. Hệ thống sẽ ${seating?.status === "confirmed" ? "check-in, " : ""}xếp bàn${seating?.foodItems.length ? ", đưa các món đặt trước vào phiếu" : ""}, rồi mở màn gọi món.`}
+        confirmLabel={saving ? "Đang xếp bàn…" : "Xếp bàn"}
         onConfirm={() => void seatReservation()}
         onCancel={() => setSeatTarget(null)}
       />
@@ -571,7 +571,7 @@ function WalkInDialog({ table, saving, onCancel, onSubmit }: { table: AdminTable
         </div> : <button type="button" onClick={() => setMore(true)} className="text-sm font-medium text-emerald-800 hover:underline">+ Thêm tên, số điện thoại, ghi chú</button>}
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onCancel} className="btn btn-outline flex-1 py-2.5!">Huỷ</button>
-          <button disabled={saving} className="btn btn-primary flex-[2] py-2.5!">{saving ? "Đang mở bàn…" : "Mở bàn & tạo hoá đơn"}</button>
+          <button disabled={saving} className="btn btn-primary flex-[2] py-2.5!">{saving ? "Đang mở bàn…" : "Mở bàn"}</button>
         </div>
       </form>
     </div>

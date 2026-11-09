@@ -80,8 +80,16 @@ class DonHangViewSet(viewsets.ModelViewSet):
             or request.data.get("ghi_chu")
             or ""
         )
+        target = self.get_object()
+        if (
+            DichVuDonHang.chuan_hoa_trang_thai(status_val) == DonHang.TrangThai.DA_HUY
+            and target.trang_thai != DonHang.TrangThai.CHO_TIEP_NHAN
+            and getattr(request.user, "la_nhan_vien_nha_hang", False)
+            and not (request.user.is_superuser or getattr(request.user, "la_quan_tri_vien", False) or getattr(request.user, "la_quan_ly_chi_nhanh", False))
+        ):
+            raise PermissionDenied("Hoá đơn đã gửi bếp, chỉ quản lý chi nhánh mới huỷ được.")
         don_hang = DichVuDonHang.doi_trang_thai(
-            self.get_object(),
+            target,
             status_val,
             request.user,
             note_val,

@@ -91,7 +91,8 @@ class DashboardViewSet(viewsets.ViewSet):
             trang_thai__in=[DatBan.TrangThai.CHO_XAC_NHAN, DatBan.TrangThai.CHO_THANH_TOAN],
         ).count()
         refund_queue = dat_ban.filter(trang_thai__in=[DatBan.TrangThai.DA_HUY, DatBan.TrangThai.KHACH_KHONG_DEN], trang_thai_coc=DatBan.TrangThaiCoc.THANH_CONG).count()
-        low_stock = NguyenLieu.objects.filter(con_hoat_dong=True, ton_kho_hien_tai__lt=F("ton_kho_toi_thieu")).count() if is_admin else 0
+        # Quản lý chi nhánh cũng quản lý kho nên thấy cảnh báo nguyên liệu.
+        low_stock = NguyenLieu.objects.filter(con_hoat_dong=True, ton_kho_hien_tai__lt=F("ton_kho_toi_thieu")).count()
         unread = TinNhan.objects.filter(da_doc=False, nguoi_gui__is_staff=False).exclude(nguoi_gui__danh_sach_vai_tro__ten__in=["nhan_vien", "nhan_vien_ban_hang", "quan_ly_chi_nhanh", "quan_tri_vien"]).distinct().count() if is_admin else 0
 
         return Response({

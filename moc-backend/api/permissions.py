@@ -46,14 +46,16 @@ class LaNhanVienNhaHang(BasePermission):
         if "refund-receipts" in path and not is_manager:
             return False
         # foods/categories/promotions chỉ đọc: cần để gọi món trong phiên phục vụ.
-        allowed = {"orders", "reservations", "dining_sessions", "payments", "branches", "foods", "categories", "promotions"}
+        # ingredients chỉ đọc với nhân viên: để thấy cảnh báo nguyên liệu sắp hết.
+        allowed = {"orders", "reservations", "dining_sessions", "payments", "branches", "foods", "categories", "promotions", "ingredients"}
         if is_manager:
-            # Quản lý chi nhánh được cấu hình sơ đồ bàn/phòng của chi nhánh mình;
-            # nhân viên chỉ vận hành phiên phục vụ và đơn tại bàn.
-            allowed.update({"dashboard", "tables"})
+            # Quản lý chi nhánh: sơ đồ bàn/phòng, tổng quan, kho nguyên liệu và nhân viên chi nhánh mình.
+            allowed.update({"dashboard", "tables", "users"})
         if module not in allowed:
             return False
         if module in {"branches", "foods", "categories", "promotions"}:
+            return request.method in SAFE_METHODS
+        if module == "ingredients" and not is_manager:
             return request.method in SAFE_METHODS
         if module == "dashboard":
             return is_manager and request.method in SAFE_METHODS
@@ -71,7 +73,7 @@ class LaNhanVienNhaHang(BasePermission):
             return action in {"view", "create"} or (
                 action == "update" and path.rstrip("/").endswith(("/mark_success", "/xac_nhan_thanh_cong"))
             )
-        if module == "tables" and is_manager:
+        if module in {"tables", "ingredients"} and is_manager:
             return action in {"view", "create", "update", "delete"}
         return action in {"view", "create", "update"}
 

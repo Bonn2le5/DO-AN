@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from branches.models import ChiNhanh
 from .models import DatBan, MonAnTrongDatBan, BanAn, ChinhSachDatCoc, PhienPhucVu
 
@@ -187,8 +187,6 @@ class DichVuPhienPhucVu:
 
     @classmethod
     def _tao_phien(cls, *, nguoi_dung, ban, so_khach, dat_ban=None, ten_khach="", sdt_khach="", ghi_chu=""):
-        from orders.services import DichVuDonHang
-
         phien = PhienPhucVu.objects.create(
             chi_nhanh=ban.chi_nhanh,
             ban_an=ban,
@@ -199,16 +197,41 @@ class DichVuPhienPhucVu:
             ghi_chu=ghi_chu or (dat_ban.ghi_chu if dat_ban else ""),
             nguoi_bat_dau=nguoi_dung,
         )
-        DichVuDonHang.tao_don_tai_cho(
-            nguoi_dung=nguoi_dung,
-            phien_phuc_vu=phien,
-            ten_khach=phien.ten_khach,
-            sdt_khach=phien.sdt_khach,
-            ghi_chu=phien.ghi_chu,
-        )
+        # Không tạo hoá đơn lúc mở bàn: hoá đơn chỉ sinh ra khi có món (tránh đơn 0 đ).
         ban.trang_thai = BanAn.TrangThai.DANG_PHUC_VU
         ban.save(update_fields=["trang_thai", "cap_nhat_luc"])
         return phien
+
+    @staticmethod
+    def la_quan_ly(nguoi_dung):
+        return bool(nguoi_dung and (
+            nguoi_dung.is_superuser
+            or getattr(nguoi_dung, "la_quan_tri_vien", False)
+            or getattr(nguoi_dung, "la_quan_ly_chi_nhanh", False)
+        ))
+
+    @staticmethod
+    def _don_cua_phien(phien, nguoi_dung=None, tao_moi=False):
+        """Hoá đơn của phiên (khoá dòng). Chỉ tạo mới khi được yêu cầu, tức là khi có món."""
+        from orders.models import DonHang
+        don = DonHang.objects.select_for_update().filter(phien_phuc_vu=phien).first()
+        if don is None and tao_moi:
+            from orders.services import DichVuDonHang
+            don = DichVuDonHang.tao_don_tai_cho(
+                nguoi_dung=nguoi_dung, phien_phuc_vu=phien,
+                ten_khach=phien.ten_khach, sdt_khach=phien.sdt_khach, ghi_chu=phien.ghi_chu,
+            )
+        return don
+
+    @staticmethod
+    def _xoa_don_chua_gui_bep(don_hang):
+        """Đơn chưa gửi bếp không có giá trị lưu trữ: trả lại tồn món rồi xoá."""
+        for line in don_hang.danh_sach_mon.select_related("mon_an"):
+            food = line.mon_an
+            if food.ton_kho_cache is not None and not food.quan_ly_kho:
+                food.ton_kho_cache += line.so_luong
+                food.save(update_fields=["ton_kho_cache", "cap_nhat_luc"])
+        don_hang.delete()
 
     @classmethod
     @transaction.atomic
@@ -244,7 +267,7 @@ class DichVuPhienPhucVu:
         dat_ban = DatBan.objects.select_for_update(of=("self",)).select_related("chi_nhanh").get(pk=dat_ban_id)
         if dat_ban.trang_thai != DatBan.TrangThai.KHACH_DA_DEN:
             raise ValidationError({"status": "Khách cần check-in trước khi bắt đầu phục vụ."})
-        if PhienPhucVu.objects.select_for_update().filter(dat_ban=dat_ban).exists():
+        if PhienPhucVu.objects.select_for_update().filter(dat_ban=dat_ban).exclude(trang_thai=PhienPhucVu.TrangThai.DA_DONG).exists():
             raise ValidationError({"reservation": "Đặt bàn này đã có phiên phục vụ."})
         ban = BanAn.objects.select_for_update(of=("self",)).select_related("chi_nhanh").get(pk=ban_an_id)
         cls._kiem_tra_ban(ban, dat_ban.so_luong_khach, dat_ban.chi_nhanh_id)
@@ -264,7 +287,7 @@ class DichVuPhienPhucVu:
         if dat_truoc:
             from orders.services import DichVuDonHang
             DichVuDonHang.them_mon_tai_cho(
-                don_hang=phien.don_hang,
+                don_hang=cls._don_cua_phien(phien, nguoi_dung, tao_moi=True),
                 danh_sach_item=[{
                     "mon_an": item.mon_an,
                     "so_luong": item.so_luong,
@@ -277,14 +300,15 @@ class DichVuPhienPhucVu:
     @classmethod
     @transaction.atomic
     def them_mon(cls, *, nguoi_dung, phien_id, danh_sach_item):
-        phien = PhienPhucVu.objects.select_for_update(of=("self",)).select_related("don_hang").get(pk=phien_id)
+        phien = PhienPhucVu.objects.select_for_update().get(pk=phien_id)
         if phien.trang_thai != PhienPhucVu.TrangThai.DANG_PHUC_VU:
             raise ValidationError({"session": "Chỉ có thể thêm món khi phiên đang phục vụ."})
+        if not danh_sach_item:
+            return phien
         from orders.services import DichVuDonHang
-        DichVuDonHang.them_mon_tai_cho(
-            don_hang=phien.don_hang, danh_sach_item=danh_sach_item, nguoi_dung=nguoi_dung
-        )
-        cls._dong_bo_kho_neu_da_gui_bep(phien.don_hang, nguoi_dung)
+        don_hang = cls._don_cua_phien(phien, nguoi_dung, tao_moi=True)
+        DichVuDonHang.them_mon_tai_cho(don_hang=don_hang, danh_sach_item=danh_sach_item, nguoi_dung=nguoi_dung)
+        cls._dong_bo_kho_neu_da_gui_bep(don_hang, nguoi_dung)
         return phien
 
     @staticmethod
@@ -306,11 +330,32 @@ class DichVuPhienPhucVu:
         """Thay nội dung giỏ món của phiên, giữ nguyên ghi chú và số lượng đã sửa."""
         from orders.services import DichVuDonHang
 
-        phien = PhienPhucVu.objects.select_for_update(of=("self",)).select_related("don_hang").get(pk=phien_id)
-        don_hang = phien.don_hang
-        don_hang = don_hang.__class__.objects.select_for_update().get(pk=don_hang.pk)
-        if phien.trang_thai != PhienPhucVu.TrangThai.DANG_PHUC_VU or don_hang.trang_thai in DichVuDonHang.TERMINAL_STATES:
+        from orders.models import DonHang
+
+        phien = PhienPhucVu.objects.select_for_update().get(pk=phien_id)
+        if phien.trang_thai != PhienPhucVu.TrangThai.DANG_PHUC_VU:
             raise ValidationError({"session": "Chỉ có thể sửa món khi phiên đang phục vụ."})
+        don_hang = cls._don_cua_phien(phien)
+        if don_hang is None:
+            if not danh_sach_item:
+                return phien
+            don_hang = cls._don_cua_phien(phien, nguoi_dung, tao_moi=True)
+        if don_hang.trang_thai in DichVuDonHang.TERMINAL_STATES:
+            raise ValidationError({"session": "Hoá đơn đã kết thúc, không sửa món được nữa."})
+
+        da_gui_bep = don_hang.trang_thai != DonHang.TrangThai.CHO_TIEP_NHAN
+        if da_gui_bep and not cls.la_quan_ly(nguoi_dung):
+            # Nhân viên chỉ được gọi thêm; bớt món bếp đã nhận cần quản lý chi nhánh.
+            cu, moi = {}, {}
+            for line in don_hang.danh_sach_mon.all():
+                cu[line.mon_an_id] = cu.get(line.mon_an_id, 0) + line.so_luong
+            for item in danh_sach_item:
+                moi[item["mon_an"].id] = moi.get(item["mon_an"].id, 0) + item["so_luong"]
+            if any(moi.get(mon_id, 0) < so_luong for mon_id, so_luong in cu.items()):
+                raise PermissionDenied("Món đã gửi bếp chỉ quản lý chi nhánh mới bớt được.")
+        if not danh_sach_item and not da_gui_bep:
+            cls._xoa_don_chua_gui_bep(don_hang)
+            return phien
 
         # Restore the stock reserved by the current cart before applying its replacement.
         for line in don_hang.danh_sach_mon.select_related("mon_an"):
@@ -379,10 +424,12 @@ class DichVuPhienPhucVu:
         from orders.services import DichVuDonHang
         from payments.models import ThanhToan
 
-        phien = PhienPhucVu.objects.select_for_update(of=("self",)).select_related("ban_an", "dat_ban", "don_hang").get(pk=phien_id)
+        phien = PhienPhucVu.objects.select_for_update(of=("self",)).select_related("ban_an", "dat_ban").get(pk=phien_id)
         if phien.trang_thai != PhienPhucVu.TrangThai.DANG_PHUC_VU:
             raise ValidationError({"session": "Phiên này không còn ở trạng thái phục vụ."})
-        don_hang = DonHang.objects.select_for_update().get(pk=phien.don_hang.pk)
+        don_hang = cls._don_cua_phien(phien)
+        if don_hang is None or not don_hang.danh_sach_mon.exists():
+            raise ValidationError({"order": "Bàn chưa gọi món nào. Dùng “Huỷ bàn” nếu khách không dùng bữa."})
         # Checkout is the cashier's final action. Advance the order through its
         # normal kitchen states so the existing inventory and history hooks run.
         next_states = {
@@ -441,6 +488,43 @@ class DichVuPhienPhucVu:
             dat_ban.gio_ket_thuc = now.time()
             dat_ban.phien_ban += 1
             dat_ban.save(update_fields=["trang_thai", "gio_ket_thuc", "phien_ban", "cap_nhat_luc"])
+        return phien
+
+    @classmethod
+    @transaction.atomic
+    def huy_phien(cls, *, nguoi_dung, phien_id, ly_do=""):
+        """Huỷ bàn đang mở. Chưa gửi bếp: nhân viên được huỷ, hoá đơn nháp bị xoá.
+        Đã gửi bếp: chỉ quản lý được huỷ, hoá đơn chuyển "Đã huỷ" và hoàn kho."""
+        from orders.models import DonHang
+        from orders.services import DichVuDonHang
+
+        phien = PhienPhucVu.objects.select_for_update(of=("self",)).select_related("ban_an", "dat_ban").get(pk=phien_id)
+        if phien.trang_thai != PhienPhucVu.TrangThai.DANG_PHUC_VU:
+            raise ValidationError({"session": "Phiên này không còn ở trạng thái phục vụ."})
+        don_hang = cls._don_cua_phien(phien)
+        if don_hang is not None:
+            if don_hang.trang_thai == DonHang.TrangThai.DA_HUY:
+                pass  # Hoá đơn đã bị huỷ ở nơi khác: chỉ cần đóng phiên, giải phóng bàn.
+            elif don_hang.trang_thai in DichVuDonHang.TERMINAL_STATES:
+                raise ValidationError({"order": "Hoá đơn đã hoàn tất, dùng thanh toán để đóng bàn."})
+            elif don_hang.trang_thai == DonHang.TrangThai.CHO_TIEP_NHAN:
+                cls._xoa_don_chua_gui_bep(don_hang)
+            else:
+                if not cls.la_quan_ly(nguoi_dung):
+                    raise PermissionDenied("Hoá đơn đã gửi bếp, chỉ quản lý chi nhánh mới huỷ được.")
+                DichVuDonHang.doi_trang_thai(don_hang, DonHang.TrangThai.DA_HUY, nguoi_dung, (ly_do or "Quản lý huỷ hoá đơn tại bàn")[:255])
+
+        now = timezone.now()
+        phien.trang_thai = PhienPhucVu.TrangThai.DA_DONG
+        phien.check_out_luc = now
+        phien.da_don_luc = now
+        phien.nguoi_check_out = nguoi_dung
+        phien.save(update_fields=["trang_thai", "check_out_luc", "da_don_luc", "nguoi_check_out", "cap_nhat_luc"])
+        phien.ban_an.trang_thai = BanAn.TrangThai.TRONG
+        phien.ban_an.save(update_fields=["trang_thai", "cap_nhat_luc"])
+        if phien.dat_ban_id:
+            # Khách đặt bàn vẫn ở trạng thái đã đến, có thể xếp lại bàn khác.
+            DatBan.objects.filter(pk=phien.dat_ban_id).update(ban_an=None, cap_nhat_luc=now)
         return phien
 
     @classmethod
