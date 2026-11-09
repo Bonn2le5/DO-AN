@@ -38,8 +38,8 @@ const BAR: Record<ReservationStatus, string> = {
 };
 
 export default function ReservationsPage() {
-  const user = useAuthStore((s) => s.user);
-  const isAdmin = Boolean(user?.isAdmin || user?.roles?.some((r) => ["admin", "quan_tri_vien"].includes(String(r).toLowerCase())));
+  const user = useAuthStore((s) => s.nguoiDung);
+  const isAdmin = Boolean(user?.laQuanTri || user?.danhSachVaiTro?.some((r) => ["admin", "quan_tri_vien"].includes(String(r).toLowerCase())));
   const can = useCan();
   const editable = can("reservations", "update");
   const push = useToast((s) => s.push);

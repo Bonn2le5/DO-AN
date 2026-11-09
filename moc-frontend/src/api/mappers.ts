@@ -1,16 +1,17 @@
 import type {
-  Food,
-  Promotion,
-  Review,
-  BlogPost,
-  Recommendation,
-  RestaurantTable,
-  Reservation,
+  MonAn,
+  KhuyenMai,
+  DanhGiaMonAn,
+  BaiVietBlog,
+  GoiYMonAn,
+  BanAn,
+  ThongTinDatBan,
+  MonAnDatBan,
 } from "@/types";
 
 const tinhPhongCach = (id: string | number) => (Number(id) % 6 + 1) as 1 | 2 | 3 | 4 | 5 | 6;
 
-export function mapMonAn(raw: any): Food {
+export function mapMonAn(raw: any): MonAn {
   const name = raw.ten ?? raw.name ?? "";
   const slug = raw.duong_dan ?? raw.slug ?? "";
   const price = Number(raw.don_gia_hien_tai ?? raw.don_gia ?? raw.price ?? 0);
@@ -46,34 +47,15 @@ export function mapMonAn(raw: any): Food {
 
   return {
     id: String(raw.id),
-    name,
-    slug,
-    category,
-    categoryLabel,
-    price,
-    imageUrl,
-    description,
-    longDescription,
-    ingredients,
-    tags,
-    spicyLevel,
-    isVegetarian,
-    rating,
-    reviewCount,
-    available,
-    stock,
-    badge: raw.nhan_hien_thi ?? raw.badge ?? "",
-    placeholderTone,
-    createdAt,
-
-    // Vietnamese aliases
     tenMon: name,
     duongDan: slug,
     danhMuc: category,
     tenDanhMuc: categoryLabel,
     donGia: price,
+    duongDanAnh: imageUrl,
     moTaNgan: description,
     moTaChiTiet: longDescription,
+    nguyenLieu: ingredients,
     theMonAn: tags,
     doCay: spicyLevel,
     laMonChay: isVegetarian,
@@ -81,12 +63,13 @@ export function mapMonAn(raw: any): Food {
     soLuotDanhGia: reviewCount,
     conHang: available,
     tonKho: stock,
+    nhanHienThi: raw.nhan_hien_thi ?? raw.badge ?? "",
     phongCachHienThi: placeholderTone,
     taoLuc: createdAt,
   };
 }
 
-export function mapBanAn(raw: any): RestaurantTable {
+export function mapBanAn(raw: any): BanAn {
   const label = raw.so_ban ?? raw.label ?? `Bàn ${raw.id}`;
   const capacity = Number(raw.suc_chua ?? raw.capacity ?? 4);
   const rawStatus = raw.trang_thai ?? raw.status ?? "available";
@@ -106,12 +89,6 @@ export function mapBanAn(raw: any): RestaurantTable {
 
   return {
     id: String(raw.id),
-    label,
-    capacity,
-    status,
-    zone,
-
-    // Vietnamese aliases
     soBan: label,
     sucChua: capacity,
     trangThai: status,
@@ -119,10 +96,10 @@ export function mapBanAn(raw: any): RestaurantTable {
   };
 }
 
-export function mapThongTinDatBan(raw: any): Reservation {
-  const foodItems = (raw.danh_sach_mon ?? raw.food_items ?? []).map((item: any) => ({
-    food: mapMonAn(item.mon_an ?? item.food),
-    quantity: item.so_luong ?? item.quantity ?? 1,
+export function mapThongTinDatBan(raw: any): ThongTinDatBan {
+  const foodItems = (raw.danh_sach_mon ?? []).map((item: any): MonAnDatBan => ({
+    monAn: mapMonAn(item.mon_an ?? item.food),
+    soLuong: item.so_luong ?? item.quantity ?? 1,
   }));
 
   const tableId = String(raw.ban_an_id ?? raw.table ?? "");
@@ -142,25 +119,8 @@ export function mapThongTinDatBan(raw: any): Reservation {
 
   return {
     id: String(raw.id),
-    code: raw.ma_dat_ban ?? "",
-    branchName: raw.ten_chi_nhanh ?? "",
-    tableId,
-    tableLabel,
-    date,
-    time,
-    partySize,
-    note,
-    customerName,
-    customerPhone,
-    option,
-    foodItems,
-    foodSubtotal,
-    depositAmount,
-    status,
-    depositStatus,
-    createdAt,
-
-    // Vietnamese aliases
+    maDatBan: raw.ma_dat_ban ?? "",
+    tenChiNhanh: raw.ten_chi_nhanh ?? "",
     idBanAn: tableId,
     tenBanAn: tableLabel,
     ngayDat: date,
@@ -175,17 +135,17 @@ export function mapThongTinDatBan(raw: any): Reservation {
     soTienCoc: depositAmount,
     trangThai: status,
     trangThaiThanhToanCoc: depositStatus,
-    thoiHanGiuCho: raw.thoi_han_giu_cho,
     taoLuc: createdAt,
+
+    thoiHanGiuCho: raw.thoi_han_giu_cho,
   };
 }
 
-export function mapKhuyenMai(raw: any): Promotion {
+export function mapKhuyenMai(raw: any): KhuyenMai {
   const code =
     raw.ma_giam_gia ??
     raw.code ??
     raw.danh_sach_ma?.[0]?.ma ??
-    raw.codes?.[0]?.ma ??
     "";
   const title = raw.ten ?? raw.name ?? raw.title ?? "";
   const description = raw.mo_ta ?? raw.description ?? "";
@@ -197,16 +157,6 @@ export function mapKhuyenMai(raw: any): Promotion {
 
   return {
     id: String(raw.id),
-    code,
-    title,
-    description,
-    badge,
-    discountType,
-    discountValue,
-    minOrder,
-    endsAt,
-
-    // Vietnamese aliases
     maGiamGia: code,
     tieuDe: title,
     moTa: description,
@@ -214,28 +164,23 @@ export function mapKhuyenMai(raw: any): Promotion {
     kieuGiamGia: discountType,
     giaTriGiam: discountValue,
     donHangToiThieu: minOrder,
+    ketThucLuc: endsAt,
+
     hetHanLuc: endsAt,
   };
 }
 
-export function mapDanhGia(raw: any): Review {
+export function mapDanhGia(raw: any): DanhGiaMonAn {
   const foodId = String(raw.mon_an_id ?? raw.mon_an ?? raw.food ?? "");
-  const author = raw.ten_nguoi_dung ?? raw.user_name ?? raw.ten_khach ?? raw.customer_name ?? "Khách hàng";
+  const author = raw.ten_nguoi_dung ?? raw.ten_khach ?? raw.customer_name ?? "Khách hàng";
   const rating = Number(raw.diem_danh_gia ?? raw.rating ?? 5);
   const comment = raw.nhan_xet ?? raw.comment ?? "";
   const createdAt = raw.tao_luc ?? raw.created_at ?? new Date().toISOString();
 
   return {
     id: String(raw.id),
-    foodId,
-    foodName: raw.food_name ?? "",
-    author,
-    rating,
-    comment,
-    createdAt,
-
-    // Vietnamese aliases
     idMonAn: foodId,
+    tenMonAn: raw.food_name ?? "",
     tacGia: author,
     diemDanhGia: rating,
     nhanXet: comment,
@@ -243,29 +188,18 @@ export function mapDanhGia(raw: any): Review {
   };
 }
 
-export function mapBaiViet(raw: any): BlogPost {
+export function mapBaiViet(raw: any): BaiVietBlog {
   const slug = raw.duong_dan ?? raw.slug ?? "";
   const title = raw.tieu_de ?? raw.title ?? "";
   const excerpt = (raw.tom_tat ?? raw.excerpt) || "";
   const content = raw.noi_dung ?? raw.content ?? "";
-  const tag = (raw.ten_danh_muc ?? raw.category_name) || "Ẩm thực";
-  const author = (raw.ten_tac_gia ?? raw.author_name) || "Nhà hàng MỘC";
+  const tag = raw.ten_danh_muc || "Ẩm thực";
+  const author = raw.ten_tac_gia || "Nhà hàng MỘC";
   const createdAt = (raw.dang_luc ?? raw.published_at) || raw.tao_luc || raw.created_at || new Date().toISOString();
   const placeholderTone = tinhPhongCach(raw.id);
 
   return {
     id: String(raw.id),
-    slug,
-    title,
-    excerpt,
-    content,
-    tag,
-    author,
-    createdAt,
-    readMinutes: 3,
-    placeholderTone,
-
-    // Vietnamese aliases
     duongDan: slug,
     tieuDe: title,
     tomTat: excerpt,
@@ -278,21 +212,13 @@ export function mapBaiViet(raw: any): BlogPost {
   };
 }
 
-export function mapGoiY(raw: any): Recommendation {
+export function mapGoiY(raw: any): GoiYMonAn {
   return {
-    food: mapMonAn(raw.chi_tiet_mon_an ?? raw.food_detail ?? raw.mon_an ?? raw.food),
-    score: Number(raw.diem_tuong_dong ?? raw.score ?? 1),
-    reason: raw.ly_do_goi_y ?? raw.reason ?? "Gợi ý dành riêng cho bạn",
-    modelVersion: raw.phien_ban_model ?? raw.model_version ?? "",
-    isColdStart: Boolean(raw.is_cold_start),
+    monAn: mapMonAn(raw.chi_tiet_mon_an ?? raw.mon_an ?? raw.food),
+    diemTuongDong: Number(raw.diem_tuong_dong ?? 1),
+    lyDoGoiY: raw.ly_do_goi_y ?? "Gợi ý dành riêng cho bạn",
+    phienBanMoHinh: raw.phien_ban_model ?? raw.model_version ?? "",
+    laKhoiDauLanh: Boolean(raw.is_cold_start),
   };
 }
 
-// Export English aliases
-export const mapFood = mapMonAn;
-export const mapTable = mapBanAn;
-export const mapReservation = mapThongTinDatBan;
-export const mapPromotion = mapKhuyenMai;
-export const mapReview = mapDanhGia;
-export const mapPost = mapBaiViet;
-export const mapRecommendation = mapGoiY;

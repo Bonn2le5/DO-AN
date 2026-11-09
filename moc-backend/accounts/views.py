@@ -130,7 +130,6 @@ class XacThucViewSet(viewsets.ViewSet):
         user_data = NguoiDungSerializer(nguoi_dung).data
         return Response({
             "message": "Xác thực email thành công!",
-            "user": user_data,
             "nguoi_dung": user_data,
             "access": str(token.access_token),
             "refresh": str(token),
@@ -139,7 +138,7 @@ class XacThucViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["get", "patch", "put"], permission_classes=[IsAuthenticated])
     def ho_so(self, request):
         if request.method in ["PATCH", "PUT"]:
-            email_moi = request.data.get("thu_dien_tu") or request.data.get("email")
+            email_moi = request.data.get("thu_dien_tu")
             if email_moi and email_moi.strip().lower() != request.user.thu_dien_tu.lower():
                 # Đổi email = đổi thông tin đăng nhập, nên phải nhập lại mật khẩu.
                 if not request.user.check_password(request.data.get("mat_khau_hien_tai") or ""):
@@ -164,7 +163,7 @@ class XacThucViewSet(viewsets.ViewSet):
         s.is_valid(raise_exception=True)
         request.user.set_password(s.validated_data["mat_khau_moi"])
         request.user.save()
-        return Response({"thong_bao": "Đã đổi mật khẩu thành công.", "message": "Password changed successfully."})
+        return Response({"thong_bao": "Đã đổi mật khẩu thành công."})
 
     @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated], url_path="change_password")
     def change_password(self, request):
@@ -270,7 +269,7 @@ class NguoiDungViewSet(viewsets.ModelViewSet):
             username = f"{base}_{suffix}"; suffix += 1
         with transaction.atomic():
             user = NguoiDung.objects.create_user(username=username, thu_dien_tu=email, email=email, password=password, so_dien_thoai=request.data.get("phone", ""))
-            user.name = name
+            user.ho_ten = name
             user.is_active = request.data.get("active", True)
             user.chi_nhanh_quan_ly = managed_branch
             user.save()
@@ -298,7 +297,7 @@ class NguoiDungViewSet(viewsets.ModelViewSet):
             if NguoiDung.objects.exclude(pk=user.pk).filter(thu_dien_tu=email).exists():
                 raise ValidationError({"email": "Email này đã được sử dụng."})
             user.thu_dien_tu = user.email = email
-        if "name" in request.data: user.name = str(request.data["name"]).strip()
+        if "name" in request.data: user.ho_ten = str(request.data["name"]).strip()
         if "phone" in request.data: user.so_dien_thoai = str(request.data["phone"] or "")
         if "active" in request.data: user.is_active = bool(request.data["active"])
         if "branch_id" in request.data and not manager_branch:

@@ -1,15 +1,15 @@
 import { apiClient } from "./client";
-import { mapReview } from "./mappers";
-import type { Review } from "@/types";
+import { mapDanhGia } from "./mappers";
+import type { DanhGiaMonAn } from "@/types";
 
-export async function getReviewsByFood(foodId: string): Promise<Review[]> {
-  const { data } = await apiClient.get("/reviews/", { params: { food: foodId } });
-  return (Array.isArray(data) ? data : data.results).map(mapReview);
+export async function getReviewsByFood(foodId: string): Promise<DanhGiaMonAn[]> {
+  const { data } = await apiClient.get("/reviews/", { params: { mon_an: foodId } });
+  return (Array.isArray(data) ? data : data.results).map(mapDanhGia);
 }
 
-export async function getMyReviews(): Promise<Review[]> {
+export async function getMyReviews(): Promise<DanhGiaMonAn[]> {
   const { data } = await apiClient.get("/reviews/", { params: { mine: 1 } });
-  return (Array.isArray(data) ? data : data.results).map(mapReview);
+  return (Array.isArray(data) ? data : data.results).map(mapDanhGia);
 }
 
 // Backend tự tìm món khách đã dùng trong đơn tại bàn đã hoàn tất.

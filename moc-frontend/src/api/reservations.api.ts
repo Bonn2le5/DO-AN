@@ -1,16 +1,17 @@
 import { apiClient } from "./client";
 import { mapBanAn, mapThongTinDatBan } from "./mappers";
 import type {
-  RestaurantTable,
-  DepositPolicy,
-  Reservation,
-  VNPayPaymentSession,
-  ReservationOption,
-  ReservationFoodItem,
-  Branch,
+  BanAn,
+  ChinhSachDatCoc,
+  ThongTinDatBan,
+  PhienThanhToanVNPay,
+  HinhThucDatBan,
+  MonAnDatBan,
+  ChiNhanh,
+  QuyTacHuyCoc,
 } from "@/types";
 
-export async function layDanhSachBan(chiNhanhId?: string): Promise<RestaurantTable[]> {
+export async function layDanhSachBan(chiNhanhId?: string): Promise<BanAn[]> {
   try {
     const params = chiNhanhId ? { chi_nhanh: chiNhanhId } : {};
     const { data } = await apiClient.get("/tables/", { params });
@@ -21,18 +22,18 @@ export async function layDanhSachBan(chiNhanhId?: string): Promise<RestaurantTab
   }
 }
 
-export async function layDanhSachChiNhanh(): Promise<Branch[]> {
+export async function layDanhSachChiNhanh(): Promise<ChiNhanh[]> {
   try {
     const { data } = await apiClient.get("/branches/");
     const list = Array.isArray(data) ? data : data.results ?? [];
-    return list.map((b: any) => ({
+    return list.map((b: any): ChiNhanh => ({
       id: String(b.id),
-      name: b.ten ?? b.name ?? "",
-      address: b.dia_chi ?? b.address ?? "",
-      phone: b.so_dien_thoai ?? b.phone ?? "",
-      lat: Number(b.vi_do ?? b.lat ?? b.latitude ?? 0),
-      lng: Number(b.kinh_do ?? b.lng ?? b.longitude ?? 0),
-      openHours: b.gio_mo_cua ?? b.opening_hours ?? "",
+      tenChiNhanh: b.ten ?? "",
+      diaChi: b.dia_chi ?? "",
+      soDienThoai: b.so_dien_thoai ?? "",
+      viDo: Number(b.vi_do ?? 0),
+      kinhDo: Number(b.kinh_do ?? 0),
+      gioMoCua: b.gio_mo_cua ?? b.opening_hours ?? "",
     }));
   } catch {
     return [];
@@ -59,34 +60,34 @@ export async function layKhungGioTrong(params: {
   }
 }
 
-export async function layChinhSachDatCoc(chiNhanhId?: string): Promise<DepositPolicy> {
+export async function layChinhSachDatCoc(chiNhanhId?: string): Promise<ChinhSachDatCoc> {
   try {
     const { data } = await apiClient.get("/reservations/chinh_sach_coc/", {
       params: chiNhanhId ? { branch: chiNhanhId } : {},
     });
     if (data) {
       return {
-        depositPercentage: Number(data.phan_tram_coc ?? 20),
-        cancellationRules: (data.quy_tac_huy ?? []).map((r: any) => ({
-          timeBucket: r.moc_thoi_gian,
-          refundPercentage: Number(r.phan_tram_hoan_tien ?? 0),
+        phanTramCoc: Number(data.phan_tram_coc ?? 20),
+        quyTacHuyBan: (data.quy_tac_huy ?? []).map((r: any): QuyTacHuyCoc => ({
+          mocThoiGian: r.moc_thoi_gian,
+          phanTramHoanTien: Number(r.phan_tram_hoan_tien ?? 0),
         })),
-        holdMinutes: Number(data.thoi_gian_giu_cho_phut ?? 10),
-        paymentExpiryMinutes: Number(data.han_thanh_toan_phut ?? 15),
+        thoiGianGiuChoPhut: Number(data.thoi_gian_giu_cho_phut ?? 10),
+        hanThanhToanPhut: Number(data.han_thanh_toan_phut ?? 15),
       };
     }
   } catch {
     // Fallback default
   }
   return {
-    depositPercentage: 20,
-    holdMinutes: 10,
-    paymentExpiryMinutes: 15,
-    cancellationRules: [
-      { timeBucket: "truoc_24h", refundPercentage: 100 },
-      { timeBucket: "tu_6_den_24h", refundPercentage: 50 },
-      { timeBucket: "trong_6h", refundPercentage: 0 },
-      { timeBucket: "khach_khong_den", refundPercentage: 0 },
+    phanTramCoc: 20,
+    thoiGianGiuChoPhut: 10,
+    hanThanhToanPhut: 15,
+    quyTacHuyBan: [
+      { mocThoiGian: "truoc_24h", phanTramHoanTien: 100 },
+      { mocThoiGian: "tu_6_den_24h", phanTramHoanTien: 50 },
+      { mocThoiGian: "trong_6h", phanTramHoanTien: 0 },
+      { mocThoiGian: "khach_khong_den", phanTramHoanTien: 0 },
     ],
   };
 }
@@ -96,12 +97,12 @@ export async function taoDatBan(params: {
   ngayDat: string;
   gioDat: string;
   soLuongKhach: number;
-  hinhThuc: ReservationOption;
-  danhSachMon: ReservationFoodItem[];
+  hinhThuc: HinhThucDatBan;
+  danhSachMon: MonAnDatBan[];
   tenKhachHang: string;
   soDienThoai: string;
   ghiChu?: string;
-}): Promise<Reservation> {
+}): Promise<ThongTinDatBan> {
   const payload: Record<string, any> = {
     ngay_dat: params.ngayDat,
     gio_bat_dau: params.gioDat,
@@ -114,9 +115,9 @@ export async function taoDatBan(params: {
       table_and_food_editable: "dat_ban_goi_mon_chinh_sua",
       dat_ban_goi_mon_chinh_sua: "dat_ban_goi_mon_chinh_sua",
     }[params.hinhThuc],
-    food_items: params.danhSachMon.map((i) => ({
-      mon_an_id: i.food.id,
-      so_luong: i.quantity,
+    danh_sach_mon: params.danhSachMon.map((i) => ({
+      mon_an_id: i.monAn.id,
+      so_luong: i.soLuong,
     })),
     ten_khach: params.tenKhachHang,
     sdt_khach: params.soDienThoai,
@@ -128,37 +129,28 @@ export async function taoDatBan(params: {
   return mapThongTinDatBan(data);
 }
 
-export async function layDatBanTheoId(id: string): Promise<Reservation> {
+export async function layDatBanTheoId(id: string): Promise<ThongTinDatBan> {
   const { data } = await apiClient.get(`/reservations/${id}/`);
   return mapThongTinDatBan(data);
 }
 
-export async function layDatBanCuaToi(): Promise<Reservation[]> {
+export async function layDatBanCuaToi(): Promise<ThongTinDatBan[]> {
   const { data } = await apiClient.get("/reservations/", { params: { mine: 1 } });
   return (Array.isArray(data) ? data : data.results).map(mapThongTinDatBan);
 }
 
 export async function taoPhienThanhToanVNPay(
   idDatBan: string
-): Promise<VNPayPaymentSession> {
+): Promise<PhienThanhToanVNPay> {
   const { data } = await apiClient.post("/payments/vnpay/create/", {
     loai_thanh_toan: "tien_coc",
     dat_ban_id: Number(idDatBan),
   });
   return {
-    paymentUrl: data.payment_url ?? data.duong_dan_thanh_toan ?? "",
-    txnRef: data.txn_ref ?? data.ma_giao_dich ?? "",
-    amount: Number(data.amount ?? data.so_tien ?? 0),
-    expiresAt: data.expires_at ?? data.het_han_luc ?? "",
-    duongDanThanhToan: data.payment_url ?? data.duong_dan_thanh_toan ?? "",
-    maGiaoDich: data.txn_ref ?? data.ma_giao_dich ?? "",
-    soTien: Number(data.amount ?? data.so_tien ?? 0),
-    hetHanLuc: data.expires_at ?? data.het_han_luc ?? "",
+    duongDanThanhToan: data.duong_dan_thanh_toan ?? "",
+    maGiaoDich: data.ma_giao_dich ?? "",
+    soTien: Number(data.so_tien ?? 0),
+    hetHanLuc: data.het_han_luc ?? "",
   };
 }
 
-// English aliases
-export const getTables = layDanhSachBan;
-export const getDepositPolicy = layChinhSachDatCoc;
-export const createReservation = taoDatBan;
-export const createVNPayPaymentSession = taoPhienThanhToanVNPay;

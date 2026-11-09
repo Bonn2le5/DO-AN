@@ -1,13 +1,13 @@
 import { Link } from "react-router-dom";
 import { Heart, Sparkles } from "lucide-react";
-import type { Food } from "@/types";
+import type { MonAn } from "@/types";
 import FoodImage from "@/components/food/FoodImage";
 import RatingStars from "@/components/ui/RatingStars";
 import { useFavoriteStore } from "@/store/favoriteStore";
 import { formatCurrency, cn } from "@/lib/utils";
 
 interface FoodCardProps {
-  food: Food;
+  food: MonAn;
   /** Lý do gợi ý từ AI (Explainable Recommendation) — hiển thị dưới tên món. */
   reason?: string;
   /** Gọi khi khách mở món (dùng để ghi lượt nhấp vào gợi ý). */
@@ -21,22 +21,22 @@ export default function FoodCard({ food, reason, onOpen }: FoodCardProps) {
   return (
     <div className="card overflow-hidden group transition-all duration-400 hover:-translate-y-1.5 hover:shadow-lift">
       <Link
-        to={`/thuc-don/${food.slug}`}
+        to={`/thuc-don/${food.duongDan}`}
         onClick={onOpen}
         className="block relative aspect-4/3 overflow-hidden bg-black/5"
       >
         <FoodImage
-          src={food.imageUrl}
-          alt={food.name}
-          tone={food.placeholderTone}
+          src={food.duongDanAnh}
+          alt={food.tenMon}
+          tone={food.phongCachHienThi}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
         />
-        {food.badge && (
+        {food.nhanHienThi && (
           <span className="absolute top-3 left-3 bg-dark text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
-            {food.badge}
+            {food.nhanHienThi}
           </span>
         )}
-        {!food.available && (
+        {!food.conHang && (
           <span className="absolute inset-0 bg-dark/55 flex items-center justify-center text-white text-sm font-semibold">
             Tạm hết hàng
           </span>
@@ -59,11 +59,11 @@ export default function FoodCard({ food, reason, onOpen }: FoodCardProps) {
       </Link>
       <div className="p-5">
         <div className="text-[11.5px] uppercase tracking-wider text-muted font-bold">
-          {food.categoryLabel}
+          {food.tenDanhMuc}
         </div>
-        <Link to={`/thuc-don/${food.slug}`} onClick={onOpen}>
+        <Link to={`/thuc-don/${food.duongDan}`} onClick={onOpen}>
           <h3 className="font-display text-xl mt-1.5 mb-1.5 hover:text-primary transition-colors">
-            {food.name}
+            {food.tenMon}
           </h3>
         </Link>
         {reason ? (
@@ -73,17 +73,17 @@ export default function FoodCard({ food, reason, onOpen }: FoodCardProps) {
           </p>
         ) : (
           <p className="text-[13.5px] text-muted leading-relaxed mb-3.5 min-h-9.5 line-clamp-2">
-            {food.description}
+            {food.moTaNgan}
           </p>
         )}
         <div className="flex items-center gap-1.5 text-[12.5px] text-muted mb-3">
-          <RatingStars rating={food.rating} />
+          <RatingStars rating={food.diemDanhGia} />
           <span>
-            {food.rating} · {food.reviewCount} đánh giá
+            {food.diemDanhGia} · {food.soLuotDanhGia} đánh giá
           </span>
         </div>
         <span className="text-lg font-bold text-primary">
-          {formatCurrency(food.price)}
+          {formatCurrency(food.donGia)}
         </span>
       </div>
     </div>

@@ -31,18 +31,18 @@ export default function BlogDetailPage() {
         <Link to="/bai-viet" className="hover:text-primary">Bài viết</Link>
       </div>
 
-      <div className="text-[11px] font-bold uppercase tracking-wide text-primary mb-3">{post.tag}</div>
-      <h1 className="font-display text-[30px] sm:text-[38px] leading-tight mb-4">{post.title}</h1>
+      <div className="text-[11px] font-bold uppercase tracking-wide text-primary mb-3">{post.theBaiViet}</div>
+      <h1 className="font-display text-[30px] sm:text-[38px] leading-tight mb-4">{post.tieuDe}</h1>
       <div className="text-sm text-muted mb-8">
-        {post.author} · {formatDate(post.createdAt)} · {post.readMinutes} phút đọc
+        {post.tacGia} · {formatDate(post.taoLuc)} · {post.thoiGianDocPhut} phút đọc
       </div>
 
       <div className="aspect-[16/9] rounded-[20px] overflow-hidden mb-10">
-        <PlaceholderMedia tone={post.placeholderTone} icon={Newspaper} className="w-full h-full" iconClassName="w-14 h-14" />
+        <PlaceholderMedia tone={post.phongCachHienThi} icon={Newspaper} className="w-full h-full" iconClassName="w-14 h-14" />
       </div>
 
       <div className="text-[16px] leading-[1.85] text-text space-y-5">
-        <p>{post.content}</p>
+        <p>{post.noiDung}</p>
       </div>
 
       {others && others.length > 0 && (
@@ -50,12 +50,12 @@ export default function BlogDetailPage() {
           <h2 className="font-display text-xl mb-5">Bài viết khác</h2>
           <div className="grid sm:grid-cols-2 gap-5">
             {others.map((o) => (
-              <Link key={o.id} to={`/bai-viet/${o.slug}`} className="card overflow-hidden hover:shadow-lift transition-shadow">
+              <Link key={o.id} to={`/bai-viet/${o.duongDan}`} className="card overflow-hidden hover:shadow-lift transition-shadow">
                 <div className="aspect-[16/10]">
-                  <PlaceholderMedia tone={o.placeholderTone} icon={Newspaper} className="w-full h-full" iconClassName="w-7 h-7" />
+                  <PlaceholderMedia tone={o.phongCachHienThi} icon={Newspaper} className="w-full h-full" iconClassName="w-7 h-7" />
                 </div>
                 <div className="p-4">
-                  <h3 className="font-display text-base leading-snug">{o.title}</h3>
+                  <h3 className="font-display text-base leading-snug">{o.tieuDe}</h3>
                 </div>
               </Link>
             ))}

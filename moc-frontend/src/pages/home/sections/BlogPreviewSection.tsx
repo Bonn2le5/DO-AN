@@ -30,12 +30,12 @@ export default function BlogPreviewSection() {
             {posts?.map((post) => (
               <Link
                 key={post.id}
-                to={`/bai-viet/${post.slug}`}
+                to={`/bai-viet/${post.duongDan}`}
                 className="card overflow-hidden hover:shadow-lift transition-shadow"
               >
                 <div className="aspect-16/10">
                   <PlaceholderMedia
-                    tone={post.placeholderTone}
+                    tone={post.phongCachHienThi}
                     icon={Newspaper}
                     className="w-full h-full"
                     iconClassName="w-8 h-8"
@@ -43,13 +43,13 @@ export default function BlogPreviewSection() {
                 </div>
                 <div className="p-5">
                   <div className="text-[11px] font-bold uppercase tracking-wide text-primary">
-                    {post.tag}
+                    {post.theBaiViet}
                   </div>
                   <h3 className="font-display text-lg mt-2 mb-2.5 leading-snug">
-                    {post.title}
+                    {post.tieuDe}
                   </h3>
                   <div className="text-xs text-muted">
-                    {post.readMinutes} phút đọc
+                    {post.thoiGianDocPhut} phút đọc
                   </div>
                 </div>
               </Link>

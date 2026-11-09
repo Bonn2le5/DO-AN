@@ -1,23 +1,15 @@
 from rest_framework import serializers
-from api.mixins import DualPayloadMixin
 from foods.models import MonAn, Food
 from foods.serializers import MonAnSerializer, FoodSerializer
 from .models import TuongTacMonAn, GoiYMonAn, SuKienGoiY, FoodInteraction, Recommendation
 from .services import TRONG_SO_TUONG_TAC, ALIAS_TRONG_SO, MODEL_VERSION_COLD_START
 
 
-class TuongTacMonAnSerializer(DualPayloadMixin, serializers.ModelSerializer):
+class TuongTacMonAnSerializer(serializers.ModelSerializer):
     """
     Serializer cho tương tác món ăn với cơ chế tự động điền trọng số
     và hỗ trợ đa dạng định dạng trường tiếng Anh & tiếng Việt.
     """
-    FIELD_ALIASES = {
-        "food": "mon_an",
-        "food_id": "mon_an",
-        "interaction_type": "loai_tuong_tac",
-        "type": "loai_tuong_tac",
-        "weight": "trong_so",
-    }
 
     class Meta:
         model = TuongTacMonAn
@@ -48,24 +40,14 @@ class TuongTacMonAnSerializer(DualPayloadMixin, serializers.ModelSerializer):
         return super().validate(attrs)
 
 
-class GoiYMonAnSerializer(DualPayloadMixin, serializers.ModelSerializer):
+class GoiYMonAnSerializer(serializers.ModelSerializer):
     """
     Serializer cho kết quả gợi ý món ăn.
     Bao gồm thông tin chi tiết món ăn và cờ is_cold_start.
     """
-    FIELD_ALIASES = {
-        "food": "mon_an",
-        "food_id": "mon_an",
-        "score": "diem_tuong_dong",
-        "reason": "ly_do_goi_y",
-        "model_version": "phien_ban_model",
-    }
 
     chi_tiet_mon = MonAnSerializer(source="mon_an", read_only=True)
     chi_tiet_mon_an = MonAnSerializer(source="mon_an", read_only=True)
-    food_detail = MonAnSerializer(source="mon_an", read_only=True)
-    score = serializers.FloatField(source="diem_tuong_dong", read_only=True)
-    reason = serializers.CharField(source="ly_do_goi_y", read_only=True)
     is_cold_start = serializers.SerializerMethodField()
 
     class Meta:
@@ -75,14 +57,11 @@ class GoiYMonAnSerializer(DualPayloadMixin, serializers.ModelSerializer):
             "nguoi_dung",
             "mon_an",
             "diem_tuong_dong",
-            "score",
             "ly_do_goi_y",
-            "reason",
             "phien_ban_model",
             "is_cold_start",
             "chi_tiet_mon",
             "chi_tiet_mon_an",
-            "food_detail",
             "tao_luc",
         )
         read_only_fields = ("tao_luc",)

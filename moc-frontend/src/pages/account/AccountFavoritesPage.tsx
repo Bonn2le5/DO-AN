@@ -1,12 +1,12 @@
 import { Heart } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
-import { getFoods } from "@/api/foods.api";
+import { layDanhSachMonAn } from "@/api/foods.api";
 import { useFavoriteStore } from "@/store/favoriteStore";
 import FoodCard from "@/components/food/FoodCard";
 
 export default function AccountFavoritesPage() {
   const favoriteIds = useFavoriteStore((s) => s.ids);
-  const { data: allFoods, loading } = useAsync(() => getFoods());
+  const { data: allFoods, loading } = useAsync(() => layDanhSachMonAn());
   const favoriteFoods = (allFoods ?? []).filter((f) => favoriteIds.has(f.id));
 
   return (

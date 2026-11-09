@@ -22,31 +22,31 @@ class AuthProfileTestCase(TestCase):
     def test_nguoi_dung_serializer(self):
         serializer = NguoiDungSerializer(self.user)
         data = serializer.data
-        self.assertEqual(data["email"], "profile_test@moc.vn")
-        self.assertEqual(data["name"], "Văn Vũ")
+        self.assertEqual(data["thu_dien_tu"], "profile_test@moc.vn")
+        self.assertEqual(data["ho_ten"], "Văn Vũ")
         self.assertEqual(data["username"], "khach_test_profile")
 
     def test_api_auth_profile_endpoint(self):
         response = self.client.get("/api/auth/profile/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["email"], "profile_test@moc.vn")
-        self.assertEqual(response.data["name"], "Văn Vũ")
+        self.assertEqual(response.data["thu_dien_tu"], "profile_test@moc.vn")
+        self.assertEqual(response.data["ho_ten"], "Văn Vũ")
 
     def test_doi_email_can_mat_khau(self):
         url = "/api/auth/profile/"
-        r = self.client.patch(url, {"email": "moi@moc.vn"}, format="json")
+        r = self.client.patch(url, {"thu_dien_tu": "moi@moc.vn"}, format="json")
         self.assertEqual(r.status_code, 400)
-        r = self.client.patch(url, {"email": "moi@moc.vn", "mat_khau_hien_tai": "sai"}, format="json")
+        r = self.client.patch(url, {"thu_dien_tu": "moi@moc.vn", "mat_khau_hien_tai": "sai"}, format="json")
         self.assertEqual(r.status_code, 400)
-        r = self.client.patch(url, {"email": "moi@moc.vn", "mat_khau_hien_tai": "Password@123"}, format="json")
+        r = self.client.patch(url, {"thu_dien_tu": "moi@moc.vn", "mat_khau_hien_tai": "Password@123"}, format="json")
         self.assertEqual(r.status_code, 200)
         self.user.refresh_from_db()
         self.assertEqual(self.user.thu_dien_tu, "moi@moc.vn")
 
     def test_sua_ho_ten_khong_can_mat_khau(self):
-        r = self.client.patch("/api/auth/profile/", {"first_name": "Mai", "last_name": "Nguyễn", "email": "profile_test@moc.vn"}, format="json")
+        r = self.client.patch("/api/auth/profile/", {"first_name": "Mai", "last_name": "Nguyễn", "thu_dien_tu": "profile_test@moc.vn"}, format="json")
         self.assertEqual(r.status_code, 200)
-        self.assertEqual(r.data["name"], "Mai Nguyễn")
+        self.assertEqual(r.data["ho_ten"], "Mai Nguyễn")
 
     def test_danh_gia_mine_chi_tra_cua_minh(self):
         self.assertEqual(self.client.get("/api/reviews/", {"mine": 1}).status_code, 200)
@@ -59,26 +59,26 @@ class DangKyTestCase(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.payload = {"name": "Nguyen Van A", "email": "a@moc.vn", "phone": "0901234567", "password": "secret123"}
+        self.payload = {"ho_ten": "Nguyen Van A", "thu_dien_tu": "a@moc.vn", "so_dien_thoai": "0901234567", "mat_khau": "secret123"}
 
     def test_email_hoa_thuong_va_trung(self):
-        self.assertEqual(self.client.post(self.URL, dict(self.payload, email="A@Moc.vn"), format="json").status_code, 201)
+        self.assertEqual(self.client.post(self.URL, dict(self.payload, thu_dien_tu="A@Moc.vn"), format="json").status_code, 201)
         self.assertTrue(NguoiDung.objects.filter(thu_dien_tu="a@moc.vn").exists())
         NguoiDung.objects.filter(thu_dien_tu="a@moc.vn").update(is_active=True)
-        r = self.client.post(self.URL, dict(self.payload, phone="0907654321"), format="json")
+        r = self.client.post(self.URL, dict(self.payload, so_dien_thoai="0907654321"), format="json")
         self.assertEqual(r.status_code, 400)
         self.assertEqual(r.data["thu_dien_tu"][0], "Email này đã được đăng ký.")
 
     def test_so_dien_thoai(self):
-        r = self.client.post(self.URL, dict(self.payload, phone="abc"), format="json")
+        r = self.client.post(self.URL, dict(self.payload, so_dien_thoai="abc"), format="json")
         self.assertEqual(r.data["so_dien_thoai"][0], "Số điện thoại không hợp lệ.")
         self.client.post(self.URL, self.payload, format="json")
-        r = self.client.post(self.URL, dict(self.payload, email="b@moc.vn"), format="json")
+        r = self.client.post(self.URL, dict(self.payload, thu_dien_tu="b@moc.vn"), format="json")
         self.assertEqual(r.data["so_dien_thoai"][0], "Số điện thoại này đã được sử dụng.")
 
     def test_dang_ky_lai_khi_chua_xac_thuc(self):
         self.client.post(self.URL, self.payload, format="json")
-        r = self.client.post(self.URL, dict(self.payload, password="moi12345"), format="json")
+        r = self.client.post(self.URL, dict(self.payload, mat_khau="moi12345"), format="json")
         self.assertEqual(r.status_code, 201)
         self.assertEqual(NguoiDung.objects.filter(thu_dien_tu="a@moc.vn").count(), 1)
 
@@ -88,6 +88,6 @@ class DangKyTestCase(TestCase):
 
     def test_dang_nhap_email_hoa_va_loi_tieng_viet(self):
         NguoiDung.objects.create_user(username="ok", thu_dien_tu="a@moc.vn", password="secret123")
-        self.assertEqual(self.client.post("/api/auth/login/", {"email": "A@MOC.VN", "password": "secret123"}, format="json").status_code, 200)
-        r = self.client.post("/api/auth/login/", {"email": "a@moc.vn", "password": "sai"}, format="json")
+        self.assertEqual(self.client.post("/api/auth/login/", {"thu_dien_tu": "A@MOC.VN", "password": "secret123"}, format="json").status_code, 200)
+        r = self.client.post("/api/auth/login/", {"thu_dien_tu": "a@moc.vn", "password": "sai"}, format="json")
         self.assertIn("chưa xác thực email", r.data["detail"])

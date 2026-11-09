@@ -30,12 +30,12 @@ export default function PromoPreviewSection() {
                 className="rounded-[20px] border-[1.5px] border-dashed border-primary/40 bg-linear-to-br from-white to-[#fbf1e8] p-6"
               >
                 <div className="font-display text-[32px] text-primary mb-1.5">
-                  {promo.discountLabel}
+                  {promo.nhanMucGiam}
                 </div>
-                <h4 className="text-[15px] font-bold mb-4">{promo.title}</h4>
+                <h4 className="text-[15px] font-bold mb-4">{promo.tieuDe}</h4>
                 <div className="flex items-center justify-between border-t border-dashed border-black/10 pt-3.5 text-xs">
                   <span className="text-muted">Mã ưu đãi</span>
-                  <b className="tracking-wide">{promo.code}</b>
+                  <b className="tracking-wide">{promo.maGiamGia}</b>
                 </div>
               </div>
             ))}

@@ -8,7 +8,7 @@ import { useState, useEffect, useRef } from "react";
 import { openAuthenticatedWebSocket, scheduleCurrentWebSocketRenewal } from "@/services/websocket";
 import { refreshAccessToken } from "@/api/client";
 import { useAuthStore } from "@/store/authStore";
-import type { UserRole } from "@/types";
+import type { VaiTroNguoiDung } from "@/types";
 
 export interface StaffOrderUpdateEvent {
   orderId: number;
@@ -25,14 +25,14 @@ export function useStaffOrderStream(options?: {
   onStatusUpdate?: (event: StaffOrderUpdateEvent) => void;
   onOrderCreated?: (newOrder: any) => void;
 }) {
-  const user = useAuthStore((s) => s.user);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.nguoiDung);
+  const isAuthenticated = useAuthStore((s) => s.daDangNhap);
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
   const isStaff =
-    user?.roles?.some((role: UserRole) => role === "admin" || role === "staff" || role === "nhan_vien" || role === "quan_tri_vien") ||
-    user?.isStaff ||
+    user?.danhSachVaiTro?.some((role: VaiTroNguoiDung) => role === "admin" || role === "staff" || role === "nhan_vien" || role === "quan_tri_vien") ||
+    user?.laNhanVien ||
     user?.laNhanVien;
 
   useEffect(() => {

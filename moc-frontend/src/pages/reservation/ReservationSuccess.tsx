@@ -1,7 +1,7 @@
 import { CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatCurrency } from "@/lib/utils";
-import type { Reservation } from "@/types";
+import type { ThongTinDatBan } from "@/types";
 import ReservationTicket from "./ReservationTicket";
 
 export default function ReservationSuccess({
@@ -9,15 +9,15 @@ export default function ReservationSuccess({
   branchName = "",
   onReset,
 }: {
-  reservation: Reservation;
+  reservation: ThongTinDatBan;
   branchName?: string;
   onReset: () => void;
 }) {
-  const foodItems = reservation.foodItems ?? reservation.danhSachMonAn ?? [];
-  const deposit = reservation.depositAmount ?? reservation.soTienCoc ?? 0;
+  const foodItems = reservation.danhSachMonAn ?? [];
+  const deposit = reservation.soTienCoc ?? 0;
   const depositPaid = deposit > 0
-    && ["success", "thanh_cong"].includes(reservation.depositStatus ?? reservation.trangThaiThanhToanCoc ?? "");
-  const confirmed = reservation.status === "da_xac_nhan" || reservation.trangThai === "da_xac_nhan";
+    && ["success", "thanh_cong"].includes(reservation.trangThaiThanhToanCoc ?? "");
+  const confirmed = reservation.trangThai === "da_xac_nhan";
   const statusText = confirmed
     ? "Nhà hàng đã xác nhận"
     : depositPaid ? "Đã nhận cọc, chờ nhà hàng gọi xác nhận" : "Chờ nhà hàng gọi xác nhận";
@@ -30,18 +30,18 @@ export default function ReservationSuccess({
           {depositPaid ? "Đã nhận cọc, chỗ của bạn đã được giữ" : "Đã gửi yêu cầu đặt chỗ"}
         </h1>
         <p className="text-muted mt-2 max-w-[48ch] mx-auto">
-          Nhà hàng sẽ gọi số {reservation.customerPhone ?? reservation.soDienThoai} để xác nhận. Hẹn gặp bạn tại MỘC.
+          Nhà hàng sẽ gọi số {reservation.soDienThoai} để xác nhận. Hẹn gặp bạn tại MỘC.
         </p>
       </div>
 
       <ReservationTicket
         branchName={branchName}
-        date={reservation.date ?? reservation.ngayDat ?? ""}
-        time={reservation.time ?? reservation.gioDat ?? ""}
-        partySize={reservation.partySize ?? reservation.soLuongKhach ?? 2}
+        date={reservation.ngayDat ?? ""}
+        time={reservation.gioDat ?? ""}
+        partySize={reservation.soLuongKhach ?? 2}
         foodItems={foodItems}
-        foodSubtotal={reservation.foodSubtotal ?? reservation.tienMonAn ?? 0}
-        tableLabel={reservation.tableLabel || reservation.tenBanAn}
+        foodSubtotal={reservation.tienMonAn ?? 0}
+        tableLabel={reservation.tenBanAn || reservation.tenBanAn}
         topLine={<>Mã đặt chỗ <strong className="text-text">#{reservation.id}</strong> · {statusText}</>}
       >
         {deposit > 0 && (

@@ -23,7 +23,7 @@ class DichVuKho:
                 if isinstance(item, dict):
                     mon_an = item.get("mon_an")
                     dish_id = item.get("mon_an_id") or (mon_an.id if hasattr(mon_an, "id") else mon_an)
-                    so_luong = item.get("so_luong") or item.get("quantity", 1)
+                    so_luong = item.get("so_luong") or 1
                 else:
                     mon_an = getattr(item, "mon_an", None)
                     dish_id = getattr(item, "mon_an_id", None) or (mon_an.id if hasattr(mon_an, "id") else mon_an)

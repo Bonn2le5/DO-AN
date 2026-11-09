@@ -37,6 +37,6 @@ class Migration(migrations.Migration):
                 'db_table': 'su_kien_goi_y',
                 'indexes': [models.Index(fields=['loai_su_kien', 'tao_luc'], name='su_kien_goi_loai_su_f71e64_idx')],
             },
-            bases=(foods.models.LegacyKwargsMixin, models.Model),
+            bases=(models.Model,),
         ),
     ]

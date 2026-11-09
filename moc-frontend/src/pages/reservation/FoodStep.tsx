@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { Minus, Plus, UtensilsCrossed } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
-import { getFoods, getCategories } from "@/api/foods.api";
+import { layDanhSachMonAn, getCategories } from "@/api/foods.api";
 import PlaceholderMedia from "@/components/ui/PlaceholderMedia";
 import { cn, formatCurrency } from "@/lib/utils";
 import { formatLongDate } from "./ReservationTicket";
 import FoodSuggestions from "./FoodSuggestions";
-import type { ReservationFoodItem, Food } from "@/types";
+import type { MonAnDatBan, MonAn } from "@/types";
 
 const FALLBACK_FILTERS = [
   { id: "all", label: "Tất cả" },
@@ -15,16 +15,16 @@ const FALLBACK_FILTERS = [
   { id: "dessert", label: "Tráng miệng" },
 ];
 
-const foodGroup = (food: Food) => {
-  const category = `${food.category} ${food.categoryLabel ?? ""}`.toLocaleLowerCase("vi");
+const foodGroup = (food: MonAn) => {
+  const category = `${food.danhMuc} ${food.tenDanhMuc ?? ""}`.toLocaleLowerCase("vi");
   if (category.includes("khai") || category.includes("appetizer")) return "appetizer";
   if (category.includes("tráng") || category.includes("dessert")) return "dessert";
   return "main";
 };
 
 interface FoodStepProps {
-  foodItems: ReservationFoodItem[];
-  onAdd: (food: Food) => void;
+  foodItems: MonAnDatBan[];
+  onAdd: (food: MonAn) => void;
   onUpdateQty: (foodId: string, quantity: number) => void;
   subtotal: number;
   depositAmount: number;
@@ -55,27 +55,27 @@ export default function FoodStep({
   branchName,
   onContinue,
 }: FoodStepProps) {
-  const { data: foods, loading } = useAsync(() => getFoods());
+  const { data: foods, loading } = useAsync(() => layDanhSachMonAn());
   const { data: dbCategories } = useAsync(getCategories);
 
   const filters = useMemo(() => {
     if (dbCategories && dbCategories.length > 0) {
       return [
         { id: "all", label: "Tất cả" },
-        ...dbCategories.map((c) => ({ id: c.id, label: c.label })),
+        ...dbCategories.map((c) => ({ id: c.id, label: c.ten })),
       ];
     }
     return FALLBACK_FILTERS;
   }, [dbCategories]);
 
-  const selectedCount = foodItems.reduce((count, item) => count + item.quantity, 0);
+  const selectedCount = foodItems.reduce((count, item) => count + item.soLuong, 0);
   const visibleFoods = (foods ?? []).filter((food) => {
     if (activeCategory === "all") return true;
-    if (food.category === activeCategory) return true;
-    if (food.categoryLabel && food.categoryLabel.toLowerCase() === activeCategory.toLowerCase()) return true;
+    if (food.danhMuc === activeCategory) return true;
+    if (food.tenDanhMuc && food.tenDanhMuc.toLowerCase() === activeCategory.toLowerCase()) return true;
     return foodGroup(food) === activeCategory;
   });
-  const qtyOf = (foodId: string) => foodItems.find((item) => item.food.id === foodId)?.quantity ?? 0;
+  const qtyOf = (foodId: string) => foodItems.find((item) => item.monAn.id === foodId)?.soLuong ?? 0;
   const continueLabel = selectedCount === 0 ? "Bỏ qua, chỉ giữ chỗ" : "Tiếp tục xác nhận";
 
   return (
@@ -92,7 +92,7 @@ export default function FoodStep({
 
       <div className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-8 items-start">
         <div className="min-w-0">
-          <FoodSuggestions selectedFoods={foodItems.map((item) => item.food)} onAdd={onAdd} />
+          <FoodSuggestions selectedFoods={foodItems.map((item) => item.monAn)} onAdd={onAdd} />
 
           <div className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]" role="tablist" aria-label="Lọc nhóm món">
             {filters.map((filter) => (
@@ -121,8 +121,8 @@ export default function FoodStep({
                   <article key={food.id} className={cn("bg-white rounded-2xl border overflow-hidden flex flex-col transition-colors", quantity > 0 ? "border-primary/50" : "border-black/[0.07]")}>
                     <FoodImage food={food} className="w-full aspect-[4/3]" />
                     <div className="p-3 sm:p-4 flex flex-col flex-1">
-                      <h3 className="font-display text-[15px] sm:text-[17px] leading-snug mb-1">{food.name}</h3>
-                      <span className="text-sm text-muted tabular-nums mb-3">{formatCurrency(food.price)}</span>
+                      <h3 className="font-display text-[15px] sm:text-[17px] leading-snug mb-1">{food.tenMon}</h3>
+                      <span className="text-sm text-muted tabular-nums mb-3">{formatCurrency(food.donGia)}</span>
                       <div className="mt-auto">
                         {quantity === 0 ? (
                           <button type="button" onClick={() => onAdd(food)} className="w-full h-9 rounded-lg border border-black/15 text-sm font-semibold hover:border-primary hover:text-primary inline-flex items-center justify-center gap-1.5">
@@ -154,11 +154,11 @@ export default function FoodStep({
                 <p className="text-sm text-muted">Chưa có món nào. Bấm Thêm ở món bạn muốn bếp chuẩn bị sẵn.</p>
               ) : (
                 <ul className="space-y-3 max-h-[40vh] overflow-y-auto -mr-2 pr-2">
-                  {foodItems.map(({ food, quantity }) => (
+                  {foodItems.map(({ monAn: food, soLuong: quantity }) => (
                     <li key={food.id} className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium leading-snug">{food.name}</div>
-                        <div className="text-xs text-muted tabular-nums">{formatCurrency(food.price * quantity)}</div>
+                        <div className="text-sm font-medium leading-snug">{food.tenMon}</div>
+                        <div className="text-xs text-muted tabular-nums">{formatCurrency(food.donGia * quantity)}</div>
                       </div>
                       <QuantityControl quantity={quantity} onDecrease={() => onUpdateQty(food.id, quantity - 1)} onIncrease={() => onUpdateQty(food.id, quantity + 1)} />
                     </li>
@@ -203,10 +203,10 @@ export default function FoodStep({
   );
 }
 
-function FoodImage({ food, className }: { food: Food; className: string }) {
-  return food.imageUrl
-    ? <img src={food.imageUrl} alt={food.name} className={`${className} object-cover bg-black/5`} />
-    : <PlaceholderMedia tone={food.placeholderTone} icon={UtensilsCrossed} className={className} iconClassName="w-8 h-8" />;
+function FoodImage({ food, className }: { food: MonAn; className: string }) {
+  return food.duongDanAnh
+    ? <img src={food.duongDanAnh} alt={food.tenMon} className={`${className} object-cover bg-black/5`} />
+    : <PlaceholderMedia tone={food.phongCachHienThi} icon={UtensilsCrossed} className={className} iconClassName="w-8 h-8" />;
 }
 
 function QuantityControl({ quantity, onDecrease, onIncrease, wide }: { quantity: number; onDecrease: () => void; onIncrease: () => void; wide?: boolean }) {

@@ -2,67 +2,43 @@ import re
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from api.mixins import DualPayloadMixin
 from .models import VaiTro, QuyenHan, NguoiDungVaiTro
 
 NguoiDung = get_user_model()
 
 
-class VaiTroSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "name": "ten",
-        "description": "mo_ta",
-    }
+class VaiTroSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = VaiTro
         fields = ("id", "ten", "mo_ta")
 
 
-class QuyenHanSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "name": "ten",
-        "codename": "ma_quyen",
-        "description": "mo_ta",
-    }
+class QuyenHanSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuyenHan
         fields = "__all__"
 
 
-class NguoiDungSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "email": "thu_dien_tu",
-        "phone": "so_dien_thoai",
-        "phone_number": "so_dien_thoai",
-        "name": "ho_ten",
-        "avatar": "anh_dai_dien",
-        "birth_date": "ngay_sinh",
-        "gender": "gioi_tinh",
-    }
+class NguoiDungSerializer(serializers.ModelSerializer):
     danh_sach_vai_tro = serializers.SlugRelatedField(many=True, slug_field="ten", read_only=True)
     la_nhan_vien_nha_hang = serializers.ReadOnlyField()
 
-    # Dual representation fields
-    email = serializers.EmailField(source="thu_dien_tu", read_only=True)
-    phone = serializers.CharField(source="so_dien_thoai", read_only=True)
-    name = serializers.CharField(read_only=True)
-    roles = serializers.SlugRelatedField(source="danh_sach_vai_tro", many=True, slug_field="ten", read_only=True)
-    is_restaurant_staff = serializers.ReadOnlyField()
+    ho_ten = serializers.CharField(read_only=True)
 
     class Meta:
         model = NguoiDung
         fields = (
-            "id", "thu_dien_tu", "email", "username", "first_name", "last_name",
-            "name", "so_dien_thoai", "phone", "anh_dai_dien", "ngay_sinh", "gioi_tinh",
+            "id", "thu_dien_tu", "username", "first_name", "last_name",
+            "ho_ten", "so_dien_thoai", "anh_dai_dien", "ngay_sinh", "gioi_tinh",
             "chi_nhanh_quan_ly",
-            "danh_sach_vai_tro", "roles", "is_active", "date_joined",
-            "la_nhan_vien_nha_hang", "is_restaurant_staff", "is_superuser",
+            "danh_sach_vai_tro", "is_active", "date_joined",
+            "la_nhan_vien_nha_hang", "is_superuser",
         )
         read_only_fields = (
-            "danh_sach_vai_tro", "roles", "is_active", "date_joined",
-            "la_nhan_vien_nha_hang", "is_restaurant_staff", "is_superuser",
+            "danh_sach_vai_tro", "is_active", "date_joined",
+            "la_nhan_vien_nha_hang", "is_superuser",
         )
 
     def validate_chi_nhanh_quan_ly(self, value):
@@ -73,15 +49,7 @@ class NguoiDungSerializer(DualPayloadMixin, serializers.ModelSerializer):
         return value
 
 
-class DangKySerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "email": "thu_dien_tu",
-        "password": "mat_khau",
-        "name": "ho_ten",
-        "full_name": "ho_ten",
-        "phone": "so_dien_thoai",
-        "phone_number": "so_dien_thoai",
-    }
+class DangKySerializer(serializers.ModelSerializer):
     mat_khau = serializers.CharField(write_only=True, min_length=6, error_messages={
         "required": "Vui lòng nhập mật khẩu.",
         "blank": "Vui lòng nhập mật khẩu.",
@@ -169,12 +137,7 @@ class DangKySerializer(DualPayloadMixin, serializers.ModelSerializer):
         return nguoi_dung
 
 
-class DoiMatKhauSerializer(DualPayloadMixin, serializers.Serializer):
-    FIELD_ALIASES = {
-        "old_password": "mat_khau_cu",
-        "current_password": "mat_khau_cu",
-        "new_password": "mat_khau_moi",
-    }
+class DoiMatKhauSerializer(serializers.Serializer):
     mat_khau_cu = serializers.CharField()
     mat_khau_moi = serializers.CharField(min_length=6)
 
@@ -195,10 +158,6 @@ class DangNhapTokenSerializer(TokenObtainPairSerializer):
             data = data.copy()
         elif isinstance(data, dict):
             data = dict(data)
-        if "email" in data and "thu_dien_tu" not in data:
-            data["thu_dien_tu"] = data["email"]
-        if "username" in data and "thu_dien_tu" not in data:
-            data["thu_dien_tu"] = data["username"]
         if isinstance(data.get("thu_dien_tu"), str):
             data["thu_dien_tu"] = data["thu_dien_tu"].strip().lower()
         return super().to_internal_value(data)

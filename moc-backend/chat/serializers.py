@@ -1,20 +1,8 @@
 from rest_framework import serializers
-from api.mixins import DualPayloadMixin
 from .models import HoiThoai, TinNhan, ChatRoom, ChatMessage
 
 
-class TinNhanSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "room": "hoi_thoai",
-        "room_id": "hoi_thoai",
-        "conversation": "hoi_thoai",
-        "conversation_id": "hoi_thoai",
-        "message": "noi_dung",
-        "content": "noi_dung",
-        "message_type": "loai_tin_nhan",
-        "type": "loai_tin_nhan",
-        "is_read": "da_doc",
-    }
+class TinNhanSerializer(serializers.ModelSerializer):
     sender_name = serializers.SerializerMethodField()
     is_staff = serializers.SerializerMethodField()
 

@@ -70,8 +70,8 @@ function lateMinutes(time: string, now: number) {
 }
 
 export default function TablesPage() {
-  const user = useAuthStore((s) => s.user);
-  const isAdmin = Boolean(user?.isAdmin || user?.roles?.some((r) => r === "admin" || r === "quan_tri_vien"));
+  const user = useAuthStore((s) => s.nguoiDung);
+  const isAdmin = Boolean(user?.laQuanTri || user?.danhSachVaiTro?.some((r) => r === "admin" || r === "quan_tri_vien"));
   const push = useToast((s) => s.push);
   const can = useCan();
   const canConfigure = can("tables", "update");

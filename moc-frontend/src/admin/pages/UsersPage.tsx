@@ -15,7 +15,7 @@ export default function UsersPage() {
   const branchOptions = (branches ?? []).map((b) => ({ value: b.id, label: b.name }));
   // Quản lý chi nhánh chỉ quản lý nhân viên bán hàng của chi nhánh mình: không chọn vai trò hay chi nhánh.
   const isManager = useRole() === "branch_manager";
-  const myBranch = useAuthStore((s) => s.user?.branchId) ?? "";
+  const myBranch = useAuthStore((s) => s.nguoiDung?.idChiNhanh) ?? "";
   if (isManager) {
     return (
       <CrudPage<AdminUser>

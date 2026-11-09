@@ -2,22 +2,15 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
 import secrets
-from foods.models import LegacyKwargsMixin
 from branches.models import ChiNhanh
 
 
-class VaiTro(LegacyKwargsMixin, models.Model):
+class VaiTro(models.Model):
     ten = models.CharField(max_length=50, unique=True)
     mo_ta = models.TextField(blank=True)
     tao_luc = models.DateTimeField(auto_now_add=True)
     cap_nhat_luc = models.DateTimeField(auto_now=True)
 
-    _LEGACY_MAP = {
-        "name": "ten",
-        "description": "mo_ta",
-        "created_at": "tao_luc",
-        "updated_at": "cap_nhat_luc",
-    }
 
     class Meta:
         db_table = "vai_tro"
@@ -26,37 +19,14 @@ class VaiTro(LegacyKwargsMixin, models.Model):
     def __str__(self):
         return self.ten
 
-    @property
-    def name(self):
-        return self.ten
 
-    @name.setter
-    def name(self, val):
-        self.ten = val
-
-    @property
-    def description(self):
-        return self.mo_ta
-
-    @description.setter
-    def description(self, val):
-        self.mo_ta = val
-
-
-class QuyenHan(LegacyKwargsMixin, models.Model):
+class QuyenHan(models.Model):
     ten = models.CharField(max_length=100, unique=True)
     ma_quyen = models.CharField(max_length=100, unique=True)   # vd: 'don_hang.doi_trang_thai'
     mo_ta = models.TextField(blank=True)
     tao_luc = models.DateTimeField(auto_now_add=True)
     cap_nhat_luc = models.DateTimeField(auto_now=True)
 
-    _LEGACY_MAP = {
-        "name": "ten",
-        "codename": "ma_quyen",
-        "description": "mo_ta",
-        "created_at": "tao_luc",
-        "updated_at": "cap_nhat_luc",
-    }
 
     class Meta:
         db_table = "quyen_han"
@@ -64,30 +34,6 @@ class QuyenHan(LegacyKwargsMixin, models.Model):
 
     def __str__(self):
         return self.ma_quyen
-
-    @property
-    def name(self):
-        return self.ten
-
-    @name.setter
-    def name(self, val):
-        self.ten = val
-
-    @property
-    def codename(self):
-        return self.ma_quyen
-
-    @codename.setter
-    def codename(self, val):
-        self.ma_quyen = val
-
-    @property
-    def description(self):
-        return self.mo_ta
-
-    @description.setter
-    def description(self, val):
-        self.mo_ta = val
 
 
 class VaiTroQuyenHan(models.Model):
@@ -99,7 +45,7 @@ class VaiTroQuyenHan(models.Model):
         unique_together = ("vai_tro", "quyen_han")
 
 
-class NguoiDung(LegacyKwargsMixin, AbstractUser):
+class NguoiDung(AbstractUser):
     thu_dien_tu = models.EmailField(unique=True)
     so_dien_thoai = models.CharField(max_length=30, blank=True)
     anh_dai_dien = models.ImageField(upload_to="anh_dai_dien/", blank=True, null=True)
@@ -123,14 +69,6 @@ class NguoiDung(LegacyKwargsMixin, AbstractUser):
     USERNAME_FIELD = "thu_dien_tu"
     REQUIRED_FIELDS = ["username"]
 
-    _LEGACY_MAP = {
-        "phone": "so_dien_thoai",
-        "phone_number": "so_dien_thoai",
-        "avatar": "anh_dai_dien",
-        "email": "thu_dien_tu",
-        "birth_date": "ngay_sinh",
-        "gender": "gioi_tinh",
-    }
 
     class Meta:
         db_table = "nguoi_dung"
@@ -152,45 +90,19 @@ class NguoiDung(LegacyKwargsMixin, AbstractUser):
             self.email = self.thu_dien_tu
         super().save(*args, **kwargs)
 
-    @property
-    def name(self):
-        full = f"{self.first_name} {self.last_name}".strip()
-        return full or self.first_name or self.username
-
-    @name.setter
-    def name(self, val):
-        val = (val or "").strip()
-        if val:
-            parts = val.split(maxsplit=1)
-            self.first_name = parts[0]
-            self.last_name = parts[1] if len(parts) > 1 else ""
-        else:
-            self.first_name = ""
-            self.last_name = ""
 
     @property
     def ho_ten(self):
-        return self.name
+        full = f"{self.first_name} {self.last_name}".strip()
+        return full or self.first_name or self.username
 
     @ho_ten.setter
     def ho_ten(self, val):
-        self.name = val
+        val = (val or "").strip()
+        parts = val.split(maxsplit=1)
+        self.first_name = parts[0] if parts else ""
+        self.last_name = parts[1] if len(parts) > 1 else ""
 
-    @property
-    def phone(self):
-        return self.so_dien_thoai
-
-    @phone.setter
-    def phone(self, val):
-        self.so_dien_thoai = val or ""
-
-    @property
-    def avatar(self):
-        return self.anh_dai_dien
-
-    @avatar.setter
-    def avatar(self, val):
-        self.anh_dai_dien = val
 
     @property
     def ten_vai_tro(self):
@@ -218,14 +130,6 @@ class NguoiDung(LegacyKwargsMixin, AbstractUser):
     @property
     def la_quan_tri_vien(self):
         return self.is_superuser or bool(self.ten_vai_tro & {"quan_tri_vien", "admin"})
-
-    @property
-    def is_restaurant_staff(self):
-        return self.la_nhan_vien_nha_hang
-
-    @property
-    def is_restaurant_admin(self):
-        return self.la_quan_tri_vien
 
 
 class NguoiDungVaiTro(models.Model):

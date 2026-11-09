@@ -20,7 +20,7 @@ const CANNED_RESPONSES = [
 ];
 
 export default function AdminChatPage() {
-  const { user } = useAuthStore();
+  const { nguoiDung: user } = useAuthStore();
   const [rooms, setRooms] = useState<AdminChatRoomItem[]>([]);
   const [activeRoom, setActiveRoom] = useState<AdminChatRoomItem | null>(null);
   const [messages, setMessages] = useState<AdminChatMessageItem[]>([]);

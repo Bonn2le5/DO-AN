@@ -187,7 +187,7 @@ class DatBanViewSet(viewsets.ModelViewSet):
             branch_id = getattr(user, "chi_nhanh_quan_ly_id", None)
             if not branch_id:
                 raise PermissionDenied("Tài khoản chưa được gán chi nhánh.")
-            requested_branch = payload.get("chi_nhanh") or payload.get("branch") or payload.get("branch_id")
+            requested_branch = payload.get("chi_nhanh")
             if requested_branch and str(requested_branch) != str(branch_id):
                 raise PermissionDenied("Bạn chỉ được tạo đặt bàn cho chi nhánh được phân công.")
             payload["chi_nhanh"] = branch_id
@@ -235,13 +235,13 @@ class DatBanViewSet(viewsets.ModelViewSet):
         serializer = ChinhSachCocSerializer(policy, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         policy = serializer.save()
-        if "rules" in request.data or "quy_tac_huy" in request.data:
+        if "quy_tac_huy" in request.data:
             from .models import QuyTacHuyDatCoc
-            rules = request.data.get("rules", request.data.get("quy_tac_huy", []))
+            rules = request.data.get("quy_tac_huy", [])
             QuyTacHuyDatCoc.objects.filter(chinh_sach=policy).delete()
             for rule in rules:
-                bucket = rule.get("time_milestone", rule.get("moc_thoi_gian"))
-                pct = rule.get("refund_percentage", rule.get("phan_tram_hoan_tien", 0))
+                bucket = rule.get("moc_thoi_gian")
+                pct = rule.get("phan_tram_hoan_tien", 0)
                 QuyTacHuyDatCoc.objects.create(chinh_sach=policy, moc_thoi_gian=bucket, phan_tram_hoan_tien=pct)
         return Response(ChinhSachCocSerializer(policy).data)
 
@@ -260,7 +260,7 @@ class DatBanViewSet(viewsets.ModelViewSet):
             )
 
         from payments.services import RefundService
-        ly_do = request.data.get("ly_do") or request.data.get("reason", "Khách hàng yêu cầu hủy")
+        ly_do = request.data.get("ly_do") or "Khách hàng yêu cầu hủy"
         is_staff = getattr(request.user, "la_nhan_vien_nha_hang", False) or getattr(request.user, "is_staff", False)
         is_no_show = bool(request.data.get("is_no_show", False)) and is_staff
 
@@ -297,7 +297,7 @@ class DatBanViewSet(viewsets.ModelViewSet):
         )
         if dat_ban.trang_thai == DatBan.TrangThai.DA_HUY:
             dat_ban.huy_luc = timezone.now()
-            dat_ban.ly_do_huy = str(request.data.get("reason", request.data.get("ghi_chu", "")))
+            dat_ban.ly_do_huy = str(request.data.get("ghi_chu", ""))
             dat_ban.save(update_fields=["huy_luc", "ly_do_huy", "cap_nhat_luc"])
         return Response(self.get_serializer(dat_ban).data)
 
@@ -369,8 +369,8 @@ class DatBanViewSet(viewsets.ModelViewSet):
         """
         from branches.models import ChiNhanh
 
-        chi_nhanh_id = request.query_params.get("chi_nhanh_id") or request.query_params.get("chi_nhanh")
-        ngay_str = request.query_params.get("ngay") or request.query_params.get("date")
+        chi_nhanh_id = request.query_params.get("chi_nhanh_id")
+        ngay_str = request.query_params.get("ngay")
         try:
             so_khach = int(request.query_params.get("so_khach", 1))
         except (TypeError, ValueError):
@@ -443,10 +443,10 @@ class PhienPhucVuViewSet(viewsets.ReadOnlyModelViewSet):
             danh_sach = danh_sach.filter(chi_nhanh_id=branch_id)
         if self.request.query_params.get("chi_nhanh"):
             danh_sach = danh_sach.filter(chi_nhanh_id=self.request.query_params["chi_nhanh"])
-        if self.request.query_params.get("ban_an") or self.request.query_params.get("table"):
-            danh_sach = danh_sach.filter(ban_an_id=self.request.query_params.get("ban_an") or self.request.query_params.get("table"))
-        if self.request.query_params.get("trang_thai") or self.request.query_params.get("status"):
-            danh_sach = danh_sach.filter(trang_thai=self.request.query_params.get("trang_thai") or self.request.query_params.get("status"))
+        if self.request.query_params.get("ban_an"):
+            danh_sach = danh_sach.filter(ban_an_id=self.request.query_params.get("ban_an"))
+        if self.request.query_params.get("trang_thai"):
+            danh_sach = danh_sach.filter(trang_thai=self.request.query_params.get("trang_thai"))
         return danh_sach
 
     def _assert_branch_access(self, branch_id):
@@ -474,7 +474,7 @@ class PhienPhucVuViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="from-reservation")
     def from_reservation(self, request):
-        reservation_id = request.data.get("dat_ban") or request.data.get("reservation_id")
+        reservation_id = request.data.get("dat_ban")
         if not reservation_id:
             raise ValidationError({"dat_ban": "Cần chọn đặt bàn đã check-in."})
         serializer = XepBanSerializer(data=request.data)

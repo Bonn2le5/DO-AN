@@ -4,7 +4,7 @@ import { ghiTuongTac } from "@/api/recommendations.api";
 import { ChevronRight } from "lucide-react";
 import FoodImage from "@/components/food/FoodImage";
 import { useAsync } from "@/hooks/useAsync";
-import { getFoodBySlug } from "@/api/foods.api";
+import { layChiTietMonAn } from "@/api/foods.api";
 import FoodPurchasePanel from "./FoodPurchasePanel";
 import FoodReviews from "./FoodReviews";
 import RelatedFoods from "./RelatedFoods";
@@ -18,7 +18,7 @@ import NotFoundPage from "@/pages/NotFoundPage";
  */
 export default function FoodDetailPage() {
   const { slug } = useParams();
-  const { data: food, loading } = useAsync(() => getFoodBySlug(slug!), [slug]);
+  const { data: food, loading } = useAsync(() => layChiTietMonAn(slug!), [slug]);
 
   // Ghi lượt xem món (trọng số 1) cho vector khẩu vị của AI gợi ý
   useEffect(() => {
@@ -51,15 +51,15 @@ export default function FoodDetailPage() {
           Thực đơn
         </Link>
         <ChevronRight width={13} height={13} />
-        <span className="text-text">{food.name}</span>
+        <span className="text-text">{food.tenMon}</span>
       </div>
 
       <div className="grid md:grid-cols-2 gap-12">
         <div className="rounded-3xl overflow-hidden aspect-square sticky top-24 self-start bg-black/5">
           <FoodImage
-            src={food.imageUrl}
-            alt={food.name}
-            tone={food.placeholderTone}
+            src={food.duongDanAnh}
+            alt={food.tenMon}
+            tone={food.phongCachHienThi}
             className="w-full h-full object-cover"
             iconClassName="w-24 h-24"
           />

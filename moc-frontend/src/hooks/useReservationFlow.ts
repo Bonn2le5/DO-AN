@@ -5,128 +5,128 @@ import {
   taoPhienThanhToanVNPay,
 } from "@/api/reservations.api";
 import type {
-  ReservationFoodItem,
-  DepositPolicy,
-  Reservation,
-  VNPayPaymentSession,
-  Food,
+  MonAnDatBan,
+  ChinhSachDatCoc,
+  ThongTinDatBan,
+  PhienThanhToanVNPay,
+  MonAn,
 } from "@/types";
 import { localDateInputValue } from "@/lib/utils";
 
-export type ReservationStep = "branch_time" | "food" | "contact" | "success";
+export type BuocDatBan = "branch_time" | "food" | "contact" | "success";
 
-export interface ContactInfo {
-  name: string;
-  phone: string;
-  note?: string;
+export interface ThongTinLienHe {
+  tenKhachHang: string;
+  soDienThoai: string;
+  ghiChu?: string;
 }
 
 export function useReservationFlow() {
-  const [step, setStep] = useState<ReservationStep>("branch_time");
+  const [buocHienTai, setBuocHienTai] = useState<BuocDatBan>("branch_time");
 
   // Branch + time selection state (new)
-  const [selectedBranchId, setSelectedBranchIdState] = useState("");
-  const [selectedBranchName, setSelectedBranchName] = useState("");
+  const [idChiNhanhDaChon, setSelectedBranchIdState] = useState("");
+  const [tenChiNhanhDaChon, setTenChiNhanhDaChon] = useState("");
 
-  const [date, setDateState] = useState(localDateInputValue);
-  const [time, setTimeState] = useState("");
-  const [partySize, setPartySizeState] = useState(2);
+  const [ngayDat, setDateState] = useState(localDateInputValue);
+  const [gioDat, setTimeState] = useState("");
+  const [soLuongKhach, setPartySizeState] = useState(2);
 
-  const [policy, setPolicy] = useState<DepositPolicy | null>(null);
-  const [foodItems, setFoodItems] = useState<ReservationFoodItem[]>([]);
-  const [foodCategory, setFoodCategory] = useState("all");
-  const [contact, setContact] = useState<ContactInfo>({ name: "", phone: "", note: "" });
-  const [paymentMethod, setPaymentMethod] = useState<"vnpay">("vnpay");
+  const [chinhSachCoc, setPolicy] = useState<ChinhSachDatCoc | null>(null);
+  const [danhSachMonDat, setFoodItems] = useState<MonAnDatBan[]>([]);
+  const [danhMucDangLoc, setDanhMucDangLoc] = useState("all");
+  const [thongTinLienHe, setContact] = useState<ThongTinLienHe>({ tenKhachHang: "", soDienThoai: "", ghiChu: "" });
+  const [phuongThucThanhToan, setPhuongThucThanhToan] = useState<"vnpay">("vnpay");
 
-  const [reservation, setReservation] = useState<Reservation | null>(null);
-  const [paymentSession, setPaymentSession] = useState<VNPayPaymentSession | null>(null);
-  const [paymentError, setPaymentError] = useState("");
-  const [retryingPayment, setRetryingPayment] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [thongTinDatBan, setReservation] = useState<ThongTinDatBan | null>(null);
+  const [phienThanhToan, setPaymentSession] = useState<PhienThanhToanVNPay | null>(null);
+  const [loiThanhToan, setPaymentError] = useState("");
+  const [dangThuLaiThanhToan, setRetryingPayment] = useState(false);
+  const [dangGuiDon, setSubmitting] = useState(false);
 
   useEffect(() => {
-    layChinhSachDatCoc(selectedBranchId || undefined).then(setPolicy);
-  }, [selectedBranchId]);
+    layChinhSachDatCoc(idChiNhanhDaChon || undefined).then(setPolicy);
+  }, [idChiNhanhDaChon]);
 
-  const setDate = (value: string) => {
+  const setNgayDat = (value: string) => {
     setDateState(value);
   };
 
-  const setSelectedBranchId = (value: string) => {
+  const setIdChiNhanhDaChon = (value: string) => {
     setSelectedBranchIdState(value);
   };
 
-  const setTime = (value: string) => {
+  const setGioDat = (value: string) => {
     setTimeState(value);
   };
 
-  const setPartySize = (value: number) => {
+  const setSoLuongKhach = (value: number) => {
     setPartySizeState(value);
   };
 
-  const foodSubtotal = foodItems.reduce(
-    (total, i) => total + (i.food.price ?? i.food.donGia ?? 0) * (i.quantity ?? 1),
+  const tienMonAn = danhSachMonDat.reduce(
+    (total, i) => total + (i.monAn.donGia ?? 0) * (i.soLuong ?? 1),
     0
   );
 
-  const depositPercent = policy?.depositPercentage ?? 20;
-  const depositAmount = foodItems.length > 0
-    ? Math.round((foodSubtotal * depositPercent) / 100)
+  const depositPercent = chinhSachCoc?.phanTramCoc ?? 20;
+  const soTienCoc = danhSachMonDat.length > 0
+    ? Math.round((tienMonAn * depositPercent) / 100)
     : 0;
 
   // Proceed from branch_time step
-  const proceedFromBranchTime = (branchId: string, branchName: string, selectedTime: string) => {
+  const tiepTucSauChonGio = (branchId: string, branchName: string, selectedTime: string) => {
     setSelectedBranchIdState(branchId);
-    setSelectedBranchName(branchName);
+    setTenChiNhanhDaChon(branchName);
     setTimeState(selectedTime);
-    setStep("food");
+    setBuocHienTai("food");
   };
 
-  const proceedToContact = () => setStep("contact");
+  const tiepTucSauChonBan = () => setBuocHienTai("contact");
 
-  const updateContact = useCallback((values: Partial<ContactInfo>) => {
+  const capNhatThongTinLienHe = useCallback((values: Partial<ThongTinLienHe>) => {
     setContact((current) => ({ ...current, ...values }));
   }, []);
 
-  const addFood = (food: Food) => {
+  const themMonVaoDatBan = (food: MonAn) => {
     setFoodItems((cur) => {
-      const existing = cur.find((i) => i.food.id === food.id);
+      const existing = cur.find((i) => i.monAn.id === food.id);
       if (existing) {
         return cur.map((i) =>
-          i.food.id === food.id ? { ...i, quantity: i.quantity + 1 } : i
+          i.monAn.id === food.id ? { ...i, soLuong: i.soLuong + 1 } : i
         );
       }
-      return [...cur, { food, quantity: 1 }];
+      return [...cur, { monAn: food, soLuong: 1 }];
     });
   };
 
-  const updateFoodQty = (foodId: string, quantity: number) => {
+  const capNhatSoLuongMon = (foodId: string, quantity: number) => {
     if (quantity <= 0) {
-      setFoodItems((cur) => cur.filter((i) => i.food.id !== foodId));
+      setFoodItems((cur) => cur.filter((i) => i.monAn.id !== foodId));
       return;
     }
     setFoodItems((cur) =>
-      cur.map((i) => (i.food.id === foodId ? { ...i, quantity } : i))
+      cur.map((i) => (i.monAn.id === foodId ? { ...i, soLuong: quantity } : i))
     );
   };
 
-  const submitContact = async (contact: ContactInfo) => {
+  const guiThongTinLienHe = async (contact: ThongTinLienHe) => {
     setSubmitting(true);
     try {
       const res = await taoDatBan({
-        chiNhanhId: selectedBranchId || undefined,
-        ngayDat: date,
-        gioDat: time,
-        soLuongKhach: partySize,
-        hinhThuc: foodItems.length ? "table_and_food" : "table_only",
-        danhSachMon: foodItems,
-        tenKhachHang: contact.name,
-        soDienThoai: contact.phone,
-        ghiChu: contact.note,
+        chiNhanhId: idChiNhanhDaChon || undefined,
+        ngayDat: ngayDat,
+        gioDat: gioDat,
+        soLuongKhach: soLuongKhach,
+        hinhThuc: danhSachMonDat.length ? "table_and_food" : "table_only",
+        danhSachMon: danhSachMonDat,
+        tenKhachHang: contact.tenKhachHang,
+        soDienThoai: contact.soDienThoai,
+        ghiChu: contact.ghiChu,
       });
       setReservation(res);
 
-      if (res.depositAmount > 0) {
+      if (res.soTienCoc > 0) {
         try {
           const session = await taoPhienThanhToanVNPay(res.id);
           setPaymentSession(session);
@@ -134,7 +134,7 @@ export function useReservationFlow() {
           setPaymentError(err.response?.data?.detail ?? "Đặt bàn đã được ghi nhận nhưng chưa tạo được phiên thanh toán.");
         }
       } else {
-        setStep("success");
+        setBuocHienTai("success");
       }
     } catch (err: any) {
       alert(err.response?.data?.chi_tiet ?? err.response?.data?.detail ?? "Không thể tạo đơn đặt bàn. Vui lòng thử lại.");
@@ -143,12 +143,12 @@ export function useReservationFlow() {
     }
   };
 
-  const retryPayment = async () => {
-    if (!reservation) return;
+  const thuLaiThanhToan = async () => {
+    if (!thongTinDatBan) return;
     setRetryingPayment(true);
     setPaymentError("");
     try {
-      const session = await taoPhienThanhToanVNPay(reservation.id);
+      const session = await taoPhienThanhToanVNPay(thongTinDatBan.id);
       setPaymentSession(session);
     } catch (err: any) {
       setPaymentError(err.response?.data?.detail ?? "Chưa tạo được phiên thanh toán. Vui lòng thử lại.");
@@ -157,81 +157,53 @@ export function useReservationFlow() {
     }
   };
 
-  const reset = () => {
-    setStep("branch_time");
-    setSelectedBranchId("");
-    setSelectedBranchName("");
+  const datLai = () => {
+    setBuocHienTai("branch_time");
+    setIdChiNhanhDaChon("");
+    setTenChiNhanhDaChon("");
     setFoodItems([]);
-    setFoodCategory("all");
-    setContact({ name: "", phone: "", note: "" });
-    setPaymentMethod("vnpay");
+    setDanhMucDangLoc("all");
+    setContact({ tenKhachHang: "", soDienThoai: "", ghiChu: "" });
+    setPhuongThucThanhToan("vnpay");
     setReservation(null);
     setPaymentSession(null);
     setPaymentError("");
   };
 
   return {
-    // English properties
-    step,
-    setStep,
-    // Branch state
-    selectedBranchId,
-    setSelectedBranchId,
-    selectedBranchName,
-    setSelectedBranchName,
-    proceedFromBranchTime,
-    // Date/time/party
-    date,
-    setDate,
-    time,
-    setTime,
-    partySize,
-    setPartySize,
-    proceedToContact,
-    policy,
-    foodItems,
-    foodCategory,
-    setFoodCategory,
-    addFood,
-    updateFoodQty,
-    foodSubtotal,
-    depositAmount,
-    submitContact,
-    contact,
-    updateContact,
-    paymentMethod,
-    setPaymentMethod,
-    submitting,
-    reservation,
-    paymentSession,
-    paymentError,
-    retryingPayment,
-    retryPayment,
-    reset,
-
-    // Vietnamese aliases
-    buocHienTai: step,
-    setBuocHienTai: setStep,
-    ngayDat: date,
-    setNgayDat: setDate,
-    gioDat: time,
-    setGioDat: setTime,
-    soLuongKhach: partySize,
-    setSoLuongKhach: setPartySize,
-    tiepTucSauChonBan: proceedToContact,
-    chinhSachCoc: policy,
-    danhSachMonDat: foodItems,
-    themMonVaoDatBan: addFood,
-    capNhatSoLuongMon: updateFoodQty,
-    tienMonAn: foodSubtotal,
-    soTienCoc: depositAmount,
-    guiThongTinLienHe: (info: any) => submitContact({ name: info.tenKhachHang ?? info.name, phone: info.soDienThoai ?? info.phone, note: info.ghiChu ?? info.note }),
-    dangGuiDon: submitting,
-    thongTinDatBan: reservation,
-    phienThanhToan: paymentSession,
-    loiThanhToan: paymentError,
-    dangThuLaiThanhToan: retryingPayment,
-    thuLaiThanhToan: retryPayment,
-    datLai: reset,
+    buocHienTai,
+    setBuocHienTai,
+    idChiNhanhDaChon,
+    setIdChiNhanhDaChon,
+    tenChiNhanhDaChon,
+    setTenChiNhanhDaChon,
+    tiepTucSauChonGio,
+    ngayDat,
+    setNgayDat,
+    gioDat,
+    setGioDat,
+    soLuongKhach,
+    setSoLuongKhach,
+    tiepTucSauChonBan,
+    chinhSachCoc,
+    danhSachMonDat,
+    danhMucDangLoc,
+    setDanhMucDangLoc,
+    themMonVaoDatBan,
+    capNhatSoLuongMon,
+    tienMonAn,
+    soTienCoc,
+    guiThongTinLienHe,
+    thongTinLienHe,
+    capNhatThongTinLienHe,
+    phuongThucThanhToan,
+    setPhuongThucThanhToan,
+    dangGuiDon,
+    thongTinDatBan,
+    phienThanhToan,
+    loiThanhToan,
+    dangThuLaiThanhToan,
+    thuLaiThanhToan,
+    datLai,
   };
 }

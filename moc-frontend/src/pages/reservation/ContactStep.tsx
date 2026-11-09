@@ -4,14 +4,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { MapPin, ShieldCheck, Users } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
-import type { ReservationFoodItem, DepositPolicy } from "@/types";
-import type { ContactInfo } from "@/hooks/useReservationFlow";
+import type { MonAnDatBan, ChinhSachDatCoc } from "@/types";
+import type { ThongTinLienHe } from "@/hooks/useReservationFlow";
 import { formatLongDate, refundLabel } from "./ReservationTicket";
 
 const schema = z.object({
-  name: z.string().trim().min(2, "Nhập họ và tên để nhà hàng liên hệ."),
-  phone: z.string().regex(/^0\d{9}$/, "Nhập số điện thoại gồm 10 số, bắt đầu bằng 0."),
-  note: z.string().optional(),
+  tenKhachHang: z.string().trim().min(2, "Nhập họ và tên để nhà hàng liên hệ."),
+  soDienThoai: z.string().regex(/^0\d{9}$/, "Nhập số điện thoại gồm 10 số, bắt đầu bằng 0."),
+  ghiChu: z.string().optional(),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -20,15 +20,15 @@ interface ContactStepProps {
   date: string;
   time: string;
   partySize: number;
-  foodItems: ReservationFoodItem[];
+  foodItems: MonAnDatBan[];
   foodSubtotal: number;
   depositAmount: number;
   depositPercentage: number;
-  policy: DepositPolicy | null;
-  initialValues: ContactInfo;
+  policy: ChinhSachDatCoc | null;
+  initialValues: ThongTinLienHe;
   paymentMethod: "vnpay";
   onPaymentMethodChange: (method: "vnpay") => void;
-  onValuesChange: (values: Partial<ContactInfo>) => void;
+  onValuesChange: (values: Partial<ThongTinLienHe>) => void;
   submitting: boolean;
   onSubmit: (data: FormData) => Promise<void>;
   onEditTime: () => void;
@@ -50,10 +50,10 @@ export default function ContactStep({
     return () => subscription.unsubscribe();
   }, [watch, onValuesChange]);
 
-  const [showNote, setShowNote] = useState(Boolean(initialValues.note));
+  const [showNote, setShowNote] = useState(Boolean(initialValues.ghiChu));
   const needsDeposit = foodItems.length > 0 && depositAmount > 0;
-  const expiryMinutes = policy?.paymentExpiryMinutes ?? 15;
-  const dishCount = foodItems.reduce((total, item) => total + item.quantity, 0);
+  const expiryMinutes = policy?.hanThanhToanPhut ?? 15;
+  const dishCount = foodItems.reduce((total, item) => total + item.soLuong, 0);
   const submitLabel = submitting ? "Đang gửi đặt chỗ…" : needsDeposit ? `Đặt chỗ và cọc ${formatCurrency(depositAmount)}` : "Xác nhận đặt chỗ";
   const afterSubmit = needsDeposit
     ? `Bạn có ${expiryMinutes} phút để thanh toán cọc qua VNPay. Nhà hàng sẽ gọi điện xác nhận.`
@@ -73,16 +73,16 @@ export default function ContactStep({
               )}
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Field id="reservation-name" label="Họ và tên" compactLabel error={errors.name?.message}>
-                <input id="reservation-name" autoComplete="name" placeholder="Họ và tên" {...register("name")} aria-invalid={!!errors.name} className={cn("reservation-field py-2.5!", errors.name && "border-primary")} />
+              <Field id="reservation-name" label="Họ và tên" compactLabel error={errors.tenKhachHang?.message}>
+                <input id="reservation-name" autoComplete="name" placeholder="Họ và tên" {...register("tenKhachHang")} aria-invalid={!!errors.tenKhachHang} className={cn("reservation-field py-2.5!", errors.tenKhachHang && "border-primary")} />
               </Field>
-              <Field id="reservation-phone" label="Số điện thoại" compactLabel error={errors.phone?.message}>
-                <input id="reservation-phone" type="tel" inputMode="numeric" autoComplete="tel" placeholder="Số điện thoại" {...register("phone")} aria-invalid={!!errors.phone} className={cn("reservation-field py-2.5!", errors.phone && "border-primary")} />
+              <Field id="reservation-phone" label="Số điện thoại" compactLabel error={errors.soDienThoai?.message}>
+                <input id="reservation-phone" type="tel" inputMode="numeric" autoComplete="tel" placeholder="Số điện thoại" {...register("soDienThoai")} aria-invalid={!!errors.soDienThoai} className={cn("reservation-field py-2.5!", errors.soDienThoai && "border-primary")} />
               </Field>
             </div>
             {showNote && (
               <Field id="reservation-note" label="Ghi chú" optional compactLabel>
-                <input id="reservation-note" autoFocus={!initialValues.note} {...register("note")} placeholder="Ghi chú, ví dụ: có trẻ em, cần ghế em bé" className="reservation-field py-2.5!" />
+                <input id="reservation-note" autoFocus={!initialValues.ghiChu} {...register("ghiChu")} placeholder="Ghi chú, ví dụ: có trẻ em, cần ghế em bé" className="reservation-field py-2.5!" />
               </Field>
             )}
           </section>
@@ -114,11 +114,11 @@ export default function ContactStep({
           ) : (
             <>
               <ul className="flex-1 min-h-0 max-h-[92px] lg:max-h-none overflow-y-auto -mr-3 pr-3 divide-y divide-black/[0.06] overscroll-contain" tabIndex={0} aria-label="Danh sách món">
-                {foodItems.map(({ food, quantity }) => (
+                {foodItems.map(({ monAn: food, soLuong: quantity }) => (
                   <li key={food.id} className="flex items-baseline gap-3 py-1.5 lg:py-2 text-sm">
                     <span className="w-6 shrink-0 text-muted tabular-nums">{quantity}×</span>
-                    <span className="flex-1 min-w-0">{food.name ?? food.tenMon}</span>
-                    <span className="tabular-nums">{formatCurrency((food.price ?? food.donGia ?? 0) * quantity)}</span>
+                    <span className="flex-1 min-w-0">{food.tenMon}</span>
+                    <span className="tabular-nums">{formatCurrency((food.donGia ?? 0) * quantity)}</span>
                   </li>
                 ))}
               </ul>
@@ -152,17 +152,17 @@ export default function ContactStep({
                   </span>
                   <ShieldCheck size={18} className="text-muted shrink-0 mt-0.5" />
                 </label>
-                {policy && policy.cancellationRules.length > 0 && (
+                {policy && policy.quyTacHuyBan.length > 0 && (
                   <details className="group text-sm">
                     <summary className="cursor-pointer font-semibold text-primary list-none">
                       <span className="group-open:hidden">Xem điều kiện hoàn cọc</span>
                       <span className="hidden group-open:inline">Ẩn điều kiện hoàn cọc</span>
                     </summary>
                     <ul className="mt-2 space-y-1">
-                      {policy.cancellationRules.map((rule) => (
-                        <li key={rule.timeBucket} className="flex justify-between gap-3 text-xs">
-                          <span className="text-muted">{refundLabel(rule.timeBucket ?? "")}</span>
-                          <span className="font-semibold shrink-0">{rule.refundPercentage > 0 ? `Hoàn ${rule.refundPercentage}%` : "Không hoàn"}</span>
+                      {policy.quyTacHuyBan.map((rule) => (
+                        <li key={rule.mocThoiGian} className="flex justify-between gap-3 text-xs">
+                          <span className="text-muted">{refundLabel(rule.mocThoiGian ?? "")}</span>
+                          <span className="font-semibold shrink-0">{rule.phanTramHoanTien > 0 ? `Hoàn ${rule.phanTramHoanTien}%` : "Không hoàn"}</span>
                         </li>
                       ))}
                     </ul>

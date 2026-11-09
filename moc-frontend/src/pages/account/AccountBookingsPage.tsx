@@ -44,23 +44,23 @@ export default function AccountBookingsPage() {
       ) : (
         <ul className="space-y-3">
           {data.map((r) => {
-            const st = STATUS[r.status] ?? { label: r.status, cls: "bg-black/5 text-dark" };
+            const st = STATUS[r.trangThai] ?? { label: r.trangThai, cls: "bg-black/5 text-dark" };
             return (
               <li key={r.id} className="card p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                  <span className="font-semibold text-sm">{r.code ? `#${r.code}` : `Đặt bàn #${r.id}`}</span>
+                  <span className="font-semibold text-sm">{r.maDatBan ? `#${r.maDatBan}` : `Đặt bàn #${r.id}`}</span>
                   <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold", st.cls)}>{st.label}</span>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm text-muted">
-                  <span className="flex items-center gap-2"><CalendarDays width={15} height={15} />{r.date ? formatDate(r.date) : "—"}</span>
-                  <span className="flex items-center gap-2"><Clock width={15} height={15} />{r.time.slice(0, 5) || "—"}</span>
-                  <span className="flex items-center gap-2"><MapPin width={15} height={15} />{r.branchName || "—"}{r.tableLabel ? ` · Bàn ${r.tableLabel}` : ""}</span>
-                  <span className="flex items-center gap-2"><Users width={15} height={15} />{r.partySize} khách</span>
+                  <span className="flex items-center gap-2"><CalendarDays width={15} height={15} />{r.ngayDat ? formatDate(r.ngayDat) : "—"}</span>
+                  <span className="flex items-center gap-2"><Clock width={15} height={15} />{r.gioDat.slice(0, 5) || "—"}</span>
+                  <span className="flex items-center gap-2"><MapPin width={15} height={15} />{r.tenChiNhanh || "—"}{r.tenBanAn ? ` · Bàn ${r.tenBanAn}` : ""}</span>
+                  <span className="flex items-center gap-2"><Users width={15} height={15} />{r.soLuongKhach} khách</span>
                 </div>
-                {r.depositAmount > 0 && (
+                {r.soTienCoc > 0 && (
                   <div className="mt-3 pt-3 border-t border-black/5 flex justify-between text-sm">
-                    <span className="text-muted">Tiền cọc · {DEPOSIT[r.depositStatus] ?? r.depositStatus}</span>
-                    <span className="font-semibold">{formatCurrency(r.depositAmount)}</span>
+                    <span className="text-muted">Tiền cọc · {DEPOSIT[r.trangThaiThanhToanCoc] ?? r.trangThaiThanhToanCoc}</span>
+                    <span className="font-semibold">{formatCurrency(r.soTienCoc)}</span>
                   </div>
                 )}
               </li>

@@ -185,7 +185,7 @@ class KiemThuHeThongGoiYMonAn(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertGreater(len(resp.data), 0)
         self.assertTrue(resp.data[0]["is_cold_start"])
-        self.assertEqual(resp.data[0]["reason"], "Phổ biến hôm nay")
+        self.assertEqual(resp.data[0]["ly_do_goi_y"], "Phổ biến hôm nay")
 
     def test_recommendation_tuong_tac_endpoint(self):
         """Endpoint /api/recommendations/tuong-tac/ ghi nhận tương tác và auto-fill trọng số."""
@@ -204,7 +204,7 @@ class KiemThuHeThongGoiYMonAn(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.data), 2)
         self.assertEqual(resp.data[0]["mon_an"], self.mon_bo_nuong.id)
-        self.assertIn("sa tế", resp.data[0]["reason"].lower())
+        self.assertIn("sa tế", resp.data[0]["ly_do_goi_y"].lower())
         self.assertNotIn(self.mon_lau_thai.id, [x["mon_an"] for x in resp.data])
 
     def test_ghi_nhan_dat_mon_vo_hieu_cache(self):

@@ -1,22 +1,12 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from rest_framework import serializers
-from api.mixins import DualPayloadMixin
 from foods.models import MonAn
 from foods.serializers import MonAnSerializer
 from .models import BanAn, DatBan, MonAnTrongDatBan, ChinhSachDatCoc, QuyTacHuyDatCoc, PhongRieng, PhienPhucVu
 
 
-class BanAnSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "branch": "chi_nhanh",
-        "branch_id": "chi_nhanh",
-        "table_number": "so_ban",
-        "number": "so_ban",
-        "capacity": "suc_chua",
-        "area": "khu_vuc",
-        "status": "trang_thai",
-    }
+class BanAnSerializer(serializers.ModelSerializer):
     phien_phuc_vu_hien_tai = serializers.SerializerMethodField()
 
     def get_phien_phuc_vu_hien_tai(self, obj):
@@ -72,15 +62,7 @@ class BanAnSerializer(DualPayloadMixin, serializers.ModelSerializer):
         return attrs
 
 
-class PhongRiengSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "branch": "chi_nhanh",
-        "branch_id": "chi_nhanh",
-        "name": "ten_phong",
-        "floor": "tang",
-        "capacity": "suc_chua",
-        "active": "con_hoat_dong",
-    }
+class PhongRiengSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PhongRieng
@@ -92,31 +74,14 @@ class PhongRiengSerializer(DualPayloadMixin, serializers.ModelSerializer):
         return value
 
 
-class QuyTacHuyCocSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "policy": "chinh_sach",
-        "policy_id": "chinh_sach",
-        "time_milestone": "moc_thoi_gian",
-        "refund_percentage": "phan_tram_hoan_tien",
-    }
+class QuyTacHuyCocSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuyTacHuyDatCoc
         fields = "__all__"
 
 
-class ChinhSachCocSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "branch": "chi_nhanh",
-        "branch_id": "chi_nhanh",
-        "deposit_percentage": "phan_tram_coc",
-        "hold_time_minutes": "thoi_gian_giu_cho_phut",
-        "payment_limit_minutes": "han_thanh_toan_phut",
-        "hotline": "so_dien_thoai_lien_he",
-        "guide_text": "noi_dung_huong_dan",
-        "guideText": "noi_dung_huong_dan",
-        "is_active": "con_ap_dung",
-    }
+class ChinhSachCocSerializer(serializers.ModelSerializer):
     quy_tac_huy = QuyTacHuyCocSerializer(many=True, read_only=True)
 
     class Meta:
@@ -124,11 +89,7 @@ class ChinhSachCocSerializer(DualPayloadMixin, serializers.ModelSerializer):
         fields = "__all__"
 
 
-class MonAnDatBanSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "food_id": "mon_an_id",
-        "quantity": "so_luong",
-    }
+class MonAnDatBanSerializer(serializers.ModelSerializer):
     mon_an_id = serializers.PrimaryKeyRelatedField(
         queryset=MonAn.objects.filter(con_hang=True), source="mon_an", write_only=True
     )
@@ -140,38 +101,8 @@ class MonAnDatBanSerializer(DualPayloadMixin, serializers.ModelSerializer):
         read_only_fields = ("id", "mon_an", "don_gia_luc_dat")
 
 
-class DatBanSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "branch": "chi_nhanh",
-        "branch_id": "chi_nhanh",
-        "chi_nhanh_id": "chi_nhanh",
-        "table": "ban_an",
-        "table_id": "ban_an",
-        "ban_an_id": "ban_an",
-        "idBan": "ban_an",
-        "customer_name": "ten_khach",
-        "name": "ten_khach",
-        "customer_phone": "sdt_khach",
-        "phone": "sdt_khach",
-        "customer_email": "email_khach",
-        "email": "email_khach",
-        "guest_count": "so_luong_khach",
-        "number_of_guests": "so_luong_khach",
-        "party_size": "so_luong_khach",
-        "date": "ngay_dat",
-        "reservation_date": "ngay_dat",
-        "start_time": "gio_bat_dau",
-        "time": "gio_bat_dau",
-        "end_time": "gio_ket_thuc",
-        "note": "ghi_chu",
-        "notes": "ghi_chu",
-        "items": "danh_sach_mon",
-        "food_items": "danh_sach_mon",
-        "type": "hinh_thuc",
-        "reservation_type": "hinh_thuc",
-    }
+class DatBanSerializer(serializers.ModelSerializer):
     danh_sach_mon = MonAnDatBanSerializer(many=True, required=False)
-    food_items = MonAnDatBanSerializer(many=True, source="danh_sach_mon", read_only=True)
     so_ban = serializers.CharField(source="ban_an.so_ban", read_only=True)
     ten_ban = serializers.CharField(source="ban_an.so_ban", read_only=True)
     ban_an_id = serializers.IntegerField(source="ban_an.id", read_only=True)
@@ -273,20 +204,7 @@ class DatBanSerializer(DualPayloadMixin, serializers.ModelSerializer):
         return attrs
 
 
-class PhienPhucVuSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "branch": "chi_nhanh",
-        "branch_id": "chi_nhanh",
-        "table": "ban_an",
-        "table_id": "ban_an",
-        "reservation": "dat_ban",
-        "reservation_id": "dat_ban",
-        "guest_count": "so_luong_khach",
-        "customer_name": "ten_khach",
-        "customer_phone": "sdt_khach",
-        "note": "ghi_chu",
-        "status": "trang_thai",
-    }
+class PhienPhucVuSerializer(serializers.ModelSerializer):
     so_ban = serializers.CharField(source="ban_an.so_ban", read_only=True)
     ten_ban = serializers.CharField(source="ban_an.so_ban", read_only=True)
     don_hang_id = serializers.SerializerMethodField()
@@ -318,15 +236,7 @@ class PhienPhucVuSerializer(DualPayloadMixin, serializers.ModelSerializer):
         return DichVuPhienPhucVu.tien_coc_da_tra(obj)
 
 
-class WalkInSerializer(DualPayloadMixin, serializers.Serializer):
-    FIELD_ALIASES = {
-        "table": "ban_an",
-        "table_id": "ban_an",
-        "guest_count": "so_luong_khach",
-        "customer_name": "ten_khach",
-        "customer_phone": "sdt_khach",
-        "note": "ghi_chu",
-    }
+class WalkInSerializer(serializers.Serializer):
     ban_an = serializers.PrimaryKeyRelatedField(queryset=BanAn.objects.all())
     so_luong_khach = serializers.IntegerField(min_value=1, max_value=12)
     ten_khach = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
@@ -334,25 +244,21 @@ class WalkInSerializer(DualPayloadMixin, serializers.Serializer):
     ghi_chu = serializers.CharField(required=False, allow_blank=True, default="")
 
 
-class XepBanSerializer(DualPayloadMixin, serializers.Serializer):
-    FIELD_ALIASES = {"table": "ban_an", "table_id": "ban_an"}
+class XepBanSerializer(serializers.Serializer):
     ban_an = serializers.PrimaryKeyRelatedField(queryset=BanAn.objects.all())
 
 
-class ThemMonPhienSerializer(DualPayloadMixin, serializers.Serializer):
-    FIELD_ALIASES = {"food_id": "mon_an_id", "quantity": "so_luong", "note": "ghi_chu"}
+class ThemMonPhienSerializer(serializers.Serializer):
     mon_an_id = serializers.PrimaryKeyRelatedField(queryset=MonAn.objects.filter(con_hang=True), source="mon_an")
     so_luong = serializers.IntegerField(min_value=1)
     ghi_chu = serializers.CharField(required=False, allow_blank=True, default="")
 
 
-class DanhSachMonPhienSerializer(DualPayloadMixin, serializers.Serializer):
-    FIELD_ALIASES = {"items": "danh_sach_mon"}
+class DanhSachMonPhienSerializer(serializers.Serializer):
     danh_sach_mon = ThemMonPhienSerializer(many=True)
 
 
-class CheckOutPhienSerializer(DualPayloadMixin, serializers.Serializer):
-    FIELD_ALIASES = {"payment_method": "phuong_thuc", "reference": "ma_tham_chieu"}
+class CheckOutPhienSerializer(serializers.Serializer):
     phuong_thuc = serializers.ChoiceField(
         choices=["tien_mat", "chuyen_khoan", "vnpay"], required=False, default="tien_mat"
     )

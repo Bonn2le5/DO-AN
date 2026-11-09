@@ -3,44 +3,25 @@ import binascii
 import re
 from django.core.files.base import ContentFile
 from rest_framework import serializers
-from api.mixins import DualPayloadMixin
 from decimal import Decimal
 from .models import DanhMuc, NguyenLieu, MonAn, HinhAnhMonAn, TheMonAn, LichSuXuatNhapKho, DinhMucNguyenLieu
 
 
-class DanhMucSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "name": "ten",
-        "slug": "duong_dan",
-        "description": "mo_ta",
-        "image": "anh_dai_dien",
-        "is_active": "con_hoat_dong",
-    }
+class DanhMucSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DanhMuc
         fields = "__all__"
 
 
-class TheMonAnSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "name": "ten",
-        "slug": "duong_dan",
-    }
+class TheMonAnSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TheMonAn
         fields = "__all__"
 
 
-class NguyenLieuSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "name": "ten",
-        "unit": "don_vi",
-        "current_stock": "ton_kho_hien_tai",
-        "min_stock": "ton_kho_toi_thieu",
-        "is_active": "con_hoat_dong",
-    }
+class NguyenLieuSerializer(serializers.ModelSerializer):
 
     so_mon_dinh_muc = serializers.IntegerField(read_only=True, default=0)
     sap_het = serializers.SerializerMethodField()
@@ -88,37 +69,14 @@ class NguyenLieuSerializer(DualPayloadMixin, serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
-class HinhAnhMonAnSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "image": "anh",
-        "description": "van_ban_mo_ta",
-        "is_primary": "la_anh_chinh",
-        "order": "thu_tu",
-    }
+class HinhAnhMonAnSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = HinhAnhMonAn
         fields = ("id", "anh", "van_ban_mo_ta", "la_anh_chinh", "thu_tu")
 
 
-class MonAnSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "name": "ten",
-        "price": "don_gia",
-        "current_price": "don_gia",
-        "description": "mo_ta_chi_tiet",
-        "short_description": "mo_ta_ngan",
-        "category": "danh_muc",
-        "category_id": "danh_muc",
-        "is_available": "con_hang",
-        "is_active": "con_hang",
-        "is_featured": "noi_bat",
-        "is_vegetarian": "la_mon_chay",
-        "spicy_level": "do_cay",
-        "spiciness": "do_cay",
-        "slug": "duong_dan",
-        "tags": "the_mon_an",
-    }
+class MonAnSerializer(serializers.ModelSerializer):
     chi_tiet_danh_muc = DanhMucSerializer(source="danh_muc", read_only=True)
     the_mon_an = serializers.SlugRelatedField(
         many=True, slug_field="ten",
@@ -148,7 +106,7 @@ class MonAnSerializer(DualPayloadMixin, serializers.ModelSerializer):
     def to_internal_value(self, data):
         data = data.copy() if hasattr(data, "copy") else dict(data)
         self._image_data = data.pop("image", None)
-        category = data.get("category", data.get("danh_muc"))
+        category = data.get("danh_muc")
         if category not in (None, "") and not str(category).isdigit():
             found = DanhMuc.objects.filter(ten__iexact=str(category)).first() or DanhMuc.objects.filter(duong_dan=str(category)).first()
             if not found:

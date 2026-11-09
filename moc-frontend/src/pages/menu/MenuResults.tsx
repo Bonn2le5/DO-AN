@@ -3,10 +3,10 @@ import { useLocation } from "react-router-dom";
 import { Search, X } from "lucide-react";
 import FoodCard from "@/components/food/FoodCard";
 import { SORT_OPTIONS, type SortKey } from "@/hooks/useMenuFilters";
-import type { Food } from "@/types";
+import type { MonAn } from "@/types";
 
 interface MenuResultsProps {
-  foods: Food[];
+  foods: MonAn[];
   loading: boolean;
   search: string;
   onSearchChange: (value: string) => void;

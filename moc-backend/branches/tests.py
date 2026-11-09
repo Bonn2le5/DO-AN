@@ -33,10 +33,6 @@ class ChiNhanhGISTestCase(TestCase):
     def test_model_coordinate_properties(self):
         self.assertAlmostEqual(self.b_tb.kinh_do, 106.6669)
         self.assertAlmostEqual(self.b_tb.vi_do, 10.7925)
-        self.assertAlmostEqual(self.b_tb.lng, 106.6669)
-        self.assertAlmostEqual(self.b_tb.lat, 10.7925)
-        self.assertAlmostEqual(self.b_tb.longitude, 106.6669)
-        self.assertAlmostEqual(self.b_tb.latitude, 10.7925)
 
     def test_haversine_distance(self):
         dist = haversine_distance_km(10.7925, 106.6669, 10.7769, 106.7009)
@@ -57,12 +53,12 @@ class ChiNhanhGISTestCase(TestCase):
         self.assertNotEqual(branches[0].id, self.b_q7.id)
 
     def test_api_nearest_endpoint(self):
-        resp = self.client.get("/api/branches/nearest/", {"lat": 10.7930, "lng": 106.6675})
+        resp = self.client.get("/api/branches/nearest/", {"vi_do": 10.7930, "kinh_do": 106.6675})
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertEqual(data["id"], self.b_tb.id)
-        self.assertIn("distance_km", data)
-        self.assertLess(data["distance_km"], 0.5)
+        self.assertIn("khoang_cach_km", data)
+        self.assertLess(data["khoang_cach_km"], 0.5)
 
     def test_api_nearest_vn_alias(self):
         resp = self.client.get("/api/chi-nhanh/nearest/", {"vi_do": 10.7930, "kinh_do": 106.6675})
@@ -70,7 +66,7 @@ class ChiNhanhGISTestCase(TestCase):
         self.assertEqual(resp.json()["id"], self.b_tb.id)
 
     def test_api_tim_gan_nhat_endpoint(self):
-        resp = self.client.get("/api/chi-nhanh/tim-gan-nhat/", {"lat": 10.7930, "lng": 106.6675})
+        resp = self.client.get("/api/chi-nhanh/tim-gan-nhat/", {"vi_do": 10.7930, "kinh_do": 106.6675})
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()["id"], self.b_tb.id)
 
@@ -79,7 +75,7 @@ class ChiNhanhGISTestCase(TestCase):
         self.assertEqual(resp.status_code, 400)
 
     def test_api_nearest_return_all(self):
-        resp = self.client.get("/api/branches/nearest/", {"lat": 10.7930, "lng": 106.6675, "all": "true"})
+        resp = self.client.get("/api/branches/nearest/", {"vi_do": 10.7930, "kinh_do": 106.6675, "all": "true"})
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertIsInstance(data, list)
@@ -88,10 +84,20 @@ class ChiNhanhGISTestCase(TestCase):
         self.assertEqual(data[1]["id"], self.b_q1.id)
 
     def test_api_list_proximity_sorting(self):
-        resp = self.client.get("/api/branches/", {"lat": 10.7930, "lng": 106.6675})
+        resp = self.client.get("/api/branches/", {"vi_do": 10.7930, "kinh_do": 106.6675})
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         # In DRF, standard list may be paginated or array
         results = data["results"] if isinstance(data, dict) and "results" in data else data
         self.assertIsInstance(results, list)
         self.assertEqual(results[0]["id"], self.b_tb.id)
+
+    def test_admin_tao_chi_nhanh_luu_toa_do(self):
+        from accounts.models import NguoiDung
+        admin = NguoiDung.objects.create_superuser(username="adm_cn", thu_dien_tu="adm_cn@moc.vn", email="adm_cn@moc.vn", password="x12345678")
+        self.client.force_authenticate(admin)
+        r = self.client.post("/api/branches/", {"ten": "CN mới", "dia_chi": "x", "so_dien_thoai": "0900000001", "vi_do": 10.8, "kinh_do": 106.7, "con_hoat_dong": True}, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        cn = ChiNhanh.objects.get(pk=r.data["id"])
+        self.assertAlmostEqual(cn.vi_do, 10.8)
+        self.assertAlmostEqual(cn.kinh_do, 106.7)

@@ -17,8 +17,8 @@ export default function AdminLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { pathname } = useLocation();
-  const { user, logout } = useAuthStore();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { nguoiDung: user, dangXuat: logout } = useAuthStore();
+  const isAuthenticated = useAuthStore((s) => s.daDangNhap);
   const pushToast = useToast((s) => s.push);
   const role = useRole();
   const { role: previewRole, setRole } = usePreviewRole();
@@ -88,11 +88,11 @@ export default function AdminLayout() {
             </Link>
             <div className="flex items-center gap-2.5">
               <span className="w-8 h-8 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
-                {user?.avatarInitial ?? (role === "admin" ? "A" : "N")}
+                {user?.kyTuDaiDien ?? (role === "admin" ? "A" : "N")}
               </span>
               <div className="hidden md:block leading-tight">
                 <div className="text-sm font-semibold">
-                  {user?.name ??
+                  {user?.hoTen ??
                     (role === "admin" ? "Quản trị viên" : "Nhân viên")}
                 </div>
                 <div className="text-xs text-muted">

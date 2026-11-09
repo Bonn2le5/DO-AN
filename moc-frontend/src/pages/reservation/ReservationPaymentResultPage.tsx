@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { layDatBanTheoId } from "@/api/reservations.api";
-import type { Reservation } from "@/types";
+import type { ThongTinDatBan } from "@/types";
 import ReservationSuccess from "./ReservationSuccess";
 
 export default function ReservationPaymentResultPage() {
@@ -9,7 +9,7 @@ export default function ReservationPaymentResultPage() {
   const navigate = useNavigate();
   const status = params.get("status");
   const reservationId = params.get("reservation_id");
-  const [reservation, setReservation] = useState<Reservation | null>(null);
+  const [reservation, setReservation] = useState<ThongTinDatBan | null>(null);
   const [loading, setLoading] = useState(status === "success" && Boolean(reservationId));
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export default function ReservationPaymentResultPage() {
     return <div className="reservation-ui max-w-lg mx-auto px-5 py-24 text-center text-muted">Đang xác nhận giao dịch với nhà hàng…</div>;
   }
 
-  if (status === "success" && reservation?.depositStatus === "thanh_cong" && reservation.status === "cho_xac_nhan") {
+  if (status === "success" && reservation?.trangThaiThanhToanCoc === "thanh_cong" && reservation.trangThai === "cho_xac_nhan") {
     return <ReservationSuccess reservation={reservation} onReset={() => navigate("/dat-ban")} />;
   }
 

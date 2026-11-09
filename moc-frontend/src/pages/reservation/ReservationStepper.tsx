@@ -1,14 +1,14 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ReservationStep } from "@/hooks/useReservationFlow";
+import type { BuocDatBan } from "@/hooks/useReservationFlow";
 
-const STEPS: { key: ReservationStep; label: string }[] = [
+const STEPS: { key: BuocDatBan; label: string }[] = [
   { key: "branch_time", label: "Đặt chỗ" },
   { key: "food", label: "Gọi món" },
   { key: "contact", label: "Xác nhận" },
 ];
 
-export default function ReservationStepper({ current, compact = false }: { current: ReservationStep; compact?: boolean }) {
+export default function ReservationStepper({ current, compact = false }: { current: BuocDatBan; compact?: boolean }) {
   const activeStep = current === "success" ? "contact" : current;
   const currentIndex = STEPS.findIndex((step) => step.key === activeStep);
 
