@@ -3,8 +3,6 @@ from django.db import models
 from foods.models import MoHinhThoiGian
 
 
-
-
 class ThanhToan(MoHinhThoiGian):
     class LoaiThanhToan(models.TextChoices):
         DON_HANG = "don_hang", "Đơn hàng"
@@ -35,22 +33,6 @@ class ThanhToan(MoHinhThoiGian):
     thanh_toan_luc = models.DateTimeField(null=True, blank=True)
     hoan_tien_luc = models.DateTimeField(null=True, blank=True)
 
-    _LEGACY_MAP = {
-        "user": "nguoi_dung",
-        "user_id": "nguoi_dung_id",
-        "order": "don_hang",
-        "order_id": "don_hang_id",
-        "reservation": "dat_ban",
-        "reservation_id": "dat_ban_id",
-        "payment_type": "loai_thanh_toan",
-        "method": "phuong_thuc",
-        "payment_method": "phuong_thuc",
-        "amount": "so_tien",
-        "transaction_id": "ma_giao_dich",
-        "status": "trang_thai",
-        "paid_at": "thanh_toan_luc",
-        "refunded_at": "hoan_tien_luc",
-    }
 
     class Meta:
         db_table = "thanh_toan"
@@ -64,134 +46,6 @@ class ThanhToan(MoHinhThoiGian):
                 name="kiem_tra_muc_tieu_thanh_toan",
             )
         ]
-
-    @property
-    def amount(self):
-        return self.so_tien
-
-    @amount.setter
-    def amount(self, val):
-        self.so_tien = val
-
-    @property
-    def method(self):
-        return self.phuong_thuc
-
-    @method.setter
-    def method(self, val):
-        self.phuong_thuc = val
-
-    @property
-    def payment_method(self):
-        return self.phuong_thuc
-
-    @payment_method.setter
-    def payment_method(self, val):
-        self.phuong_thuc = val
-
-    @property
-    def transaction_id(self):
-        return self.ma_giao_dich
-
-    @transaction_id.setter
-    def transaction_id(self, val):
-        self.ma_giao_dich = val
-
-    @property
-    def user(self):
-        return self.nguoi_dung
-
-    @user.setter
-    def user(self, val):
-        self.nguoi_dung = val
-
-    @property
-    def user_id(self):
-        return self.nguoi_dung_id
-
-    @user_id.setter
-    def user_id(self, val):
-        self.nguoi_dung_id = val
-
-    @property
-    def order(self):
-        return self.don_hang
-
-    @order.setter
-    def order(self, val):
-        self.don_hang = val
-
-    @property
-    def order_id(self):
-        return self.don_hang_id
-
-    @order_id.setter
-    def order_id(self, val):
-        self.don_hang_id = val
-
-    @property
-    def reservation(self):
-        return self.dat_ban
-
-    @reservation.setter
-    def reservation(self, val):
-        self.dat_ban = val
-
-    @property
-    def reservation_id(self):
-        return self.dat_ban_id
-
-    @reservation_id.setter
-    def reservation_id(self, val):
-        self.dat_ban_id = val
-
-    @property
-    def payment_type(self):
-        return self.loai_thanh_toan
-
-    @payment_type.setter
-    def payment_type(self, val):
-        self.loai_thanh_toan = val
-
-    @property
-    def status(self):
-        return self.trang_thai
-
-    @status.setter
-    def status(self, val):
-        self.trang_thai = val
-
-    @property
-    def paid_at(self):
-        return self.thanh_toan_luc
-
-    @paid_at.setter
-    def paid_at(self, val):
-        self.thanh_toan_luc = val
-
-    @property
-    def refunded_at(self):
-        return self.hoan_tien_luc
-
-    @refunded_at.setter
-    def refunded_at(self, val):
-        self.hoan_tien_luc = val
-
-    @property
-    def created_at(self):
-        return self.tao_luc
-
-    @created_at.setter
-    def created_at(self, val):
-        self.tao_luc = val
-
-    @property
-    def updated_at(self):
-        return self.cap_nhat_luc
-
-    @updated_at.setter
-    def updated_at(self, val):
-        self.cap_nhat_luc = val
 
 
 # Backward-compatible model aliases
@@ -234,30 +88,6 @@ class PhieuHoanTien(MoHinhThoiGian):
     phuong_thuc_hoan = models.CharField(max_length=30, default="vnpay_refund")
     du_lieu_chi_tiet = models.JSONField(default=dict, blank=True)
 
-    _LEGACY_MAP = {
-        "refund_code": "ma_phieu_hoan",
-        "code": "ma_phieu_hoan",
-        "reservation": "dat_ban",
-        "reservation_id": "dat_ban_id",
-        "payment": "thanh_toan",
-        "payment_id": "thanh_toan_id",
-        "original_deposit": "so_tien_coc_goc",
-        "original_amount": "so_tien_coc_goc",
-        "refund_percentage": "phan_tram_hoan",
-        "refund_percent": "phan_tram_hoan",
-        "refund_amount": "so_tien_hoan",
-        "penalty_amount": "so_tien_phat",
-        "time_milestone": "moc_thoi_gian",
-        "milestone": "moc_thoi_gian",
-        "hours_before_booking": "so_gio_truoc_gio_hen",
-        "cancel_reason": "ly_do_huy",
-        "reason": "ly_do_huy",
-        "status": "trang_thai",
-        "refund_method": "phuong_thuc_hoan",
-        "method": "phuong_thuc_hoan",
-        "detail_data": "du_lieu_chi_tiet",
-        "details": "du_lieu_chi_tiet",
-    }
 
     class Meta:
         db_table = "phieu_hoan_tien"
@@ -265,62 +95,6 @@ class PhieuHoanTien(MoHinhThoiGian):
 
     def __str__(self):
         return f"{self.ma_phieu_hoan} ({self.dat_ban.ma_dat_ban if self.dat_ban else ''})"
-
-    @property
-    def refund_code(self):
-        return self.ma_phieu_hoan
-
-    @refund_code.setter
-    def refund_code(self, val):
-        self.ma_phieu_hoan = val
-
-    @property
-    def reservation(self):
-        return self.dat_ban
-
-    @reservation.setter
-    def reservation(self, val):
-        self.dat_ban = val
-
-    @property
-    def payment(self):
-        return self.thanh_toan
-
-    @payment.setter
-    def payment(self, val):
-        self.thanh_toan = val
-
-    @property
-    def refund_amount(self):
-        return self.so_tien_hoan
-
-    @refund_amount.setter
-    def refund_amount(self, val):
-        self.so_tien_hoan = val
-
-    @property
-    def penalty_amount(self):
-        return self.so_tien_phat
-
-    @penalty_amount.setter
-    def penalty_amount(self, val):
-        self.so_tien_phat = val
-
-    @property
-    def refund_percentage(self):
-        return self.phan_tram_hoan
-
-    @refund_percentage.setter
-    def refund_percentage(self, val):
-        self.phan_tram_hoan = val
-
-    @property
-    def status(self):
-        return self.trang_thai
-
-    @status.setter
-    def status(self, val):
-        self.trang_thai = val
 
 
 # Backward-compatible model aliases for refund receipts

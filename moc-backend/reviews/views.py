@@ -29,7 +29,7 @@ class DanhGiaViewSet(viewsets.ModelViewSet):
         is_staff = user.is_authenticated and (user.is_staff or getattr(user, "la_nhan_vien_nha_hang", False))
         if not is_staff:
             q = q.filter(hien_thi=True)
-        food_id = self.request.query_params.get("food") or self.request.query_params.get("mon_an")
+        food_id = self.request.query_params.get("mon_an")
         if food_id:
             q = q.filter(mon_an_id=food_id)
         return q

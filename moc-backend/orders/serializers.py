@@ -1,18 +1,10 @@
 from rest_framework import serializers
-from api.mixins import DualPayloadMixin
 from foods.models import MonAn
 from foods.serializers import MonAnSerializer
 from .models import DonHang, ChiTietDonHang, LichSuTrangThaiDon
 
 
-class ChiTietDonHangSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "food_id": "mon_an_id",
-        "dish_id": "mon_an_id",
-        "quantity": "so_luong",
-        "note": "ghi_chu",
-        "notes": "ghi_chu",
-    }
+class ChiTietDonHangSerializer(serializers.ModelSerializer):
     mon_an_id = serializers.PrimaryKeyRelatedField(
         queryset=MonAn.objects.filter(con_hang=True), source="mon_an", write_only=True
     )
@@ -30,29 +22,8 @@ class LichSuTrangThaiDonSerializer(serializers.ModelSerializer):
         fields = ("tu_trang_thai", "sang_trang_thai", "ghi_chu", "tao_luc")
 
 
-class DonHangSerializer(DualPayloadMixin, serializers.ModelSerializer):
-    FIELD_ALIASES = {
-        "order_type": "hinh_thuc",
-        "type": "hinh_thuc",
-        "customer_name": "ten_khach",
-        "name": "ten_khach",
-        "customer_phone": "sdt_khach",
-        "phone": "sdt_khach",
-        "note": "ghi_chu",
-        "notes": "ghi_chu",
-        "branch": "chi_nhanh",
-        "branch_id": "chi_nhanh",
-        "table": "dat_ban",
-        "table_id": "dat_ban",
-        "session": "phien_phuc_vu",
-        "session_id": "phien_phuc_vu",
-        "coupon_code": "ma_khuyen_mai",
-        "promotion_code": "ma_khuyen_mai",
-        "items": "danh_sach_mon",
-        "order_items": "danh_sach_mon",
-    }
+class DonHangSerializer(serializers.ModelSerializer):
     danh_sach_mon = ChiTietDonHangSerializer(many=True, required=False)
-    items = ChiTietDonHangSerializer(source="danh_sach_mon", many=True, read_only=True)
     lich_su_trang_thai = LichSuTrangThaiDonSerializer(many=True, read_only=True)
     ma_khuyen_mai = serializers.CharField(write_only=True, required=False)
 

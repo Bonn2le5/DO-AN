@@ -14,7 +14,7 @@ class KhuyenMaiViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         q = KhuyenMai.objects.prefetch_related("danh_sach_ma")
-        if self.request.query_params.get("active") or self.request.query_params.get("con_han"):
+        if self.request.query_params.get("con_han"):
             now = timezone.now()
             q = q.filter(con_hoat_dong=True, bat_dau_luc__lte=now, ket_thuc_luc__gte=now)
         return q

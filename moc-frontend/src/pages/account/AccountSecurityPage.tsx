@@ -58,7 +58,7 @@ function EmailCard() {
 
   const onSubmit = async (d: EmailForm) => {
     try {
-      login(await updateProfile({ email: d.email.trim(), mat_khau_hien_tai: d.password }));
+      login(await updateProfile({ thu_dien_tu: d.email.trim(), mat_khau_hien_tai: d.password }));
       resetField("password");
     } catch (e) {
       setError("root", { message: apiErrorMessage(e, "Cập nhật email thất bại.") });

@@ -111,7 +111,7 @@ class GoiYMonAnViewSet(viewsets.ReadOnlyModelViewSet):
     def tuong_tu(self, request):
         """Món tương tự (Item-to-Item TF-IDF): GET ?mon_an=<id>&limit=3"""
         try:
-            mon_an_id = int(request.query_params.get("mon_an") or request.query_params.get("food"))
+            mon_an_id = int(request.query_params.get("mon_an"))
         except (TypeError, ValueError):
             return Response({"detail": "Thiếu tham số mon_an."}, status=status.HTTP_400_BAD_REQUEST)
         items = DichVuGoiY.mon_tuong_tu(mon_an_id, gioi_han=min(self.get_limit(), 12))

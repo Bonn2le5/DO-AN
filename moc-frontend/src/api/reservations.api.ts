@@ -28,11 +28,11 @@ export async function layDanhSachChiNhanh(): Promise<ChiNhanh[]> {
     const list = Array.isArray(data) ? data : data.results ?? [];
     return list.map((b: any): ChiNhanh => ({
       id: String(b.id),
-      tenChiNhanh: b.ten ?? b.name ?? "",
-      diaChi: b.dia_chi ?? b.address ?? "",
-      soDienThoai: b.so_dien_thoai ?? b.phone ?? "",
-      viDo: Number(b.vi_do ?? b.lat ?? b.latitude ?? 0),
-      kinhDo: Number(b.kinh_do ?? b.lng ?? b.longitude ?? 0),
+      tenChiNhanh: b.ten ?? "",
+      diaChi: b.dia_chi ?? "",
+      soDienThoai: b.so_dien_thoai ?? "",
+      viDo: Number(b.vi_do ?? 0),
+      kinhDo: Number(b.kinh_do ?? 0),
       gioMoCua: b.gio_mo_cua ?? b.opening_hours ?? "",
     }));
   } catch {
@@ -115,7 +115,7 @@ export async function taoDatBan(params: {
       table_and_food_editable: "dat_ban_goi_mon_chinh_sua",
       dat_ban_goi_mon_chinh_sua: "dat_ban_goi_mon_chinh_sua",
     }[params.hinhThuc],
-    food_items: params.danhSachMon.map((i) => ({
+    danh_sach_mon: params.danhSachMon.map((i) => ({
       mon_an_id: i.monAn.id,
       so_luong: i.soLuong,
     })),
@@ -147,10 +147,10 @@ export async function taoPhienThanhToanVNPay(
     dat_ban_id: Number(idDatBan),
   });
   return {
-    duongDanThanhToan: data.payment_url ?? data.duong_dan_thanh_toan ?? "",
-    maGiaoDich: data.txn_ref ?? data.ma_giao_dich ?? "",
-    soTien: Number(data.amount ?? data.so_tien ?? 0),
-    hetHanLuc: data.expires_at ?? data.het_han_luc ?? "",
+    duongDanThanhToan: data.duong_dan_thanh_toan ?? "",
+    maGiaoDich: data.ma_giao_dich ?? "",
+    soTien: Number(data.so_tien ?? 0),
+    hetHanLuc: data.het_han_luc ?? "",
   };
 }
 

@@ -3,7 +3,7 @@ import { mapDanhGia } from "./mappers";
 import type { DanhGiaMonAn } from "@/types";
 
 export async function getReviewsByFood(foodId: string): Promise<DanhGiaMonAn[]> {
-  const { data } = await apiClient.get("/reviews/", { params: { food: foodId } });
+  const { data } = await apiClient.get("/reviews/", { params: { mon_an: foodId } });
   return (Array.isArray(data) ? data : data.results).map(mapDanhGia);
 }
 

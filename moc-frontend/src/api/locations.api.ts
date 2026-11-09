@@ -4,8 +4,8 @@ import type { ChiNhanh, ThongTinTuyenDuong } from "@/types";
 export async function getBranches(): Promise<ChiNhanh[]> {
   const { data } = await apiClient.get("/branches/");
   return (Array.isArray(data) ? data : data.results).map((branch: any): ChiNhanh => ({
-    id: String(branch.id), tenChiNhanh: branch.name, diaChi: branch.address, soDienThoai: branch.phone,
-    viDo: Number(branch.latitude), kinhDo: Number(branch.longitude), gioMoCua: branch.opening_hours,
+    id: String(branch.id), tenChiNhanh: branch.ten, diaChi: branch.dia_chi, soDienThoai: branch.so_dien_thoai,
+    viDo: Number(branch.vi_do), kinhDo: Number(branch.kinh_do), gioMoCua: branch.opening_hours,
     laChiNhanhChinh: branch.is_main,
   }));
 }

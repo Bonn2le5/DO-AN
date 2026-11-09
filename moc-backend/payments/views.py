@@ -147,13 +147,9 @@ class ThanhToanViewSet(viewsets.ModelViewSet):
 
         expires_at = (timezone.now() + timedelta(minutes=15)).isoformat()
         return Response({
-            "payment_url": payment_url,
             "duong_dan_thanh_toan": payment_url,
-            "txn_ref": thanh_toan.ma_giao_dich,
             "ma_giao_dich": thanh_toan.ma_giao_dich,
-            "amount": float(thanh_toan.so_tien),
             "so_tien": float(thanh_toan.so_tien),
-            "expires_at": expires_at,
             "het_han_luc": expires_at,
             "thanh_toan_id": thanh_toan.id,
         })

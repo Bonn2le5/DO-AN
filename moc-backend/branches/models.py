@@ -29,14 +29,6 @@ class ChiNhanh(MoHinhThoiGian):
     toa_do_gis = PointFieldClass(geography=True, srid=4326)
     con_hoat_dong = models.BooleanField(default=True)
 
-    _LEGACY_MAP = {
-        "name": "ten",
-        "address": "dia_chi",
-        "phone": "so_dien_thoai",
-        "phone_number": "so_dien_thoai",
-        "location": "toa_do_gis",
-        "is_active": "con_hoat_dong",
-    }
 
     class Meta:
         db_table = "chi_nhanh"
@@ -86,62 +78,6 @@ class ChiNhanh(MoHinhThoiGian):
     @property
     def vi_do(self):
         return self._parse_coords()[1]
-
-    @property
-    def lng(self):
-        return self.kinh_do
-
-    @property
-    def lat(self):
-        return self.vi_do
-
-    @property
-    def longitude(self):
-        return self.kinh_do
-
-    @property
-    def latitude(self):
-        return self.vi_do
-
-    @property
-    def name(self):
-        return self.ten
-
-    @name.setter
-    def name(self, val):
-        self.ten = val
-
-    @property
-    def address(self):
-        return self.dia_chi
-
-    @address.setter
-    def address(self, val):
-        self.dia_chi = val
-
-    @property
-    def phone(self):
-        return self.so_dien_thoai
-
-    @phone.setter
-    def phone(self, val):
-        self.so_dien_thoai = val
-
-    @property
-    def location(self):
-        return self.toa_do_gis
-
-    @location.setter
-    def location(self, val):
-        self.toa_do_gis = val
-
-    @property
-    def is_active(self):
-        return self.con_hoat_dong
-
-    @is_active.setter
-    def is_active(self, val):
-        self.con_hoat_dong = bool(val)
 
 
 # Backward-compatible model aliases

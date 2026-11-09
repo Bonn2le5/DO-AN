@@ -37,6 +37,6 @@ class Migration(migrations.Migration):
                 'verbose_name': 'Phiếu hoàn tiền',
                 'db_table': 'phieu_hoan_tien',
             },
-            bases=(foods.models.LegacyKwargsMixin, models.Model),
+            bases=(models.Model,),
         ),
     ]

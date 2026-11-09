@@ -97,7 +97,7 @@ export function mapBanAn(raw: any): BanAn {
 }
 
 export function mapThongTinDatBan(raw: any): ThongTinDatBan {
-  const foodItems = (raw.danh_sach_mon ?? raw.food_items ?? []).map((item: any): MonAnDatBan => ({
+  const foodItems = (raw.danh_sach_mon ?? []).map((item: any): MonAnDatBan => ({
     monAn: mapMonAn(item.mon_an ?? item.food),
     soLuong: item.so_luong ?? item.quantity ?? 1,
   }));
@@ -146,7 +146,6 @@ export function mapKhuyenMai(raw: any): KhuyenMai {
     raw.ma_giam_gia ??
     raw.code ??
     raw.danh_sach_ma?.[0]?.ma ??
-    raw.codes?.[0]?.ma ??
     "";
   const title = raw.ten ?? raw.name ?? raw.title ?? "";
   const description = raw.mo_ta ?? raw.description ?? "";
@@ -173,7 +172,7 @@ export function mapKhuyenMai(raw: any): KhuyenMai {
 
 export function mapDanhGia(raw: any): DanhGiaMonAn {
   const foodId = String(raw.mon_an_id ?? raw.mon_an ?? raw.food ?? "");
-  const author = raw.ten_nguoi_dung ?? raw.user_name ?? raw.ten_khach ?? raw.customer_name ?? "Khách hàng";
+  const author = raw.ten_nguoi_dung ?? raw.ten_khach ?? raw.customer_name ?? "Khách hàng";
   const rating = Number(raw.diem_danh_gia ?? raw.rating ?? 5);
   const comment = raw.nhan_xet ?? raw.comment ?? "";
   const createdAt = raw.tao_luc ?? raw.created_at ?? new Date().toISOString();
@@ -194,8 +193,8 @@ export function mapBaiViet(raw: any): BaiVietBlog {
   const title = raw.tieu_de ?? raw.title ?? "";
   const excerpt = (raw.tom_tat ?? raw.excerpt) || "";
   const content = raw.noi_dung ?? raw.content ?? "";
-  const tag = (raw.ten_danh_muc ?? raw.category_name) || "Ẩm thực";
-  const author = (raw.ten_tac_gia ?? raw.author_name) || "Nhà hàng MỘC";
+  const tag = raw.ten_danh_muc || "Ẩm thực";
+  const author = raw.ten_tac_gia || "Nhà hàng MỘC";
   const createdAt = (raw.dang_luc ?? raw.published_at) || raw.tao_luc || raw.created_at || new Date().toISOString();
   const placeholderTone = tinhPhongCach(raw.id);
 
@@ -215,9 +214,9 @@ export function mapBaiViet(raw: any): BaiVietBlog {
 
 export function mapGoiY(raw: any): GoiYMonAn {
   return {
-    monAn: mapMonAn(raw.chi_tiet_mon_an ?? raw.food_detail ?? raw.mon_an ?? raw.food),
-    diemTuongDong: Number(raw.diem_tuong_dong ?? raw.score ?? 1),
-    lyDoGoiY: raw.ly_do_goi_y ?? raw.reason ?? "Gợi ý dành riêng cho bạn",
+    monAn: mapMonAn(raw.chi_tiet_mon_an ?? raw.mon_an ?? raw.food),
+    diemTuongDong: Number(raw.diem_tuong_dong ?? 1),
+    lyDoGoiY: raw.ly_do_goi_y ?? "Gợi ý dành riêng cho bạn",
     phienBanMoHinh: raw.phien_ban_model ?? raw.model_version ?? "",
     laKhoiDauLanh: Boolean(raw.is_cold_start),
   };

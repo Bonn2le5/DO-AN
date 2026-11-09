@@ -21,7 +21,7 @@ class BaiVietViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if not user.is_authenticated or not getattr(user, "la_nhan_vien_nha_hang", False):
             q = q.filter(trang_thai=BaiViet.TrangThai.DA_DANG)
-        tim_kiem = self.request.query_params.get("tim_kiem") or self.request.query_params.get("search")
+        tim_kiem = self.request.query_params.get("tim_kiem")
         if tim_kiem:
             q = q.filter(tieu_de__icontains=tim_kiem)
         return q
