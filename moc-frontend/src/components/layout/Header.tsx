@@ -18,7 +18,7 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const favCount = useFavoriteStore((s) => s.count());
-  const { isAuthenticated, user } = useAuthStore();
+  const { daDangNhap: isAuthenticated, nguoiDung: user } = useAuthStore();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -94,13 +94,13 @@ export default function Header() {
             >
               {isAuthenticated && user ? (
                 <span className="w-7 h-7 rounded-full bg-gold text-wine-dark text-xs font-bold flex items-center justify-center">
-                  {user.avatarInitial}
+                  {user.kyTuDaiDien}
                 </span>
               ) : (
                 <User width={19} height={19} />
               )}
             </Link>
-            {isAuthenticated && user?.isStaff && (
+            {isAuthenticated && user?.laNhanVien && (
               <Link
                 to="/admin"
                 className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white text-wine text-xs font-semibold hover:bg-gold hover:text-wine-dark transition-colors ml-1.5 shadow-sm"

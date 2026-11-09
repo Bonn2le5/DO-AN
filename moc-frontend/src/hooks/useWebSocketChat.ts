@@ -40,8 +40,8 @@ const byTime = (a: ChatMessageItem, b: ChatMessageItem) =>
 
 export function useWebSocketChat(options: UseWebSocketChatOptions = {}) {
   const { conversationId: propConvId, enabled = true, open = true } = options;
-  const userId = useAuthStore((s) => s.user?.id);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const userId = useAuthStore((s) => s.nguoiDung?.id);
+  const isAuthenticated = useAuthStore((s) => s.daDangNhap);
 
   const [fetchedConvId, setFetchedConvId] = useState<number | null>(null);
   const conversationId = propConvId ?? fetchedConvId;

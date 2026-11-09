@@ -1,6 +1,6 @@
 import { apiClient } from "./client";
 import { mapMonAn } from "./mappers";
-import type { Food, ComboItem, CategoryItem } from "@/types";
+import type { MonAn, ComboMonAn, MucDanhMuc } from "@/types";
 import { combos as mockCombos } from "@/data/mock";
 
 export async function layDanhSachMonAn(params?: {
@@ -12,7 +12,7 @@ export async function layDanhSachMonAn(params?: {
   vegetarian?: boolean;
   doCay?: number;
   spicy?: number;
-}): Promise<Food[]> {
+}): Promise<MonAn[]> {
   const queryParams: Record<string, any> = {};
   const cat = params?.danhMuc || params?.category;
   if (cat) {
@@ -38,7 +38,7 @@ export async function layDanhSachMonAn(params?: {
   }
 }
 
-export async function layChiTietMonAn(slugOrId: string): Promise<Food | null> {
+export async function layChiTietMonAn(slugOrId: string): Promise<MonAn | null> {
   try {
     const { data } = await apiClient.get(`/foods/${slugOrId}/`);
     return mapMonAn(data);
@@ -47,31 +47,31 @@ export async function layChiTietMonAn(slugOrId: string): Promise<Food | null> {
   }
 }
 
-export async function getBestSellers(limit = 6): Promise<Food[]> {
+export async function getBestSellers(limit = 6): Promise<MonAn[]> {
   const all = await layDanhSachMonAn();
-  return all.sort((a, b) => b.reviewCount - a.reviewCount).slice(0, limit);
+  return all.sort((a, b) => b.soLuotDanhGia - a.soLuotDanhGia).slice(0, limit);
 }
 
-export async function getRelatedFoods(food: Food, limit = 3): Promise<Food[]> {
-  const all = await layDanhSachMonAn({ category: food.category });
+export async function getRelatedFoods(food: MonAn, limit = 3): Promise<MonAn[]> {
+  const all = await layDanhSachMonAn({ category: food.danhMuc });
   return all.filter((f) => f.id !== food.id).slice(0, limit);
 }
 
-export async function getCategories(): Promise<CategoryItem[]> {
+export async function getCategories(): Promise<MucDanhMuc[]> {
   try {
     const { data } = await apiClient.get("/categories/");
     const list = Array.isArray(data) ? data : data.results ?? [];
     return list
         .filter((cat: any) => cat.con_hoat_dong ?? cat.is_active ?? true)
-        .map((cat: any) => ({
+        .map((cat: any): MucDanhMuc => ({
           id: String(cat.duong_dan || cat.slug || cat.id),
-          numericId: cat.id,
-          label: cat.ten || cat.name || "",
-          slug: cat.duong_dan || cat.slug || String(cat.id),
-          description: cat.mo_ta || cat.description || "",
-          image: cat.anh_dai_dien || cat.image || "",
-          icon: cat.icon,
-          isActive: Boolean(cat.con_hoat_dong ?? cat.is_active ?? true),
+          idSo: cat.id,
+          ten: cat.ten || cat.name || "",
+          duongDan: cat.duong_dan || cat.slug || String(cat.id),
+          moTa: cat.mo_ta || cat.description || "",
+          hinhAnh: cat.anh_dai_dien || cat.image || "",
+          bieuTuong: cat.icon,
+          conHoatDong: Boolean(cat.con_hoat_dong ?? cat.is_active ?? true),
         }));
   } catch (error) {
     console.warn("Failed to fetch categories from API:", error);
@@ -79,11 +79,7 @@ export async function getCategories(): Promise<CategoryItem[]> {
   }
 }
 
-export async function getCombos(): Promise<ComboItem[]> {
+export async function getCombos(): Promise<ComboMonAn[]> {
   return mockCombos;
 }
 
-// English aliases
-export const getFoods = layDanhSachMonAn;
-export const getFoodBySlug = layChiTietMonAn;
-export const getFoodById = layChiTietMonAn;

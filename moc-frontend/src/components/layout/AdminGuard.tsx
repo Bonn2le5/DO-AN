@@ -2,18 +2,18 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
 
 export default function AdminGuard() {
-  const { isAuthenticated, user } = useAuthStore();
+  const { daDangNhap: isAuthenticated, nguoiDung: user } = useAuthStore();
 
   if (!isAuthenticated) {
     return <Navigate to="/dang-nhap" replace />;
   }
 
   const isStaff =
-    Boolean(user?.isStaff) ||
+    Boolean(user?.laNhanVien) ||
     Boolean(user?.laNhanVien) ||
     Boolean((user as any)?.is_superuser) ||
     Boolean((user as any)?.is_restaurant_staff) ||
-    user?.roles?.some((role: string) =>
+    user?.danhSachVaiTro?.some((role: string) =>
       ["admin", "staff", "nhan_vien", "quan_tri_vien", "QUAN_LY", "ADMIN", "BEP", "PHUC_VU"].includes(String(role).toLowerCase())
     ) ||
     user?.danhSachVaiTro?.some((role: string) =>

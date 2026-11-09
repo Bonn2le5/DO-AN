@@ -1,12 +1,12 @@
 import { SlidersHorizontal } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import { getCategories } from "@/api/foods.api";
-import type { FoodCategory } from "@/types";
+import type { LoaiMonAn } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface MenuFiltersProps {
-  activeCategory: FoodCategory | null;
-  onCategoryChange: (cat: FoodCategory | null) => void;
+  activeCategory: LoaiMonAn | null;
+  onCategoryChange: (cat: LoaiMonAn | null) => void;
   open: boolean;
   onToggleOpen: () => void;
 }
@@ -57,7 +57,7 @@ export default function MenuFilters({
                     : "hover:bg-black/5",
                 )}
               >
-                {cat.label}
+                {cat.ten}
               </button>
             ))}
           </div>

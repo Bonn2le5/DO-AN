@@ -1,44 +1,47 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { User } from "@/types";
+import type { NguoiDung } from "@/types";
 import { clearTokens } from "@/api/client";
 
 interface AuthState {
-  // English properties
-  user: User | null;
-  isAuthenticated: boolean;
-  login: (user: User) => void;
-  logout: () => void;
-
-  // Vietnamese aliases
-  nguoiDung: User | null;
+  nguoiDung: NguoiDung | null;
   daDangNhap: boolean;
-  dangNhap: (user: User) => void;
+  dangNhap: (user: NguoiDung) => void;
   dangXuat: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      user: null,
       nguoiDung: null,
-      isAuthenticated: false,
       daDangNhap: false,
 
-      login: (user) => set({ user, nguoiDung: user, isAuthenticated: true, daDangNhap: true }),
-      dangNhap: (user) => set({ user, nguoiDung: user, isAuthenticated: true, daDangNhap: true }),
+      dangNhap: (user) => set({ nguoiDung: user, daDangNhap: true }),
 
-      logout: () => {
-        clearTokens();
-        set({ user: null, nguoiDung: null, isAuthenticated: false, daDangNhap: false });
-      },
       dangXuat: () => {
         clearTokens();
-        set({ user: null, nguoiDung: null, isAuthenticated: false, daDangNhap: false });
+        set({ nguoiDung: null, daDangNhap: false });
       },
     }),
     {
       name: "moc_auth_storage",
+      // v1: tên trường người dùng chuyển sang tiếng Việt; đổi dữ liệu đã lưu ở bản cũ.
+      version: 1,
+      migrate: (cu: any) => {
+        const u = cu?.nguoiDung ?? cu?.user;
+        const nguoiDung = u && {
+          ...u,
+          hoTen: u.hoTen ?? u.name,
+          thuDienTu: u.thuDienTu ?? u.email,
+          soDienThoai: u.soDienThoai ?? u.phone,
+          kyTuDaiDien: u.kyTuDaiDien ?? u.avatarInitial,
+          danhSachVaiTro: u.danhSachVaiTro ?? u.roles,
+          laNhanVien: u.laNhanVien ?? u.isStaff,
+          laQuanTri: u.laQuanTri ?? u.isAdmin,
+          idChiNhanh: u.idChiNhanh ?? u.branchId,
+        };
+        return { nguoiDung: nguoiDung ?? null, daDangNhap: Boolean(cu?.daDangNhap ?? cu?.isAuthenticated) };
+      },
     }
   )
 );
@@ -48,9 +51,7 @@ export const useAuthStore = create<AuthState>()(
 if (typeof window !== "undefined") {
   window.addEventListener("auth:expired", () => {
     useAuthStore.setState({
-      user: null,
       nguoiDung: null,
-      isAuthenticated: false,
       daDangNhap: false,
     });
   });

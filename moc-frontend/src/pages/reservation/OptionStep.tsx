@@ -1,8 +1,8 @@
 import { UtensilsCrossed, CalendarCheck, PenLine } from "lucide-react";
-import type { ReservationOption } from "@/types";
+import type { HinhThucDatBan } from "@/types";
 
 const OPTIONS: {
-  key: ReservationOption;
+  key: HinhThucDatBan;
   icon: typeof UtensilsCrossed;
   title: string;
   desc: string;
@@ -29,7 +29,7 @@ const OPTIONS: {
   },
 ];
 
-export default function OptionStep({ onChoose }: { onChoose: (opt: ReservationOption) => void }) {
+export default function OptionStep({ onChoose }: { onChoose: (opt: HinhThucDatBan) => void }) {
   return (
     <div>
       <h2 className="font-display text-2xl mb-2">Bạn muốn đặt theo hình thức nào?</h2>

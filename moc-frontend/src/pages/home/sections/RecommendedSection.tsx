@@ -12,7 +12,7 @@ import { layGoiYMonAn, ghiSuKienGoiY } from "@/api/recommendations.api";
  * Mỗi lần danh sách hiển thị và mỗi lần khách mở một món đều được ghi lại để đo CTR.
  */
 export default function RecommendedSection() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isAuthenticated = useAuthStore((s) => s.daDangNhap);
   const { data: goiY, loading } = useAsync(() => layGoiYMonAn(6), [isAuthenticated]);
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export default function RecommendedSection() {
 
   if (!loading && !goiY?.length) return null;
 
-  const caNhan = goiY?.some((g) => !g.isColdStart);
+  const caNhan = goiY?.some((g) => !g.laKhoiDauLanh);
 
   return (
     <section className="py-24">
@@ -47,9 +47,9 @@ export default function RecommendedSection() {
               ))
             : goiY!.map((g) => (
                 <FoodCard
-                  key={g.food.id}
-                  food={g.food}
-                  reason={g.isColdStart ? undefined : g.reason}
+                  key={g.monAn.id}
+                  food={g.monAn}
+                  reason={g.laKhoiDauLanh ? undefined : g.lyDoGoiY}
                   onOpen={() => ghiSuKienGoiY("nhap", "trang_chu", [g])}
                 />
               ))}

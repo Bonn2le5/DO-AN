@@ -24,15 +24,15 @@ export default function BlogPage() {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {posts?.map((post) => (
-            <Link key={post.id} to={`/bai-viet/${post.slug}`} className="card overflow-hidden hover:shadow-lift transition-shadow">
+            <Link key={post.id} to={`/bai-viet/${post.duongDan}`} className="card overflow-hidden hover:shadow-lift transition-shadow">
               <div className="aspect-[16/10]">
-                <PlaceholderMedia tone={post.placeholderTone} icon={Newspaper} className="w-full h-full" iconClassName="w-8 h-8" />
+                <PlaceholderMedia tone={post.phongCachHienThi} icon={Newspaper} className="w-full h-full" iconClassName="w-8 h-8" />
               </div>
               <div className="p-5">
-                <div className="text-[11px] font-bold uppercase tracking-wide text-primary">{post.tag}</div>
-                <h3 className="font-display text-lg mt-2 mb-2.5 leading-snug">{post.title}</h3>
-                <p className="text-[13px] text-muted mb-3 line-clamp-2">{post.excerpt}</p>
-                <div className="text-xs text-muted">{formatDate(post.createdAt)} · {post.readMinutes} phút đọc</div>
+                <div className="text-[11px] font-bold uppercase tracking-wide text-primary">{post.theBaiViet}</div>
+                <h3 className="font-display text-lg mt-2 mb-2.5 leading-snug">{post.tieuDe}</h3>
+                <p className="text-[13px] text-muted mb-3 line-clamp-2">{post.tomTat}</p>
+                <div className="text-xs text-muted">{formatDate(post.taoLuc)} · {post.thoiGianDocPhut} phút đọc</div>
               </div>
             </Link>
           ))}

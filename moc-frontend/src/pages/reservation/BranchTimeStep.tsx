@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { MapPin, Phone, Clock, Minus, Plus, Search } from "lucide-react";
 import { formatLongDate } from "./ReservationTicket";
 import { cn, localDateInputValue } from "@/lib/utils";
-import type { Branch } from "@/types";
+import type { ChiNhanh } from "@/types";
 import { layDanhSachChiNhanh, layKhungGioTrong } from "@/api/reservations.api";
 
 interface BranchTimeStepProps {
@@ -28,7 +28,7 @@ export default function BranchTimeStep({
   onTimeSelect,
   onContinue,
 }: BranchTimeStepProps) {
-  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branches, setBranches] = useState<ChiNhanh[]>([]);
   const [slots, setSlots] = useState<{ khungGio: string; conTrong: boolean; soChoConLai: number }[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -105,7 +105,7 @@ export default function BranchTimeStep({
   };
 
   const canContinue = Boolean(selectedTime) && visibleSlots.some((slot) => slot.khungGio === selectedTime && slot.conTrong);
-  const continueToFood = () => onContinue(selectedBranchId, selectedBranch?.name ?? "", selectedTime);
+  const continueToFood = () => onContinue(selectedBranchId, selectedBranch?.tenChiNhanh ?? "", selectedTime);
 
   return (
     <div className={cn("space-y-6", canContinue && "pb-24 md:pb-0")}>
@@ -124,7 +124,7 @@ export default function BranchTimeStep({
             >
               <option value="">Chọn chi nhánh</option>
               {branches.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
+                <option key={b.id} value={b.id}>{b.tenChiNhanh}</option>
               ))}
             </select>
           </div>
@@ -189,11 +189,11 @@ export default function BranchTimeStep({
       {searched && !partySizeError && selectedBranch && (
         <section className="bg-white rounded-[20px] border border-black/[0.07] p-5 sm:p-6 grid md:grid-cols-[240px_1fr] gap-6 md:gap-8">
           <div>
-            <h3 className="font-display text-lg leading-snug">{selectedBranch.name}</h3>
+            <h3 className="font-display text-lg leading-snug">{selectedBranch.tenChiNhanh}</h3>
             <div className="mt-3 space-y-2 text-sm text-muted">
-              <div className="flex gap-2"><MapPin size={15} className="shrink-0 mt-0.5" /><span>{selectedBranch.address}</span></div>
-              {selectedBranch.phone && <div className="flex gap-2"><Phone size={15} className="shrink-0 mt-0.5" /><a href={`tel:${selectedBranch.phone}`} className="hover:text-primary">{selectedBranch.phone}</a></div>}
-              {selectedBranch.openHours && <div className="flex gap-2"><Clock size={15} className="shrink-0 mt-0.5" /><span>{selectedBranch.openHours}</span></div>}
+              <div className="flex gap-2"><MapPin size={15} className="shrink-0 mt-0.5" /><span>{selectedBranch.diaChi}</span></div>
+              {selectedBranch.soDienThoai && <div className="flex gap-2"><Phone size={15} className="shrink-0 mt-0.5" /><a href={`tel:${selectedBranch.soDienThoai}`} className="hover:text-primary">{selectedBranch.soDienThoai}</a></div>}
+              {selectedBranch.gioMoCua && <div className="flex gap-2"><Clock size={15} className="shrink-0 mt-0.5" /><span>{selectedBranch.gioMoCua}</span></div>}
             </div>
           </div>
 

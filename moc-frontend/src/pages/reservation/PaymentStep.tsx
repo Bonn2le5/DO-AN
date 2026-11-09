@@ -2,12 +2,12 @@ import { ShieldCheck } from "lucide-react";
 import HoldCountdown from "./HoldCountdown";
 import ReservationTicket from "./ReservationTicket";
 import { formatCurrency } from "@/lib/utils";
-import type { VNPayPaymentSession, Reservation } from "@/types";
+import type { PhienThanhToanVNPay, ThongTinDatBan } from "@/types";
 
 interface PaymentStepProps {
-  reservation: Reservation;
+  reservation: ThongTinDatBan;
   branchName: string;
-  paymentSession: VNPayPaymentSession | null;
+  paymentSession: PhienThanhToanVNPay | null;
   error: string;
   retrying: boolean;
   onRetry: () => void;
@@ -22,12 +22,12 @@ export default function PaymentStep({
   onRetry,
 }: PaymentStepProps) {
   const handleProceedPayment = () => {
-    if (paymentSession?.paymentUrl) {
-      window.location.href = paymentSession.paymentUrl;
+    if (paymentSession?.duongDanThanhToan) {
+      window.location.href = paymentSession.duongDanThanhToan;
     }
   };
 
-  const deposit = paymentSession?.amount || reservation.depositAmount;
+  const deposit = paymentSession?.soTien || reservation.soTienCoc;
 
   return (
     <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] gap-6 lg:gap-10 items-start">
@@ -52,10 +52,10 @@ export default function PaymentStep({
             <>
               <div className="flex justify-between gap-4 text-sm mt-3 pt-3 border-t border-black/8">
                 <span className="text-muted">Mã giao dịch</span>
-                <span className="tabular-nums break-all text-right">{paymentSession.txnRef}</span>
+                <span className="tabular-nums break-all text-right">{paymentSession.maGiaoDich}</span>
               </div>
               <div className="mt-4">
-                <HoldCountdown until={paymentSession.expiresAt} label="Giữ chỗ còn" />
+                <HoldCountdown until={paymentSession.hetHanLuc} label="Giữ chỗ còn" />
               </div>
             </>
           )}
@@ -81,12 +81,12 @@ export default function PaymentStep({
       <div className="lg:order-1">
         <ReservationTicket
           branchName={branchName}
-          date={reservation.date}
-          time={reservation.time}
-          partySize={reservation.partySize}
-          foodItems={reservation.foodItems ?? []}
-          foodSubtotal={reservation.foodSubtotal}
-          tableLabel={reservation.tableLabel}
+          date={reservation.ngayDat}
+          time={reservation.gioDat}
+          partySize={reservation.soLuongKhach}
+          foodItems={reservation.danhSachMonAn ?? []}
+          foodSubtotal={reservation.tienMonAn}
+          tableLabel={reservation.tenBanAn}
           topLine={<>Mã đặt chỗ <strong className="text-text">#{reservation.id}</strong> · chờ thanh toán cọc</>}
         />
       </div>

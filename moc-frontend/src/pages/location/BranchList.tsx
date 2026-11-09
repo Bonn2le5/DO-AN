@@ -1,12 +1,12 @@
 import { MapPin, Phone, Clock, Navigation, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Branch, RouteInfo } from "@/types";
+import type { ChiNhanh, ThongTinTuyenDuong } from "@/types";
 
 interface BranchListProps {
-  branches: Branch[];
+  branches: ChiNhanh[];
   selectedBranchId: string | null;
-  onSelect: (branch: Branch) => void;
-  route: RouteInfo | null;
+  onSelect: (branch: ChiNhanh) => void;
+  route: ThongTinTuyenDuong | null;
   routeLoading: boolean;
   hasUserLocation: boolean;
 }
@@ -35,8 +35,8 @@ export default function BranchList({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="font-display text-lg">{branch.name}</h3>
-                  {branch.isMain && (
+                  <h3 className="font-display text-lg">{branch.tenChiNhanh}</h3>
+                  {branch.laChiNhanhChinh && (
                     <span className="text-[10px] font-bold uppercase bg-accent/15 text-accent px-2 py-0.5 rounded-full">
                       Trụ sở
                     </span>
@@ -56,15 +56,15 @@ export default function BranchList({
             <div className="mt-3 space-y-1.5 text-[13px] text-muted">
               <div className="flex items-start gap-2">
                 <MapPin width={13} height={13} className="mt-0.5 shrink-0" />
-                <span>{branch.address}</span>
+                <span>{branch.diaChi}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone width={13} height={13} className="shrink-0" />
-                <span>{branch.phone}</span>
+                <span>{branch.soDienThoai}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock width={13} height={13} className="shrink-0" />
-                <span>{branch.openHours}</span>
+                <span>{branch.gioMoCua}</span>
               </div>
             </div>
 
@@ -80,7 +80,7 @@ export default function BranchList({
                   </span>
                 ) : route ? (
                   <span className="text-sm font-semibold text-primary">
-                    {route.distanceKm} km · ~{route.durationMinutes} phút lái xe
+                    {route.khoangCachKm} km · ~{route.thoiGianPhut} phút lái xe
                   </span>
                 ) : (
                   <span className="text-xs text-muted">
@@ -88,7 +88,7 @@ export default function BranchList({
                   </span>
                 )}
                 <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${branch.lat},${branch.lng}`}
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${branch.viDo},${branch.kinhDo}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}

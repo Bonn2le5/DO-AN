@@ -4,7 +4,7 @@ import { useAsync } from "@/hooks/useAsync";
 import { layGoiYMonAn, layMonTuongTu, ghiSuKienGoiY } from "@/api/recommendations.api";
 import PlaceholderMedia from "@/components/ui/PlaceholderMedia";
 import { formatCurrency } from "@/lib/utils";
-import type { Food, Recommendation } from "@/types";
+import type { MonAn, GoiYMonAn } from "@/types";
 
 const SO_GOI_Y = 4;
 
@@ -13,19 +13,19 @@ const SO_GOI_Y = 4;
  * - Chưa chọn món: Top-N theo khẩu vị (hoặc món phổ biến với khách mới).
  * - Đã chọn món: món tương tự / hợp với món vừa thêm (Item-to-Item TF-IDF).
  */
-async function layGoiY(monVuaChon: Food | undefined, daChon: Set<string>): Promise<Recommendation[]> {
+async function layGoiY(monVuaChon: MonAn | undefined, daChon: Set<string>): Promise<GoiYMonAn[]> {
   const ds = monVuaChon
     ? await layMonTuongTu(monVuaChon.id, SO_GOI_Y + daChon.size)
     : await layGoiYMonAn(SO_GOI_Y + daChon.size);
-  return ds.filter((g) => !daChon.has(g.food.id) && g.food.available).slice(0, SO_GOI_Y);
+  return ds.filter((g) => !daChon.has(g.monAn.id) && g.monAn.conHang).slice(0, SO_GOI_Y);
 }
 
 export default function FoodSuggestions({
   selectedFoods,
   onAdd,
 }: {
-  selectedFoods: Food[];
-  onAdd: (food: Food) => void;
+  selectedFoods: MonAn[];
+  onAdd: (food: MonAn) => void;
 }) {
   const monVuaChon = selectedFoods[selectedFoods.length - 1];
   const daChon = new Set(selectedFoods.map((f) => f.id));
@@ -39,8 +39,8 @@ export default function FoodSuggestions({
   if (!loading && !goiY?.length) return null;
 
   const tieuDe = monVuaChon
-    ? `Hợp với ${monVuaChon.name}`
-    : goiY?.some((g) => !g.isColdStart) ? "Gợi ý theo khẩu vị của bạn" : "Món được gọi nhiều";
+    ? `Hợp với ${monVuaChon.tenMon}`
+    : goiY?.some((g) => !g.laKhoiDauLanh) ? "Gợi ý theo khẩu vị của bạn" : "Món được gọi nhiều";
 
   return (
     <section aria-label="Gợi ý món" className="mb-6 rounded-2xl border border-primary/20 bg-primary/[0.03] p-4">
@@ -53,25 +53,25 @@ export default function FoodSuggestions({
               <div key={i} className="w-56 shrink-0 h-20 rounded-xl bg-black/5 animate-pulse" />
             ))
           : goiY!.map((g) => (
-              <div key={g.food.id} className="w-64 shrink-0 flex gap-3 items-center bg-white rounded-xl border border-black/[0.07] p-2.5">
-                {g.food.imageUrl ? (
-                  <img src={g.food.imageUrl} alt="" className="w-14 h-14 rounded-lg object-cover bg-black/5 shrink-0" />
+              <div key={g.monAn.id} className="w-64 shrink-0 flex gap-3 items-center bg-white rounded-xl border border-black/[0.07] p-2.5">
+                {g.monAn.duongDanAnh ? (
+                  <img src={g.monAn.duongDanAnh} alt="" className="w-14 h-14 rounded-lg object-cover bg-black/5 shrink-0" />
                 ) : (
-                  <PlaceholderMedia tone={g.food.placeholderTone} icon={UtensilsCrossed} className="w-14 h-14 rounded-lg shrink-0" iconClassName="w-5 h-5" />
+                  <PlaceholderMedia tone={g.monAn.phongCachHienThi} icon={UtensilsCrossed} className="w-14 h-14 rounded-lg shrink-0" iconClassName="w-5 h-5" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium leading-snug line-clamp-2">{g.food.name}</div>
-                  {!g.isColdStart && g.reason && (
-                    <div className="text-[11.5px] text-muted leading-snug line-clamp-2" title={g.reason}>{g.reason}</div>
+                  <div className="text-sm font-medium leading-snug line-clamp-2">{g.monAn.tenMon}</div>
+                  {!g.laKhoiDauLanh && g.lyDoGoiY && (
+                    <div className="text-[11.5px] text-muted leading-snug line-clamp-2" title={g.lyDoGoiY}>{g.lyDoGoiY}</div>
                   )}
-                  <div className="text-xs tabular-nums mt-0.5">{formatCurrency(g.food.price)}</div>
+                  <div className="text-xs tabular-nums mt-0.5">{formatCurrency(g.monAn.donGia)}</div>
                 </div>
                 <button
                   type="button"
-                  aria-label={`Thêm ${g.food.name}`}
+                  aria-label={`Thêm ${g.monAn.tenMon}`}
                   onClick={() => {
                     ghiSuKienGoiY("nhap", "goi_mon", [g]);
-                    onAdd(g.food);
+                    onAdd(g.monAn);
                   }}
                   className="w-8 h-8 shrink-0 rounded-lg border border-primary/40 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors"
                 >

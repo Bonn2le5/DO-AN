@@ -3,19 +3,19 @@ import { useAsync } from "@/hooks/useAsync";
 import { getRelatedFoods } from "@/api/foods.api";
 import { layMonTuongTu, ghiSuKienGoiY } from "@/api/recommendations.api";
 import FoodCard from "@/components/food/FoodCard";
-import type { Food, Recommendation } from "@/types";
+import type { MonAn, GoiYMonAn } from "@/types";
 
 /** Món tương tự theo AI (Item-to-Item TF-IDF); nếu API lỗi thì lấy món cùng danh mục. */
-async function layDanhSach(food: Food): Promise<Recommendation[]> {
+async function layDanhSach(food: MonAn): Promise<GoiYMonAn[]> {
   const ai = await layMonTuongTu(food.id, 3);
   if (ai.length) return ai;
   const cungDanhMuc = await getRelatedFoods(food);
-  return cungDanhMuc.map((f) => ({ food: f, score: 0, reason: "" }));
+  return cungDanhMuc.map((f) => ({ monAn: f, diemTuongDong: 0, lyDoGoiY: "" }));
 }
 
-export default function RelatedFoods({ food }: { food: Food }) {
+export default function RelatedFoods({ food }: { food: MonAn }) {
   const { data: related, loading } = useAsync(() => layDanhSach(food), [food.id]);
-  const tuAi = related?.some((r) => r.modelVersion);
+  const tuAi = related?.some((r) => r.phienBanMoHinh);
 
   useEffect(() => {
     if (tuAi && related) ghiSuKienGoiY("hien_thi", "chi_tiet_mon", related);
@@ -36,9 +36,9 @@ export default function RelatedFoods({ food }: { food: Food }) {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {related?.map((r) => (
             <FoodCard
-              key={r.food.id}
-              food={r.food}
-              reason={r.reason || undefined}
+              key={r.monAn.id}
+              food={r.monAn}
+              reason={r.lyDoGoiY || undefined}
               onOpen={tuAi ? () => ghiSuKienGoiY("nhap", "chi_tiet_mon", [r]) : undefined}
             />
           ))}

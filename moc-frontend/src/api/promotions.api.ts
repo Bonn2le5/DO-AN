@@ -1,8 +1,8 @@
 import { apiClient } from "./client";
-import { mapPromotion } from "./mappers";
-import type { Promotion } from "@/types";
+import { mapKhuyenMai } from "./mappers";
+import type { KhuyenMai } from "@/types";
 
-export async function getPromotions(): Promise<Promotion[]> {
+export async function getPromotions(): Promise<KhuyenMai[]> {
   const { data } = await apiClient.get("/promotions/", { params: { active: true } });
-  return (Array.isArray(data) ? data : data.results).map(mapPromotion);
+  return (Array.isArray(data) ? data : data.results).map(mapKhuyenMai);
 }

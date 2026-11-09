@@ -17,7 +17,7 @@ export default function ChatWidget() {
   const draftRef = useRef("");
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isAuthenticated = useAuthStore((s) => s.daDangNhap);
 
   const {
     messages,

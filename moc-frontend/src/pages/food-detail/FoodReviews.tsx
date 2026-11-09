@@ -8,7 +8,7 @@ import { formatDate } from "@/lib/utils";
 
 export default function FoodReviews({ foodId }: { foodId: string }) {
   const { data: reviews, loading, refetch } = useAsync(() => getReviewsByFood(foodId), [foodId]);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isAuthenticated = useAuthStore((s) => s.daDangNhap);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
@@ -71,11 +71,11 @@ export default function FoodReviews({ foodId }: { foodId: string }) {
           {reviews.map((r) => (
             <div key={r.id} className="card p-5">
               <div className="flex items-center justify-between mb-2">
-                <strong className="text-sm">{r.author}</strong>
-                <span className="text-xs text-muted">{formatDate(r.createdAt)}</span>
+                <strong className="text-sm">{r.tacGia}</strong>
+                <span className="text-xs text-muted">{formatDate(r.taoLuc)}</span>
               </div>
-              <RatingStars rating={r.rating} size={13} className="mb-2" />
-              <p className="text-sm text-muted leading-relaxed">{r.comment}</p>
+              <RatingStars rating={r.diemDanhGia} size={13} className="mb-2" />
+              <p className="text-sm text-muted leading-relaxed">{r.nhanXet}</p>
             </div>
           ))}
         </div>

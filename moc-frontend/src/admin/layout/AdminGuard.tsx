@@ -4,7 +4,7 @@ import { PREVIEW, useRole } from "../permissions";
 
 /** Chặn truy cập /quan-tri nếu chưa đăng nhập hoặc không phải staff/admin. Quyền thật vẫn do backend kiểm tra. */
 export default function AdminGuard() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isAuthenticated = useAuthStore((s) => s.daDangNhap);
   const role = useRole();
 
   if (PREVIEW) return <Outlet />;

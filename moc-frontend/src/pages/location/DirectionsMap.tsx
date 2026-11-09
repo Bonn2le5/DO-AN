@@ -8,14 +8,14 @@ import {
   useMap,
 } from "react-leaflet";
 import { branchIcon, branchIconActive, userIcon } from "./mapIcons";
-import type { Branch, RouteInfo } from "@/types";
+import type { ChiNhanh, ThongTinTuyenDuong } from "@/types";
 import type { UserCoords } from "@/api/locations.api";
 
 interface DirectionsMapProps {
-  branches: Branch[];
+  branches: ChiNhanh[];
   selectedBranchId: string | null;
   userLocation: UserCoords | null;
-  route: RouteInfo | null;
+  route: ThongTinTuyenDuong | null;
 }
 
 export default function DirectionsMap({
@@ -26,7 +26,7 @@ export default function DirectionsMap({
 }: DirectionsMapProps) {
   const center: [number, number] = userLocation
     ? [userLocation.lat, userLocation.lng]
-    : [branches[0]?.lat ?? 10.7769, branches[0]?.lng ?? 106.7009];
+    : [branches[0]?.viDo ?? 10.7769, branches[0]?.kinhDo ?? 106.7009];
 
   return (
     <div className="rounded-[20px] overflow-hidden border border-black/8 h-[420px] md:h-140">
@@ -46,13 +46,13 @@ export default function DirectionsMap({
         {branches.map((b) => (
           <Marker
             key={b.id}
-            position={[b.lat, b.lng]}
+            position={[b.viDo, b.kinhDo]}
             icon={b.id === selectedBranchId ? branchIconActive : branchIcon}
           >
             <Popup>
-              <strong>{b.name}</strong>
+              <strong>{b.tenChiNhanh}</strong>
               <br />
-              {b.address}
+              {b.diaChi}
             </Popup>
           </Marker>
         ))}
@@ -66,9 +66,9 @@ export default function DirectionsMap({
           </Marker>
         )}
 
-        {route && route.geometry.length > 0 && (
+        {route && route.toaDoTuyenDuong.length > 0 && (
           <Polyline
-            positions={route.geometry}
+            positions={route.toaDoTuyenDuong}
             pathOptions={{ color: "#B85C38", weight: 4, opacity: 0.85 }}
           />
         )}
@@ -89,17 +89,17 @@ function FitBounds({
   userLocation,
   route,
 }: {
-  branches: Branch[];
+  branches: ChiNhanh[];
   userLocation: UserCoords | null;
-  route: RouteInfo | null;
+  route: ThongTinTuyenDuong | null;
 }) {
   const map = useMap();
 
   useEffect(() => {
-    const points: [number, number][] = route?.geometry.length
-      ? route.geometry
+    const points: [number, number][] = route?.toaDoTuyenDuong.length
+      ? route.toaDoTuyenDuong
       : [
-          ...branches.map((b) => [b.lat, b.lng] as [number, number]),
+          ...branches.map((b) => [b.viDo, b.kinhDo] as [number, number]),
           ...(userLocation
             ? [[userLocation.lat, userLocation.lng] as [number, number]]
             : []),

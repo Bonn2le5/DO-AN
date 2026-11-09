@@ -1,7 +1,7 @@
 import { apiClient } from "./client";
 import { mapGoiY } from "./mappers";
 import { useAuthStore } from "@/store/authStore";
-import type { Recommendation } from "@/types";
+import type { GoiYMonAn } from "@/types";
 
 /** Vị trí hiển thị gợi ý — khớp SuKienGoiY.ViTri ở backend, dùng để đo CTR theo từng chỗ. */
 export type ViTriGoiY = "trang_chu" | "chi_tiet_mon" | "goi_mon";
@@ -19,7 +19,7 @@ function vuaGui(khoa: string): boolean {
 }
 
 /** Top-N món gợi ý cá nhân (TF-IDF + Cosine) hoặc món phổ biến với khách mới / chưa đăng nhập. */
-export async function layGoiYMonAn(gioiHan = 6): Promise<Recommendation[]> {
+export async function layGoiYMonAn(gioiHan = 6): Promise<GoiYMonAn[]> {
   try {
     const { data } = await apiClient.get("/recommendations/", { params: { limit: gioiHan } });
     return toList(data).map(mapGoiY);
@@ -29,7 +29,7 @@ export async function layGoiYMonAn(gioiHan = 6): Promise<Recommendation[]> {
 }
 
 /** Món tương tự (Item-to-Item TF-IDF) cho trang chi tiết món. */
-export async function layMonTuongTu(monAnId: string, gioiHan = 3): Promise<Recommendation[]> {
+export async function layMonTuongTu(monAnId: string, gioiHan = 3): Promise<GoiYMonAn[]> {
   try {
     const { data } = await apiClient.get("/recommendations/tuong-tu/", { params: { mon_an: monAnId, limit: gioiHan } });
     return toList(data).map(mapGoiY);
@@ -40,7 +40,7 @@ export async function layMonTuongTu(monAnId: string, gioiHan = 3): Promise<Recom
 
 /** Ghi tương tác (xem / yêu thích) để cập nhật vector khẩu vị. Bỏ qua khi chưa đăng nhập. */
 export function ghiTuongTac(monAnId: string, loai: LoaiTuongTac): void {
-  if (!useAuthStore.getState().isAuthenticated || !monAnId) return;
+  if (!useAuthStore.getState().daDangNhap || !monAnId) return;
   if (vuaGui(`tt|${loai}|${monAnId}`)) return;
   apiClient.post("/tuong-tac/", { mon_an: Number(monAnId), loai_tuong_tac: loai }).catch(() => {});
 }
@@ -49,18 +49,17 @@ export function ghiTuongTac(monAnId: string, loai: LoaiTuongTac): void {
 export function ghiSuKienGoiY(
   loai: "hien_thi" | "nhap",
   viTri: ViTriGoiY,
-  goiY: Recommendation[],
+  goiY: GoiYMonAn[],
 ): void {
-  const ids = goiY.map((g) => Number(g.food.id)).filter((id) => id > 0);
+  const ids = goiY.map((g) => Number(g.monAn.id)).filter((id) => id > 0);
   if (ids.length === 0 || vuaGui(`sk|${loai}|${viTri}|${ids.join(",")}`)) return;
   apiClient
     .post("/recommendations/su-kien/", {
       loai_su_kien: loai,
       vi_tri: viTri,
       mon_an_ids: ids,
-      phien_ban_model: goiY[0]?.modelVersion ?? "",
+      phien_ban_model: goiY[0]?.phienBanMoHinh ?? "",
     })
     .catch(() => {});
 }
 
-export const getRecommendations = layGoiYMonAn;

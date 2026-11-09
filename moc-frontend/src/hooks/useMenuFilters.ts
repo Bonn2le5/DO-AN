@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { getFoods } from "@/api/foods.api";
-import type { Food, FoodCategory } from "@/types";
+import { layDanhSachMonAn } from "@/api/foods.api";
+import type { MonAn, LoaiMonAn } from "@/types";
 
 export type SortKey = "popular" | "price-asc" | "price-desc" | "rating";
 
@@ -14,20 +14,20 @@ export const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 
 export function useMenuFilters() {
   const [params, setParams] = useSearchParams();
-  const activeCategory = params.get("category") as FoodCategory | null;
+  const activeCategory = params.get("category") as LoaiMonAn | null;
 
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("popular");
-  const [allFoods, setAllFoods] = useState<Food[]>([]);
+  const [allFoods, setAllFoods] = useState<MonAn[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getFoods()
+    layDanhSachMonAn()
       .then(setAllFoods)
       .finally(() => setLoading(false));
   }, []);
 
-  const setCategory = (cat: FoodCategory | null) => {
+  const setCategory = (cat: LoaiMonAn | null) => {
     if (cat) params.set("category", cat);
     else params.delete("category");
     setParams(params, { replace: true });
@@ -37,12 +37,12 @@ export function useMenuFilters() {
     let list = [...allFoods];
     if (activeCategory) {
       list = list.filter((f) => {
-        if (f.category === activeCategory) return true;
+        if (f.danhMuc === activeCategory) return true;
         const norm = (str?: string) => (str ?? "").trim().toLowerCase();
-        const catNorm = norm(String(f.category));
+        const catNorm = norm(String(f.danhMuc));
         const activeNorm = norm(activeCategory);
         if (catNorm === activeNorm) return true;
-        if (f.categoryLabel && norm(f.categoryLabel) === activeNorm) return true;
+        if (f.tenDanhMuc && norm(f.tenDanhMuc) === activeNorm) return true;
 
         const isAppetizer = (c: string) => c.includes("appetizer") || c.includes("khai-vi") || c.includes("khai vị");
         const isMain = (c: string) => c.includes("main") || c.includes("mon-chinh") || c.includes("món chính");
@@ -50,11 +50,11 @@ export function useMenuFilters() {
         const isDessert = (c: string) => c.includes("dessert") || c.includes("trang-mieng") || c.includes("tráng miệng");
         const isCombo = (c: string) => c.includes("combo");
 
-        if (isAppetizer(activeNorm) && (isAppetizer(catNorm) || isAppetizer(norm(f.categoryLabel)))) return true;
-        if (isMain(activeNorm) && (isMain(catNorm) || isMain(norm(f.categoryLabel)))) return true;
-        if (isDrink(activeNorm) && (isDrink(catNorm) || isDrink(norm(f.categoryLabel)))) return true;
-        if (isDessert(activeNorm) && (isDessert(catNorm) || isDessert(norm(f.categoryLabel)))) return true;
-        if (isCombo(activeNorm) && (isCombo(catNorm) || isCombo(norm(f.categoryLabel)))) return true;
+        if (isAppetizer(activeNorm) && (isAppetizer(catNorm) || isAppetizer(norm(f.tenDanhMuc)))) return true;
+        if (isMain(activeNorm) && (isMain(catNorm) || isMain(norm(f.tenDanhMuc)))) return true;
+        if (isDrink(activeNorm) && (isDrink(catNorm) || isDrink(norm(f.tenDanhMuc)))) return true;
+        if (isDessert(activeNorm) && (isDessert(catNorm) || isDessert(norm(f.tenDanhMuc)))) return true;
+        if (isCombo(activeNorm) && (isCombo(catNorm) || isCombo(norm(f.tenDanhMuc)))) return true;
 
         return false;
       });
@@ -62,19 +62,19 @@ export function useMenuFilters() {
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter(
-        (f) => f.name.toLowerCase().includes(q) || f.tags.some((t) => t.toLowerCase().includes(q))
+        (f) => f.tenMon.toLowerCase().includes(q) || f.theMonAn.some((t) => t.toLowerCase().includes(q))
       );
     }
 
     switch (sort) {
       case "price-asc":
-        return list.sort((a, b) => a.price - b.price);
+        return list.sort((a, b) => a.donGia - b.donGia);
       case "price-desc":
-        return list.sort((a, b) => b.price - a.price);
+        return list.sort((a, b) => b.donGia - a.donGia);
       case "rating":
-        return list.sort((a, b) => b.rating - a.rating);
+        return list.sort((a, b) => b.diemDanhGia - a.diemDanhGia);
       default:
-        return list.sort((a, b) => b.reviewCount - a.reviewCount);
+        return list.sort((a, b) => b.soLuotDanhGia - a.soLuotDanhGia);
     }
   }, [allFoods, activeCategory, search, sort]);
 

@@ -64,11 +64,11 @@ export const usePreviewRole = create<{ role: RoleName; setRole: (r: RoleName) =>
 
 export function useRole(): RoleName | null {
   const previewRole = usePreviewRole((s) => s.role);
-  const user = useAuthStore((s) => s.user);
-  const roles = user?.roles ?? EMPTY_ROLES;
+  const user = useAuthStore((s) => s.nguoiDung);
+  const roles = user?.danhSachVaiTro ?? EMPTY_ROLES;
   if (PREVIEW) return previewRole;
   if (roles.some((r) => ["admin", "quan_tri_vien"].includes(String(r).toLowerCase()))) return "admin";
-  if (roles.some((r) => ["branch_manager", "quan_ly_chi_nhanh"].includes(String(r).toLowerCase())) || (roles.includes("nhan_vien") && !!user?.branchId)) return "branch_manager";
+  if (roles.some((r) => ["branch_manager", "quan_ly_chi_nhanh"].includes(String(r).toLowerCase())) || (roles.includes("nhan_vien") && !!user?.idChiNhanh)) return "branch_manager";
   if (roles.some((r) => ["staff", "nhan_vien_ban_hang"].includes(String(r).toLowerCase())) || roles.includes("nhan_vien")) return "staff";
   return null;
 }

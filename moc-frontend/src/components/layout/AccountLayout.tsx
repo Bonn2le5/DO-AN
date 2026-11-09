@@ -12,7 +12,7 @@ const TABS = [
 ];
 
 export default function AccountLayout() {
-  const { isAuthenticated, user, logout } = useAuthStore();
+  const { daDangNhap: isAuthenticated, nguoiDung: user, dangXuat: logout } = useAuthStore();
 
   if (!isAuthenticated) return <Navigate to="/dang-nhap" replace />;
 
@@ -20,11 +20,11 @@ export default function AccountLayout() {
     <div className="max-w-275 mx-auto px-5 md:px-8 py-12">
       <div className="flex items-center gap-4 mb-10">
         <div className="w-14 h-14 rounded-full bg-primary text-white font-display text-xl flex items-center justify-center">
-          {user?.avatarInitial}
+          {user?.kyTuDaiDien}
         </div>
         <div>
-          <h1 className="font-display text-2xl">{user?.name}</h1>
-          <p className="text-sm text-muted">{user?.email}</p>
+          <h1 className="font-display text-2xl">{user?.hoTen}</h1>
+          <p className="text-sm text-muted">{user?.thuDienTu}</p>
         </div>
       </div>
 
@@ -46,7 +46,7 @@ export default function AccountLayout() {
               {tab.label}
             </NavLink>
           ))}
-          {user?.isStaff && (
+          {user?.laNhanVien && (
             <Link
               to="/admin"
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors mt-2"

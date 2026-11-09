@@ -9,9 +9,9 @@ interface ProfileForm {
 }
 
 export default function AccountProfilePage() {
-  const { user, login } = useAuthStore();
+  const { nguoiDung: user, dangNhap: login } = useAuthStore();
   const { register, handleSubmit, setError, formState: { errors, isSubmitting, isSubmitSuccessful } } = useForm<ProfileForm>({
-    defaultValues: { name: user?.name ?? "", phone: user?.phone ?? "" },
+    defaultValues: { name: user?.hoTen ?? "", phone: user?.soDienThoai ?? "" },
   });
 
   const onSubmit = async (data: ProfileForm) => {
@@ -34,7 +34,7 @@ export default function AccountProfilePage() {
         </div>
         <div>
           <label htmlFor="pf-email" className="text-xs font-semibold text-muted block mb-1.5">Email</label>
-          <input id="pf-email" value={user?.email ?? ""} readOnly className="w-full px-4 py-3 rounded-xl border border-black/10 bg-black/[0.03] text-sm text-muted" />
+          <input id="pf-email" value={user?.thuDienTu ?? ""} readOnly className="w-full px-4 py-3 rounded-xl border border-black/10 bg-black/[0.03] text-sm text-muted" />
           <p className="text-xs text-muted mt-1.5">
             Đổi email tại <Link to="/tai-khoan/bao-mat" className="text-primary font-medium">Bảo mật</Link>.
           </p>

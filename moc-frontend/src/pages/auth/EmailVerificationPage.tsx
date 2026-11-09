@@ -6,7 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 export default function EmailVerificationPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const login = useAuthStore((s) => s.login);
+  const login = useAuthStore((s) => s.dangNhap);
 
   const email = searchParams.get("email") ?? "";
   const [otp, setOtp] = useState("");

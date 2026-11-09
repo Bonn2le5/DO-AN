@@ -14,7 +14,7 @@ type FormData = z.infer<typeof schema>;
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const login = useAuthStore((s) => s.login);
+  const login = useAuthStore((s) => s.dangNhap);
   const {
     register,
     handleSubmit,
@@ -31,7 +31,7 @@ export default function LoginPage() {
       return;
     }
     login(result.user);
-    if (result.user.isStaff) {
+    if (result.user.laNhanVien) {
       navigate("/admin");
     } else {
       const destination = (location.state as { from?: string } | null)?.from;

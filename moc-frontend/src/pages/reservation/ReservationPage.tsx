@@ -18,12 +18,12 @@ const HEADINGS = {
 
 export default function ReservationPage() {
   const flow = useReservationFlow();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isAuthenticated = useAuthStore((state) => state.daDangNhap);
 
   // Mỗi lần đổi bước, đưa người dùng về đầu trang.
   useEffect(() => {
     window.scrollTo({ top: 0 });
-  }, [flow.step]);
+  }, [flow.buocHienTai]);
 
   if (!isAuthenticated) {
     return (
@@ -35,96 +35,96 @@ export default function ReservationPage() {
     );
   }
 
-  if (flow.step === "success" && flow.reservation) {
-    return <ReservationSuccess reservation={flow.reservation} branchName={flow.selectedBranchName} onReset={flow.reset} />;
+  if (flow.buocHienTai === "success" && flow.thongTinDatBan) {
+    return <ReservationSuccess reservation={flow.thongTinDatBan} branchName={flow.tenChiNhanhDaChon} onReset={flow.datLai} />;
   }
 
-  const date = new Date(`${flow.date}T12:00:00`);
+  const date = new Date(`${flow.ngayDat}T12:00:00`);
   const isWeekend = date.getDay() === 5 || date.getDay() === 6;
-  const highPeak = isWeekend && flow.time >= "18:00" && flow.time < "21:00";
-  const canGoBack = (flow.step === "food" || flow.step === "contact") && !flow.reservation;
-  const step = flow.step === "success" ? "contact" : flow.step;
+  const highPeak = isWeekend && flow.gioDat >= "18:00" && flow.gioDat < "21:00";
+  const canGoBack = (flow.buocHienTai === "food" || flow.buocHienTai === "contact") && !flow.thongTinDatBan;
+  const step = flow.buocHienTai === "success" ? "contact" : flow.buocHienTai;
   // Bước xác nhận (form) phải vừa một màn hình nên thu gọn phần đầu trang.
-  const compact = flow.step === "contact" && !flow.reservation;
+  const compact = flow.buocHienTai === "contact" && !flow.thongTinDatBan;
 
   return (
     <div className={`reservation-ui max-w-275 mx-auto px-4 sm:px-5 md:px-8 ${compact ? "pt-4 lg:pt-6 pb-10" : "pt-8 sm:pt-12 pb-16"}`}>
       {canGoBack && (
         <button
           type="button"
-          onClick={() => flow.setStep(flow.step === "food" ? "branch_time" : "food")}
+          onClick={() => flow.setBuocHienTai(flow.buocHienTai === "food" ? "branch_time" : "food")}
           className={`items-center gap-1 text-sm font-semibold text-muted hover:text-primary ${compact ? "hidden lg:inline-flex mb-1" : "inline-flex mb-4"}`}
         >
-          <ChevronLeft size={18} /> {flow.step === "food" ? "Đổi giờ hẹn" : "Sửa món"}
+          <ChevronLeft size={18} /> {flow.buocHienTai === "food" ? "Đổi giờ hẹn" : "Sửa món"}
         </button>
       )}
 
       <h1 className={`font-display leading-tight ${compact ? "max-lg:sr-only text-[28px] mb-3" : "text-[30px] sm:text-[40px] mb-6"}`}>{HEADINGS[step]}</h1>
-      <ReservationStepper current={flow.step} compact={compact} />
+      <ReservationStepper current={flow.buocHienTai} compact={compact} />
 
-      {flow.step === "branch_time" && (
+      {flow.buocHienTai === "branch_time" && (
         <BranchTimeStep
-          selectedBranchId={flow.selectedBranchId}
-          onBranchChange={flow.setSelectedBranchId}
-          date={flow.date}
-          onDateChange={flow.setDate}
-          partySize={flow.partySize}
-          onPartySizeChange={flow.setPartySize}
-          selectedTime={flow.time}
-          onTimeSelect={flow.setTime}
-          onContinue={flow.proceedFromBranchTime}
+          selectedBranchId={flow.idChiNhanhDaChon}
+          onBranchChange={flow.setIdChiNhanhDaChon}
+          date={flow.ngayDat}
+          onDateChange={flow.setNgayDat}
+          partySize={flow.soLuongKhach}
+          onPartySizeChange={flow.setSoLuongKhach}
+          selectedTime={flow.gioDat}
+          onTimeSelect={flow.setGioDat}
+          onContinue={flow.tiepTucSauChonGio}
         />
       )}
 
-      {flow.step === "food" && (
+      {flow.buocHienTai === "food" && (
         <FoodStep
-          foodItems={flow.foodItems}
-          onAdd={flow.addFood}
-          onUpdateQty={flow.updateFoodQty}
-          subtotal={flow.foodSubtotal}
-          depositAmount={flow.depositAmount}
-          depositPercentage={flow.policy?.depositPercentage ?? 20}
-          activeCategory={flow.foodCategory}
-          onCategoryChange={flow.setFoodCategory}
+          foodItems={flow.danhSachMonDat}
+          onAdd={flow.themMonVaoDatBan}
+          onUpdateQty={flow.capNhatSoLuongMon}
+          subtotal={flow.tienMonAn}
+          depositAmount={flow.soTienCoc}
+          depositPercentage={flow.chinhSachCoc?.phanTramCoc ?? 20}
+          activeCategory={flow.danhMucDangLoc}
+          onCategoryChange={flow.setDanhMucDangLoc}
           highPeak={highPeak}
-          time={flow.time}
-          date={flow.date}
-          partySize={flow.partySize}
-          branchName={flow.selectedBranchName}
-          onContinue={flow.proceedToContact}
+          time={flow.gioDat}
+          date={flow.ngayDat}
+          partySize={flow.soLuongKhach}
+          branchName={flow.tenChiNhanhDaChon}
+          onContinue={flow.tiepTucSauChonBan}
         />
       )}
 
-      {flow.step === "contact" && flow.reservation && flow.reservation.depositAmount > 0 && (
+      {flow.buocHienTai === "contact" && flow.thongTinDatBan && flow.thongTinDatBan.soTienCoc > 0 && (
         <PaymentStep
-          reservation={flow.reservation}
-          branchName={flow.selectedBranchName}
-          paymentSession={flow.paymentSession}
-          error={flow.paymentError}
-          retrying={flow.retryingPayment}
-          onRetry={flow.retryPayment}
+          reservation={flow.thongTinDatBan}
+          branchName={flow.tenChiNhanhDaChon}
+          paymentSession={flow.phienThanhToan}
+          error={flow.loiThanhToan}
+          retrying={flow.dangThuLaiThanhToan}
+          onRetry={flow.thuLaiThanhToan}
         />
       )}
 
-      {flow.step === "contact" && !flow.reservation && (
+      {flow.buocHienTai === "contact" && !flow.thongTinDatBan && (
         <ContactStep
-          branchName={flow.selectedBranchName}
-          date={flow.date}
-          time={flow.time}
-          partySize={flow.partySize}
-          foodItems={flow.foodItems}
-          foodSubtotal={flow.foodSubtotal}
-          depositAmount={flow.depositAmount}
-          depositPercentage={flow.policy?.depositPercentage ?? 20}
-          policy={flow.policy}
-          initialValues={flow.contact}
-          paymentMethod={flow.paymentMethod}
-          onPaymentMethodChange={flow.setPaymentMethod}
-          onValuesChange={flow.updateContact}
-          submitting={flow.submitting}
-          onSubmit={flow.submitContact}
-          onEditTime={() => flow.setStep("branch_time")}
-          onEditFood={() => flow.setStep("food")}
+          branchName={flow.tenChiNhanhDaChon}
+          date={flow.ngayDat}
+          time={flow.gioDat}
+          partySize={flow.soLuongKhach}
+          foodItems={flow.danhSachMonDat}
+          foodSubtotal={flow.tienMonAn}
+          depositAmount={flow.soTienCoc}
+          depositPercentage={flow.chinhSachCoc?.phanTramCoc ?? 20}
+          policy={flow.chinhSachCoc}
+          initialValues={flow.thongTinLienHe}
+          paymentMethod={flow.phuongThucThanhToan}
+          onPaymentMethodChange={flow.setPhuongThucThanhToan}
+          onValuesChange={flow.capNhatThongTinLienHe}
+          submitting={flow.dangGuiDon}
+          onSubmit={flow.guiThongTinLienHe}
+          onEditTime={() => flow.setBuocHienTai("branch_time")}
+          onEditFood={() => flow.setBuocHienTai("food")}
         />
       )}
     </div>

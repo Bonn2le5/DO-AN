@@ -43,27 +43,27 @@ export default function PromotionsPage() {
               className="rounded-[20px] border-[1.5px] border-dashed border-primary/40 bg-linear-to-br from-white to-[#fbf1e8] p-7"
             >
               <div className="font-display text-[36px] text-primary mb-2">
-                {promo.discountLabel}
+                {promo.nhanMucGiam}
               </div>
-              <h3 className="text-lg font-bold mb-2">{promo.title}</h3>
-              <p className="text-sm text-muted mb-4">{promo.description}</p>
-              {promo.minOrder && (
+              <h3 className="text-lg font-bold mb-2">{promo.tieuDe}</h3>
+              <p className="text-sm text-muted mb-4">{promo.moTa}</p>
+              {promo.donHangToiThieu && (
                 <p className="text-xs text-muted mb-4">
-                  Đơn tối thiểu: {promo.minOrder.toLocaleString("vi-VN")}đ
+                  Đơn tối thiểu: {promo.donHangToiThieu.toLocaleString("vi-VN")}đ
                 </p>
               )}
               <div className="flex items-center justify-between border-t border-dashed border-black/15 pt-4">
                 <div>
                   <div className="text-[11px] text-muted">
-                    Hết hạn {formatDate(promo.expiresAt ?? promo.endsAt ?? "")}
+                    Hết hạn {formatDate(promo.hetHanLuc ?? promo.ketThucLuc ?? "")}
                   </div>
-                  <b className="tracking-wide text-sm">{promo.code}</b>
+                  <b className="tracking-wide text-sm">{promo.maGiamGia}</b>
                 </div>
                 <button
-                  onClick={() => handleCopy(promo.code)}
+                  onClick={() => handleCopy(promo.maGiamGia)}
                   className="btn btn-outline py-2! px-4! text-[13px]!"
                 >
-                  {copied === promo.code ? (
+                  {copied === promo.maGiamGia ? (
                     <>
                       <Check width={14} height={14} /> Đã chép
                     </>

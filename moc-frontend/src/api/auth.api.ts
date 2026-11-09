@@ -11,21 +11,9 @@ export interface RegisterPayload extends LoginPayload {
 export interface AuthResult {
   accessToken: string;
   refreshToken: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    phone?: string;
-    avatarInitial: string;
-    roles?: import("@/types").UserRole[];
-    danhSachVaiTro?: import("@/types").UserRole[];
-    isStaff?: boolean;
-    laNhanVien?: boolean;
+  user: import("@/types").NguoiDung & {
     is_superuser?: boolean;
     is_restaurant_staff?: boolean;
-    isAdmin?: boolean;
-    branchId?: string;
-    chi_nhanh_quan_ly?: number | string | null;
   };
 }
 
@@ -87,17 +75,15 @@ function mapUser(raw: any): AuthResult["user"] {
   const isStaff = Boolean(raw.is_restaurant_staff || raw.la_nhan_vien_nha_hang || raw.is_superuser || roles.some((r: string) => ["admin", "staff", "branch_manager", "quan_tri_vien", "nhan_vien", "nhan_vien_ban_hang", "quan_ly_chi_nhanh"].includes(r)));
   return {
     id: String(raw.id),
-    name,
-    email: raw.email || raw.thu_dien_tu,
-    phone: raw.phone || raw.so_dien_thoai || "",
-    avatarInitial: (name || "U").charAt(0).toUpperCase(),
-    roles,
-    isStaff,
-    laNhanVien: isStaff,
+    hoTen: name,
+    thuDienTu: raw.email || raw.thu_dien_tu,
+    soDienThoai: raw.phone || raw.so_dien_thoai || "",
+    kyTuDaiDien: (name || "U").charAt(0).toUpperCase(),
     danhSachVaiTro: roles,
+    laNhanVien: isStaff,
     is_superuser: raw.is_superuser,
     is_restaurant_staff: isStaff,
-    isAdmin: Boolean(raw.is_superuser || raw.roles?.some((r: string) => ["admin", "quan_tri_vien"].includes(r))),
-    branchId: raw.chi_nhanh_quan_ly ? String(raw.chi_nhanh_quan_ly) : undefined,
+    laQuanTri: Boolean(raw.is_superuser || raw.roles?.some((r: string) => ["admin", "quan_tri_vien"].includes(r))),
+    idChiNhanh: raw.chi_nhanh_quan_ly ? String(raw.chi_nhanh_quan_ly) : undefined,
   };
 }

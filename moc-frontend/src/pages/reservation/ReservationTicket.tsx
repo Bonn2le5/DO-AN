@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { MapPin, Users, UtensilsCrossed } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import type { ReservationFoodItem } from "@/types";
+import type { MonAnDatBan } from "@/types";
 
 export function formatLongDate(value: string) {
   if (!value) return "";
@@ -26,7 +26,7 @@ interface ReservationTicketProps {
   date: string;
   time: string;
   partySize: number;
-  foodItems: ReservationFoodItem[];
+  foodItems: MonAnDatBan[];
   foodSubtotal: number;
   tableLabel?: string;
   /** Dòng nhỏ phía trên giờ hẹn, ví dụ mã đặt bàn hoặc trạng thái */
@@ -41,8 +41,8 @@ export default function ReservationTicket({
   branchName, date, time, partySize, foodItems, foodSubtotal, tableLabel,
   topLine, onEditTime, onEditFood, children,
 }: ReservationTicketProps) {
-  const dishCount = foodItems.reduce((total, item) => total + item.quantity, 0);
-  const subtotal = foodSubtotal || foodItems.reduce((total, { food, quantity }) => total + (food.price ?? food.donGia ?? 0) * quantity, 0);
+  const dishCount = foodItems.reduce((total, item) => total + item.soLuong, 0);
+  const subtotal = foodSubtotal || foodItems.reduce((total, { monAn: food, soLuong: quantity }) => total + (food.donGia ?? 0) * quantity, 0);
 
   return (
     <section className="bg-white rounded-[20px] border border-black/[0.07] shadow-soft" aria-label="Phiếu đặt bàn">
@@ -83,11 +83,11 @@ export default function ReservationTicket({
         ) : (
           <>
             <ul className="space-y-2.5">
-              {foodItems.map(({ food, quantity }) => (
+              {foodItems.map(({ monAn: food, soLuong: quantity }) => (
                 <li key={food.id} className="flex items-baseline gap-3 text-[15px]">
                   <span className="w-7 shrink-0 text-muted tabular-nums">{quantity}×</span>
-                  <span className="flex-1 min-w-0">{food.name ?? food.tenMon}</span>
-                  <span className="tabular-nums text-right">{formatCurrency((food.price ?? food.donGia ?? 0) * quantity)}</span>
+                  <span className="flex-1 min-w-0">{food.tenMon}</span>
+                  <span className="tabular-nums text-right">{formatCurrency((food.donGia ?? 0) * quantity)}</span>
                 </li>
               ))}
             </ul>

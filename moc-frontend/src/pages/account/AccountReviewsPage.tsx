@@ -26,17 +26,17 @@ export default function AccountReviewsPage() {
           {data.map((r) => (
             <li key={r.id} className="card p-5">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <Link to={`/thuc-don/${r.foodId}`} className="font-semibold text-sm hover:text-primary">
-                  {r.foodName || `Món #${r.foodId}`}
+                <Link to={`/thuc-don/${r.idMonAn}`} className="font-semibold text-sm hover:text-primary">
+                  {r.tenMonAn || `Món #${r.idMonAn}`}
                 </Link>
-                <span className="text-xs text-muted">{formatDate(r.createdAt)}</span>
+                <span className="text-xs text-muted">{formatDate(r.taoLuc)}</span>
               </div>
-              <div className="flex gap-0.5 mb-2" aria-label={`${r.rating} trên 5 sao`}>
+              <div className="flex gap-0.5 mb-2" aria-label={`${r.diemDanhGia} trên 5 sao`}>
                 {[1, 2, 3, 4, 5].map((n) => (
-                  <Star key={n} width={15} height={15} className={n <= r.rating ? "fill-amber-400 text-amber-400" : "text-black/20"} />
+                  <Star key={n} width={15} height={15} className={n <= r.diemDanhGia ? "fill-amber-400 text-amber-400" : "text-black/20"} />
                 ))}
               </div>
-              {r.comment && <p className="text-sm text-muted">{r.comment}</p>}
+              {r.nhanXet && <p className="text-sm text-muted">{r.nhanXet}</p>}
             </li>
           ))}
         </ul>

@@ -9,7 +9,7 @@ import {
 } from "@/api/locations.api";
 import DirectionsMap from "./DirectionsMap";
 import BranchList from "./BranchList";
-import type { Branch, RouteInfo } from "@/types";
+import type { ChiNhanh, ThongTinTuyenDuong } from "@/types";
 
 export default function LocationPage() {
   const { data: branches, loading: branchesLoading } = useAsync(getBranches);
@@ -19,7 +19,7 @@ export default function LocationPage() {
   const [locationError, setLocationError] = useState("");
 
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
-  const [route, setRoute] = useState<RouteInfo | null>(null);
+  const [route, setRoute] = useState<ThongTinTuyenDuong | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
 
   const handleLocate = async () => {
@@ -41,11 +41,11 @@ export default function LocationPage() {
     }
   };
 
-  const fetchRoute = async (from: UserCoords, branch: Branch) => {
+  const fetchRoute = async (from: UserCoords, branch: ChiNhanh) => {
     setRouteLoading(true);
     setRoute(null);
     try {
-      const result = await getRoute(from, { lat: branch.lat, lng: branch.lng });
+      const result = await getRoute(from, { lat: branch.viDo, lng: branch.kinhDo });
       setRoute(result);
     } catch {
       setRoute(null);
@@ -54,7 +54,7 @@ export default function LocationPage() {
     }
   };
 
-  const handleSelectBranch = async (branch: Branch) => {
+  const handleSelectBranch = async (branch: ChiNhanh) => {
     setSelectedBranchId(branch.id);
     if (userLocation) await fetchRoute(userLocation, branch);
   };

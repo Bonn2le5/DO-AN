@@ -2,7 +2,7 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
 
 export default function AdminLayout() {
-  const { user, logout } = useAuthStore();
+  const { nguoiDung: user, dangXuat: logout } = useAuthStore();
   const location = useLocation();
 
   const navItems = [
@@ -50,11 +50,11 @@ export default function AdminLayout() {
         <div className="p-4 border-t">
           <div className="flex items-center gap-3 mb-4 px-2">
             <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-              {user?.avatarInitial || "A"}
+              {user?.kyTuDaiDien || "A"}
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium truncate">{user?.name}</p>
-              <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+              <p className="text-sm font-medium truncate">{user?.hoTen}</p>
+              <p className="text-xs text-gray-500 truncate">{user?.thuDienTu}</p>
             </div>
           </div>
           <button

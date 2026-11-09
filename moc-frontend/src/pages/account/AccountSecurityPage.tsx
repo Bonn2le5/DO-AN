@@ -52,9 +52,9 @@ function PasswordCard() {
 }
 
 function EmailCard() {
-  const { user, login } = useAuthStore();
+  const { nguoiDung: user, dangNhap: login } = useAuthStore();
   const { register, handleSubmit, resetField, setError, formState: { errors, isSubmitting, isSubmitSuccessful } } =
-    useForm<EmailForm>({ defaultValues: { email: user?.email ?? "" } });
+    useForm<EmailForm>({ defaultValues: { email: user?.thuDienTu ?? "" } });
 
   const onSubmit = async (d: EmailForm) => {
     try {
