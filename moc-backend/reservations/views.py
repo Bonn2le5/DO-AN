@@ -1,8 +1,9 @@
 import uuid
+from decimal import Decimal
 import datetime
 from datetime import timedelta
 from zoneinfo import ZoneInfo
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework import viewsets
@@ -26,6 +27,22 @@ def _so_nguyen_tham_so(tham_so, ten):
         return int(tham_so[ten])
     except (TypeError, ValueError):
         raise ValidationError({ten: "Phải là số nguyên."})
+
+
+def _tao_chinh_sach_chung_mac_dinh():
+    """Chính sách chung đầu tiên (chỉ khi database chưa có): cọc 20%, hoàn 100 / 50 / 0 / 0."""
+    from .models import QuyTacHuyDatCoc
+    with transaction.atomic():
+        policy = ChinhSachDatCoc.objects.select_for_update().filter(
+            chi_nhanh__isnull=True, con_ap_dung=True).order_by("id").first()
+        if policy:
+            return policy
+        policy = ChinhSachDatCoc.objects.create(phan_tram_coc=20)
+        QuyTacHuyDatCoc.objects.bulk_create([
+            QuyTacHuyDatCoc(chinh_sach=policy, moc_thoi_gian=moc, phan_tram_hoan_tien=pct)
+            for moc, pct in (("truoc_24h", 100), ("tu_6_den_24h", 50), ("trong_6h", 0), ("khach_khong_den", 0))
+        ])
+        return policy
 
 
 class BanAnViewSet(viewsets.ModelViewSet):
@@ -223,36 +240,61 @@ class DatBanViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get", "put"], permission_classes=[AllowAny])
     def chinh_sach_coc(self, request):
-        chinh_sach = ChinhSachDatCoc.objects.prefetch_related("quy_tac_huy").filter(con_ap_dung=True)
-        if request.query_params.get("branch"):
-            chinh_sach = chinh_sach.filter(chi_nhanh_id=request.query_params["branch"])
-        policy = chinh_sach.first()
+        """GET: chính sách áp dụng cho chi nhánh (?branch=, không có chính sách riêng thì dùng chung).
+        PUT: sửa chính sách chung (quản trị viên) hoặc chính sách riêng của ?branch= (quản lý chi nhánh đó)."""
+        from .models import QuyTacHuyDatCoc
+        from .services import lay_chinh_sach_coc
+
+        chi_nhanh_id = request.query_params.get("branch") or None
+        if chi_nhanh_id is not None:
+            chi_nhanh_id = _so_nguyen_tham_so(request.query_params, "branch")
+
         if request.method == "GET":
-            if not policy:
-                policy = ChinhSachDatCoc.objects.create(phan_tram_coc=20)
-                from .models import QuyTacHuyDatCoc
-                QuyTacHuyDatCoc.objects.bulk_create([
-                    QuyTacHuyDatCoc(chinh_sach=policy, moc_thoi_gian="truoc_24h", phan_tram_hoan_tien=100),
-                    QuyTacHuyDatCoc(chinh_sach=policy, moc_thoi_gian="tu_6_den_24h", phan_tram_hoan_tien=50),
-                    QuyTacHuyDatCoc(chinh_sach=policy, moc_thoi_gian="trong_6h", phan_tram_hoan_tien=0),
-                    QuyTacHuyDatCoc(chinh_sach=policy, moc_thoi_gian="khach_khong_den", phan_tram_hoan_tien=0),
-                ])
+            # Chỉ đọc: trước đây GET tạo thêm một chính sách chung mỗi lần khách mở trang đặt bàn.
+            policy = lay_chinh_sach_coc(chi_nhanh_id) or _tao_chinh_sach_chung_mac_dinh()
             return Response(ChinhSachCocSerializer(policy).data)
-        if not request.user.is_authenticated or not getattr(request.user, "la_nhan_vien_nha_hang", False):
-            raise PermissionDenied()
-        if not policy:
-            policy = ChinhSachDatCoc.objects.create(phan_tram_coc=20)
-        serializer = ChinhSachCocSerializer(policy, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        policy = serializer.save()
+
+        user = request.user
+        la_quan_tri = user.is_authenticated and (user.is_superuser or getattr(user, "la_quan_tri_vien", False))
+        if chi_nhanh_id is None:
+            if not la_quan_tri:
+                raise PermissionDenied("Chỉ quản trị viên được sửa chính sách cọc chung.")
+        elif not (la_quan_tri or (DichVuPhienPhucVu.la_quan_ly(user) and getattr(user, "chi_nhanh_quan_ly_id", None) == chi_nhanh_id)):
+            raise PermissionDenied("Bạn chỉ được sửa chính sách cọc của chi nhánh mình quản lý.")
+
+        quy_tac = None
         if "quy_tac_huy" in request.data:
-            from .models import QuyTacHuyDatCoc
-            rules = request.data.get("quy_tac_huy", [])
-            QuyTacHuyDatCoc.objects.filter(chinh_sach=policy).delete()
-            for rule in rules:
-                bucket = rule.get("moc_thoi_gian")
-                pct = rule.get("phan_tram_hoan_tien", 0)
-                QuyTacHuyDatCoc.objects.create(chinh_sach=policy, moc_thoi_gian=bucket, phan_tram_hoan_tien=pct)
+            quy_tac = {}
+            for rule in request.data.get("quy_tac_huy") or []:
+                moc = rule.get("moc_thoi_gian")
+                if moc not in QuyTacHuyDatCoc.MocThoiGian.values:
+                    raise ValidationError({"quy_tac_huy": f"Mốc thời gian không hợp lệ: {moc}."})
+                try:
+                    pct = Decimal(str(rule.get("phan_tram_hoan_tien", 0)))
+                except Exception:
+                    pct = Decimal("-1")
+                if not Decimal("0") <= pct <= Decimal("100"):
+                    raise ValidationError({"quy_tac_huy": "Tỉ lệ hoàn phải từ 0 đến 100."})
+                quy_tac[moc] = pct
+
+        with transaction.atomic():
+            if chi_nhanh_id is None:
+                policy = (ChinhSachDatCoc.objects.select_for_update()
+                          .filter(chi_nhanh__isnull=True, con_ap_dung=True).order_by("id").first()
+                          or _tao_chinh_sach_chung_mac_dinh())
+            else:
+                policy, _ = ChinhSachDatCoc.objects.select_for_update().get_or_create(
+                    chi_nhanh_id=chi_nhanh_id, con_ap_dung=True, defaults={"phan_tram_coc": 20}
+                )
+            serializer = ChinhSachCocSerializer(policy, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            policy = serializer.save()
+            if quy_tac is not None:
+                QuyTacHuyDatCoc.objects.filter(chinh_sach=policy).delete()
+                QuyTacHuyDatCoc.objects.bulk_create([
+                    QuyTacHuyDatCoc(chinh_sach=policy, moc_thoi_gian=moc, phan_tram_hoan_tien=pct)
+                    for moc, pct in quy_tac.items()
+                ])
         return Response(ChinhSachCocSerializer(policy).data)
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
@@ -353,7 +395,9 @@ class DatBanViewSet(viewsets.ModelViewSet):
         if percent > 0 and not reference:
             raise ValidationError({"reference": "Cần mã tham chiếu giao dịch chuyển khoản."})
         from payments.models import PhieuHoanTien, ThanhToan
-        payment = dat_ban.danh_sach_thanh_toan.filter(loai_thanh_toan="tien_coc").order_by("-tao_luc").first()
+        payment = dat_ban.danh_sach_thanh_toan.filter(
+            loai_thanh_toan="tien_coc", trang_thai=ThanhToan.TrangThai.THANH_CONG
+        ).order_by("-tao_luc").first()
         amount = round(float(dat_ban.so_tien_coc) * percent / 100, 2)
         bucket = request.data.get("bucket")
         bucket = {">24h": "truoc_24h", "6-24h": "tu_6_den_24h", "<6h": "trong_6h", "no_show": "khach_khong_den"}.get(bucket)
@@ -370,6 +414,10 @@ class DatBanViewSet(viewsets.ModelViewSet):
             moc_thoi_gian=bucket, so_gio_truoc_gio_hen=hours_before, ly_do_huy=dat_ban.ly_do_huy,
             trang_thai="da_hoan_tien" if percent == 100 else "hoan_tien_mot_phan" if percent else "that_bai",
             phuong_thuc_hoan="chuyen_khoan", du_lieu_chi_tiet={"reference": reference, "note": request.data.get("note", ""), "verified_by": request.user.get_full_name() or request.user.username})
+        if payment and percent > 0:
+            payment.trang_thai = ThanhToan.TrangThai.DA_HOAN_TIEN
+            payment.hoan_tien_luc = timezone.now()
+            payment.save(update_fields=["trang_thai", "hoan_tien_luc", "cap_nhat_luc"])
         dat_ban.trang_thai_coc = "da_hoan_tien" if percent == 100 else "hoan_tien_mot_phan" if percent else dat_ban.trang_thai_coc
         dat_ban.phien_ban += 1
         dat_ban.save(update_fields=["trang_thai_coc", "phien_ban", "cap_nhat_luc"])

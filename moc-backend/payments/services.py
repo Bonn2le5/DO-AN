@@ -209,34 +209,42 @@ class DichVuHoanTien:
     }
 
     @classmethod
+    def ty_le_theo_chinh_sach(cls, chi_nhanh_id) -> Dict[str, float]:
+        """Tỉ lệ hoàn theo từng mốc, đọc từ quy tắc huỷ của chính sách cọc (riêng chi nhánh, không có thì chung).
+        Mốc nào chưa cấu hình dùng mặc định 100 / 50 / 0 / 0."""
+        from reservations.services import lay_chinh_sach_coc
+        ty_le = {moc: pct for moc, pct, _ in cls.POLICY_THRESHOLDS.values()}
+        chinh_sach = lay_chinh_sach_coc(chi_nhanh_id)
+        if chinh_sach:
+            for quy_tac in chinh_sach.quy_tac_huy.all():
+                ty_le[quy_tac.moc_thoi_gian] = min(100.0, max(0.0, float(quy_tac.phan_tram_hoan_tien)))
+        return ty_le
+
+    @staticmethod
+    def trang_thai_theo_ty_le(pct: float) -> str:
+        return "da_hoan_tien" if pct >= 100 else "hoan_tien_mot_phan" if pct > 0 else "that_bai"
+
+    @classmethod
     def calculate_refund(
         cls,
         thoi_gian_dat: datetime,
         thoi_gian_huy: datetime,
         so_tien_coc: float,
         is_no_show: bool = False,
+        ty_le: Optional[Dict[str, float]] = None,
     ) -> Tuple[str, float, float, float, str]:
+        """Mốc huỷ và số tiền hoàn / bị giữ. ty_le: tỉ lệ hoàn theo mốc (mặc định 100 / 50 / 0 / 0)."""
+        ty_le = ty_le or {moc: pct for moc, pct, _ in cls.POLICY_THRESHOLDS.values()}
         if is_no_show:
-            moc, pct, status = cls.POLICY_THRESHOLDS["KHACH_KHONG_DEN"]
-            return moc, pct, 0.0, float(so_tien_coc), status
-
-        delta_seconds = (thoi_gian_dat - thoi_gian_huy).total_seconds()
-        delta_hours = delta_seconds / 3600.0
-
-        if delta_hours > 24.0:
-            moc, pct, status = cls.POLICY_THRESHOLDS["TRUOC_24H"]
-            so_tien_hoan = float(so_tien_coc)
-            so_tien_phat = 0.0
-        elif 6.0 <= delta_hours <= 24.0:
-            moc, pct, status = cls.POLICY_THRESHOLDS["TU_6_DEN_24H"]
-            so_tien_hoan = round(float(so_tien_coc) * 0.5, 2)
-            so_tien_phat = round(float(so_tien_coc) - so_tien_hoan, 2)
-        else:  # delta_hours < 6.0
-            moc, pct, status = cls.POLICY_THRESHOLDS["TRONG_6H"]
-            so_tien_hoan = 0.0
-            so_tien_phat = float(so_tien_coc)
-
-        return moc, pct, so_tien_hoan, so_tien_phat, status
+            moc = "khach_khong_den"
+        else:
+            so_gio = (thoi_gian_dat - thoi_gian_huy).total_seconds() / 3600.0
+            moc = "truoc_24h" if so_gio > 24.0 else "tu_6_den_24h" if so_gio >= 6.0 else "trong_6h"
+        pct = float(ty_le.get(moc, 0.0))
+        # Tiền Việt không có phần lẻ: làm tròn tới đồng.
+        so_tien_hoan = float(round(Decimal(str(so_tien_coc)) * Decimal(str(pct)) / 100))
+        so_tien_phat = float(Decimal(str(so_tien_coc)) - Decimal(str(so_tien_hoan)))
+        return moc, pct, so_tien_hoan, so_tien_phat, cls.trang_thai_theo_ty_le(pct)
 
     @classmethod
     def generate_refund_receipt(
@@ -249,6 +257,7 @@ class DichVuHoanTien:
         so_tien_coc: float,
         ly_do_huy: str = "Khách hàng yêu cầu hủy",
         is_no_show: bool = False,
+        ty_le: Optional[Dict[str, float]] = None,
     ) -> Dict[str, Any]:
         delta_seconds = (thoi_gian_dat - thoi_gian_huy).total_seconds()
         delta_hours = max(0.0, delta_seconds / 3600.0)
@@ -258,6 +267,7 @@ class DichVuHoanTien:
             thoi_gian_huy=thoi_gian_huy,
             so_tien_coc=so_tien_coc,
             is_no_show=is_no_show,
+            ty_le=ty_le,
         )
 
         date_str = thoi_gian_huy.strftime("%Y%m%d")
@@ -333,71 +343,67 @@ class DichVuHoanTien:
         delta_seconds = (thoi_gian_dat - now).total_seconds()
         delta_hours = max(0.0, delta_seconds / 3600.0)
 
+        ty_le = cls.ty_le_theo_chinh_sach(dat_ban.chi_nhanh_id)
         moc, pct, so_tien_hoan, so_tien_phat, status_coc = cls.calculate_refund(
             thoi_gian_dat=thoi_gian_dat,
             thoi_gian_huy=now,
             so_tien_coc=so_tien_coc,
             is_no_show=is_no_show,
+            ty_le=ty_le,
         )
 
         dat_ban.trang_thai = DatBan.TrangThai.KHACH_KHONG_DEN if is_no_show else DatBan.TrangThai.DA_HUY
-        dat_ban.trang_thai_coc = status_coc
         dat_ban.huy_luc = now
         dat_ban.ly_do_huy = ly_do
         dat_ban.phien_ban += 1
-        dat_ban.save(update_fields=["trang_thai", "trang_thai_coc", "huy_luc", "ly_do_huy", "phien_ban", "cap_nhat_luc"])
+        dat_ban.save(update_fields=["trang_thai", "huy_luc", "ly_do_huy", "phien_ban", "cap_nhat_luc"])
 
-        # Update linked ThanhToan
-        tt = dat_ban.danh_sach_thanh_toan.filter(loai_thanh_toan=ThanhToan.LoaiThanhToan.TIEN_COC).first()
-        if tt:
-            if so_tien_hoan > 0.0:
-                tt.trang_thai = ThanhToan.TrangThai.DA_HOAN_TIEN
-            tt.hoan_tien_luc = now
-            tt.save(update_fields=["trang_thai", "hoan_tien_luc", "cap_nhat_luc"])
-
-        khach_info = {
-            "id": str(dat_ban.nguoi_dung_id or ""),
-            "ho_ten": dat_ban.ten_khach or "",
-            "so_dien_thoai": dat_ban.sdt_khach or "",
-        }
-        chi_nhanh_info = {
-            "id": dat_ban.chi_nhanh_id,
-            "ten": dat_ban.chi_nhanh.ten if dat_ban.chi_nhanh else "",
-        }
-
-        receipt_dict = cls.generate_refund_receipt(
-            ma_dat_ban=dat_ban.ma_dat_ban,
-            khach_hang_info=khach_info,
-            chi_nhanh_info=chi_nhanh_info,
-            thoi_gian_dat=thoi_gian_dat,
-            thoi_gian_huy=now,
-            so_tien_coc=so_tien_coc,
-            ly_do_huy=ly_do,
-            is_no_show=is_no_show,
-        )
-
-        pht = PhieuHoanTien.objects.create(
-            ma_phieu_hoan=receipt_dict["ma_phieu_hoan"],
-            dat_ban=dat_ban,
-            thanh_toan=tt,
-            so_tien_coc_goc=Decimal(str(so_tien_coc)),
-            phan_tram_hoan=Decimal(str(pct)),
-            so_tien_hoan=Decimal(str(so_tien_hoan)),
-            so_tien_phat=Decimal(str(so_tien_phat)),
-            moc_thoi_gian=moc,
-            so_gio_truoc_gio_hen=Decimal(str(round(delta_hours, 2))),
-            ly_do_huy=ly_do,
-            trang_thai=status_coc,
-            phuong_thuc_hoan="chuyen_khoan",
-            du_lieu_chi_tiet=receipt_dict,
-        )
-
-        return {
+        tt = dat_ban.danh_sach_thanh_toan.filter(
+            loai_thanh_toan=ThanhToan.LoaiThanhToan.TIEN_COC, trang_thai=ThanhToan.TrangThai.THANH_CONG
+        ).order_by("-tao_luc").first()
+        ket_qua = {
             "trang_thai": dat_ban.trang_thai,
             "phan_tram_hoan_tien": pct,
             "so_tien_hoan": so_tien_hoan,
             "so_tien_phat": so_tien_phat,
             "moc_thoi_gian": moc,
-            "phieu_hoan_tien": receipt_dict,
-            "phieu_hoan_tien_id": pht.id,
+            "phieu_hoan_tien": None,
+            "phieu_hoan_tien_id": None,
         }
+
+        if so_tien_hoan > 0:
+            # Có tiền phải trả lại: hệ thống KHÔNG tự đánh dấu "đã hoàn". Cọc giữ "thành công" để phiếu
+            # hiện trong danh sách cần hoàn cọc; nhân viên chuyển khoản xong mới ghi nhận (ghi-nhan-hoan-tien).
+            ket_qua["trang_thai_hoan"] = "cho_hoan"
+            return ket_qua
+
+        # Không được hoàn (trong 6h / khách không đến): lập phiếu mất cọc ngay, không còn việc gì phải làm.
+        receipt_dict = cls.generate_refund_receipt(
+            ma_dat_ban=dat_ban.ma_dat_ban,
+            khach_hang_info={"id": str(dat_ban.nguoi_dung_id or ""), "ho_ten": dat_ban.ten_khach or "",
+                             "so_dien_thoai": dat_ban.sdt_khach or ""},
+            chi_nhanh_info={"id": dat_ban.chi_nhanh_id, "ten": dat_ban.chi_nhanh.ten if dat_ban.chi_nhanh else ""},
+            thoi_gian_dat=thoi_gian_dat,
+            thoi_gian_huy=now,
+            so_tien_coc=so_tien_coc,
+            ly_do_huy=ly_do,
+            is_no_show=is_no_show,
+            ty_le=ty_le,
+        )
+        receipt_dict["phuong_thuc_hoan"] = "khong_hoan"
+        pht = PhieuHoanTien.objects.create(
+            dat_ban=dat_ban,
+            thanh_toan=tt,
+            so_tien_coc_goc=Decimal(str(so_tien_coc)),
+            phan_tram_hoan=Decimal(str(pct)),
+            so_tien_hoan=Decimal("0"),
+            so_tien_phat=Decimal(str(so_tien_phat)),
+            moc_thoi_gian=moc,
+            so_gio_truoc_gio_hen=Decimal(str(round(delta_hours, 2))),
+            ly_do_huy=ly_do,
+            trang_thai=PhieuHoanTien.TrangThai.THAT_BAI,
+            phuong_thuc_hoan="khong_hoan",
+            du_lieu_chi_tiet=receipt_dict,
+        )
+        ket_qua.update(trang_thai_hoan="khong_hoan", phieu_hoan_tien=receipt_dict, phieu_hoan_tien_id=pht.id)
+        return ket_qua

@@ -1,7 +1,7 @@
 from datetime import timedelta
 from urllib.parse import urlencode
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from rest_framework import viewsets
@@ -78,18 +78,25 @@ class ThanhToanViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], permission_classes=[LaNhanVienNhaHang])
     def xac_nhan_thanh_cong(self, request, pk=None):
-        tt = self.get_object()
-        tt.trang_thai = ThanhToan.TrangThai.THANH_CONG
-        tt.thanh_toan_luc = timezone.now()
-        tt.save(update_fields=["trang_thai", "thanh_toan_luc", "cap_nhat_luc"])
+        """Nhân viên xác nhận đã nhận tiền (vd. khách chuyển khoản tay)."""
+        with transaction.atomic():
+            tt = ThanhToan.objects.select_for_update().get(pk=self.get_object().pk)
+            if tt.trang_thai not in {ThanhToan.TrangThai.CHO_XU_LY, ThanhToan.TrangThai.THAT_BAI}:
+                raise ValidationError({"detail": f"Khoản thanh toán đang ở trạng thái “{tt.get_trang_thai_display()}”, không xác nhận lại được."})
+            tt.trang_thai = ThanhToan.TrangThai.THANH_CONG
+            tt.thanh_toan_luc = timezone.now()
+            tt.save(update_fields=["trang_thai", "thanh_toan_luc", "cap_nhat_luc"])
 
-        if tt.loai_thanh_toan == ThanhToan.LoaiThanhToan.TIEN_COC and tt.dat_ban:
-            db = tt.dat_ban
-            db.trang_thai_coc = "thanh_cong"
-            db.thanh_toan_coc_luc = tt.thanh_toan_luc
-            db.trang_thai = "da_xac_nhan"
-            db.phien_ban += 1
-            db.save(update_fields=["trang_thai_coc", "thanh_toan_coc_luc", "trang_thai", "phien_ban", "cap_nhat_luc"])
+            if tt.loai_thanh_toan == ThanhToan.LoaiThanhToan.TIEN_COC and tt.dat_ban_id:
+                db = DatBan.objects.select_for_update().get(pk=tt.dat_ban_id)
+                db.trang_thai_coc = DatBan.TrangThaiCoc.THANH_CONG
+                db.thanh_toan_coc_luc = tt.thanh_toan_luc
+                # Chỉ phiếu còn chờ mới được xác nhận. Phiếu đã huỷ giữ "Đã huỷ" (hiện ở danh sách cần hoàn cọc),
+                # khách đã đến / hoàn tất giữ nguyên, không bị lùi trạng thái.
+                if db.trang_thai in {DatBan.TrangThai.CHO_THANH_TOAN, DatBan.TrangThai.CHO_XAC_NHAN}:
+                    db.trang_thai = DatBan.TrangThai.DA_XAC_NHAN
+                db.phien_ban += 1
+                db.save(update_fields=["trang_thai_coc", "thanh_toan_coc_luc", "trang_thai", "phien_ban", "cap_nhat_luc"])
         return Response(self.get_serializer(tt).data)
 
     @action(detail=True, methods=["post"], permission_classes=[LaNhanVienNhaHang])

@@ -72,7 +72,10 @@ def lay_chinh_sach_coc(chi_nhanh_id):
     """Chính sách riêng của chi nhánh, nếu không có thì dùng chính sách chung."""
     return ChinhSachDatCoc.objects.filter(
         Q(chi_nhanh_id=chi_nhanh_id) | Q(chi_nhanh__isnull=True), con_ap_dung=True
-    ).order_by(F("chi_nhanh_id").desc(nulls_last=True)).first()
+    ).prefetch_related("quy_tac_huy").order_by(
+        # Riêng chi nhánh trước; nhiều bản chung thì lấy bản cũ nhất — đúng bản mà admin sửa (PUT không ?branch).
+        F("chi_nhanh_id").desc(nulls_last=True), "id"
+    ).first()
 
 
 def han_thanh_toan_coc(dat_ban):

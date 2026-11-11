@@ -59,7 +59,12 @@ export default function AccountBookingsPage() {
                 </div>
                 {r.soTienCoc > 0 && (
                   <div className="mt-3 pt-3 border-t border-black/5 flex justify-between text-sm">
-                    <span className="text-muted">Tiền cọc · {DEPOSIT[r.trangThaiThanhToanCoc] ?? r.trangThaiThanhToanCoc}</span>
+                    <span className="text-muted">Tiền cọc · {
+                      // Phiếu đã huỷ nhưng cọc còn "thành công": nhà hàng chưa chuyển khoản hoàn.
+                      (r.trangThai === "da_huy" || r.trangThai === "khach_khong_den") && r.trangThaiThanhToanCoc === "thanh_cong"
+                        ? "Chờ nhà hàng hoàn cọc"
+                        : DEPOSIT[r.trangThaiThanhToanCoc] ?? r.trangThaiThanhToanCoc
+                    }</span>
                     <span className="font-semibold">{formatCurrency(r.soTienCoc)}</span>
                   </div>
                 )}
