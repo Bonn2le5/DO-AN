@@ -17,7 +17,7 @@ from .serializers import (
     PhienPhucVuSerializer, WalkInSerializer, XepBanSerializer,
     DanhSachMonPhienSerializer, CheckOutPhienSerializer,
 )
-from .services import DichVuDatBan, DichVuPhienPhucVu, huy_giu_cho_qua_han_coc, tinh_suc_chua_con_lai
+from .services import DichVuDatBan, DichVuPhienPhucVu, huy_giu_cho_qua_han_coc, thoi_diem_hen, tinh_suc_chua_con_lai
 
 
 class BanAnViewSet(viewsets.ModelViewSet):
@@ -255,12 +255,6 @@ class DatBanViewSet(viewsets.ModelViewSet):
         if dat_ban.nguoi_dung_id != request.user.id and not DichVuPhienPhucVu.la_quan_ly(request.user):
             raise PermissionDenied("Chỉ quản lý chi nhánh mới được huỷ đặt bàn hoặc báo khách không đến.")
 
-        if dat_ban.trang_thai in [DatBan.TrangThai.DA_HUY, DatBan.TrangThai.HOAN_TAT]:
-            return Response(
-                {"chi_tiet": f"Đặt bàn này đã ở trạng thái {dat_ban.get_trang_thai_display()}."},
-                status=400
-            )
-
         from payments.services import DichVuHoanTien
         ly_do = request.data.get("ly_do") or "Khách hàng yêu cầu hủy"
         is_staff = getattr(request.user, "la_nhan_vien_nha_hang", False) or getattr(request.user, "is_staff", False)
@@ -272,6 +266,7 @@ class DatBanViewSet(viewsets.ModelViewSet):
             ly_do=ly_do,
             is_no_show=is_no_show,
         )
+        dat_ban.refresh_from_db()
         result["dat_ban"] = self.get_serializer(dat_ban).data
         return Response(result)
 
@@ -359,9 +354,9 @@ class DatBanViewSet(viewsets.ModelViewSet):
                 bucket = "khach_khong_den"
             else:
                 canceled_at = dat_ban.huy_luc or timezone.now()
-                hours = (timezone.make_aware(datetime.datetime.combine(dat_ban.ngay_dat, dat_ban.gio_bat_dau)) - canceled_at).total_seconds() / 3600
+                hours = (thoi_diem_hen(dat_ban) - canceled_at).total_seconds() / 3600
                 bucket = "truoc_24h" if hours > 24 else "tu_6_den_24h" if hours >= 6 else "trong_6h"
-        hours_before = max(0, (timezone.make_aware(datetime.datetime.combine(dat_ban.ngay_dat, dat_ban.gio_bat_dau)) - (dat_ban.huy_luc or timezone.now())).total_seconds() / 3600)
+        hours_before = max(0, (thoi_diem_hen(dat_ban) - (dat_ban.huy_luc or timezone.now())).total_seconds() / 3600)
         PhieuHoanTien.objects.create(dat_ban=dat_ban, thanh_toan=payment, so_tien_coc_goc=dat_ban.so_tien_coc,
             phan_tram_hoan=percent, so_tien_hoan=amount, so_tien_phat=float(dat_ban.so_tien_coc)-amount,
             moc_thoi_gian=bucket, so_gio_truoc_gio_hen=hours_before, ly_do_huy=dat_ban.ly_do_huy,

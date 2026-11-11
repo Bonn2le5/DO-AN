@@ -83,5 +83,11 @@ class PhieuHoanTien(MoHinhThoiGian):
         db_table = "phieu_hoan_tien"
         verbose_name = "Phiếu hoàn tiền"
 
+    def save(self, *args, **kwargs):
+        if not self.ma_phieu_hoan:
+            import uuid
+            self.ma_phieu_hoan = f"RF-{uuid.uuid4().hex[:10].upper()}"
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.ma_phieu_hoan} ({self.dat_ban.ma_dat_ban if self.dat_ban else ''})"

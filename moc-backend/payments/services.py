@@ -295,12 +295,39 @@ class DichVuHoanTien:
         ly_do: str = "Khách hàng yêu cầu hủy",
         is_no_show: bool = False,
     ) -> Dict[str, Any]:
+        from reservations.services import (
+            TRANG_THAI_DUOC_BAO_KHONG_DEN, TRANG_THAI_DUOC_HUY, thoi_diem_hen,
+        )
+
+        # Khoá phiếu: IPN VNPay có thể đổi trạng thái cọc cùng lúc.
+        dat_ban = DatBan.objects.select_for_update().select_related("chi_nhanh").get(pk=dat_ban.pk)
+        duoc_phep = TRANG_THAI_DUOC_BAO_KHONG_DEN if is_no_show else TRANG_THAI_DUOC_HUY
+        if dat_ban.trang_thai not in duoc_phep:
+            hanh_dong = "báo khách không đến" if is_no_show else "huỷ"
+            raise ValidationError({"chi_tiet": (
+                f"Không thể {hanh_dong} đặt bàn đang ở trạng thái {dat_ban.get_trang_thai_display()}."
+            )})
+
         now = timezone.now()
-        naive_dt = datetime.combine(dat_ban.ngay_dat, dat_ban.gio_bat_dau)
-        if timezone.is_aware(now):
-            thoi_gian_dat = timezone.make_aware(naive_dt, timezone.get_current_timezone())
-        else:
-            thoi_gian_dat = naive_dt
+        thoi_gian_dat = thoi_diem_hen(dat_ban)
+
+        if dat_ban.trang_thai_coc != DatBan.TrangThaiCoc.THANH_CONG:
+            # Chưa thu cọc thì không có gì để hoàn: chỉ huỷ, không lập phiếu hoàn.
+            # Nếu IPN thành công đến sau, phiếu giữ "Đã huỷ" và nhân viên ghi nhận hoàn cọc thủ công.
+            dat_ban.trang_thai = DatBan.TrangThai.KHACH_KHONG_DEN if is_no_show else DatBan.TrangThai.DA_HUY
+            dat_ban.huy_luc = now
+            dat_ban.ly_do_huy = ly_do
+            dat_ban.phien_ban += 1
+            dat_ban.save(update_fields=["trang_thai", "huy_luc", "ly_do_huy", "phien_ban", "cap_nhat_luc"])
+            return {
+                "trang_thai": dat_ban.trang_thai,
+                "phan_tram_hoan_tien": 0.0,
+                "so_tien_hoan": 0.0,
+                "so_tien_phat": 0.0,
+                "moc_thoi_gian": None,
+                "phieu_hoan_tien": None,
+                "phieu_hoan_tien_id": None,
+            }
 
         so_tien_coc = float(dat_ban.so_tien_coc)
         delta_seconds = (thoi_gian_dat - now).total_seconds()

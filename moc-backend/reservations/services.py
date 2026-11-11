@@ -11,6 +11,25 @@ from .models import DatBan, MonAnTrongDatBan, BanAn, ChinhSachDatCoc, PhienPhucV
 
 
 THOI_GIAN_PHUC_VU = timedelta(hours=2)
+GIO_VN = ZoneInfo("Asia/Ho_Chi_Minh")
+
+
+def thoi_diem_hen(dat_ban):
+    """Giờ hẹn của phiếu, hiểu theo giờ Việt Nam (khách chọn giờ theo giờ địa phương)."""
+    return datetime.combine(dat_ban.ngay_dat, dat_ban.gio_bat_dau, tzinfo=GIO_VN)
+
+
+# Trạng thái còn được huỷ / báo khách không đến (chưa ngồi bàn, chưa kết thúc).
+TRANG_THAI_DUOC_HUY = {"cho_xac_nhan", "cho_thanh_toan", "da_xac_nhan"}
+TRANG_THAI_DUOC_BAO_KHONG_DEN = {"cho_xac_nhan", "da_xac_nhan"}
+
+# Đổi trạng thái thủ công. Khách đã đến / hoàn tất đi qua check-in và checkout của phiên phục vụ;
+# chờ thanh toán chỉ sang chờ xác nhận khi cọc được thanh toán.
+CHUYEN_TRANG_THAI_HOP_LE = {
+    "cho_xac_nhan": {"da_xac_nhan", "da_huy", "khach_khong_den"},
+    "cho_thanh_toan": {"da_huy"},
+    "da_xac_nhan": {"da_huy", "khach_khong_den"},
+}
 TRANG_THAI_DAT_BAN_DANG_GIU_CHO = [
     DatBan.TrangThai.CHO_XAC_NHAN,
     DatBan.TrangThai.CHO_THANH_TOAN,
@@ -213,6 +232,11 @@ class DichVuDatBan:
         # 1. Khóa bi quan dòng DatBan để ngăn chặn xung đột trạng thái
         db_locked = DatBan.objects.select_for_update().get(id=dat_ban.id)
         trang_thai_cu = db_locked.trang_thai
+        if trang_thai_moi not in CHUYEN_TRANG_THAI_HOP_LE.get(trang_thai_cu, set()):
+            raise ValidationError({"status": (
+                f"Không thể chuyển đặt bàn từ “{db_locked.get_trang_thai_display()}” "
+                f"sang “{DatBan.TrangThai(trang_thai_moi).label}”."
+            )})
         db_locked.trang_thai = trang_thai_moi
         db_locked.phien_ban += 1
         db_locked.save(update_fields=["trang_thai", "phien_ban", "cap_nhat_luc"])
@@ -594,16 +618,24 @@ class DichVuPhienPhucVu:
                 DichVuDonHang.doi_trang_thai(don_hang, DonHang.TrangThai.DA_HUY, nguoi_dung, (ly_do or "Quản lý huỷ hoá đơn tại bàn")[:255])
 
         now = timezone.now()
+        dat_ban_id = phien.dat_ban_id
         phien.trang_thai = PhienPhucVu.TrangThai.DA_DONG
         phien.check_out_luc = now
         phien.da_don_luc = now
         phien.nguoi_check_out = nguoi_dung
-        phien.save(update_fields=["trang_thai", "check_out_luc", "da_don_luc", "nguoi_check_out", "cap_nhat_luc"])
+        if dat_ban_id:
+            # Phiên huỷ nhả đặt bàn ra (mỗi đặt bàn chỉ gắn một phiên) để nhân viên xếp lại bàn khác;
+            # mã đặt bàn được ghi lại trong ghi chú phiên.
+            phien.ghi_chu = f"{phien.ghi_chu}\n[Huỷ bàn, đặt bàn {phien.dat_ban.ma_dat_ban}]".strip()
+            phien.dat_ban = None
+        phien.save(update_fields=[
+            "trang_thai", "check_out_luc", "da_don_luc", "nguoi_check_out", "dat_ban", "ghi_chu", "cap_nhat_luc",
+        ])
         phien.ban_an.trang_thai = BanAn.TrangThai.TRONG
         phien.ban_an.save(update_fields=["trang_thai", "cap_nhat_luc"])
-        if phien.dat_ban_id:
+        if dat_ban_id:
             # Khách đặt bàn vẫn ở trạng thái đã đến, có thể xếp lại bàn khác.
-            DatBan.objects.filter(pk=phien.dat_ban_id).update(ban_an=None, cap_nhat_luc=now)
+            DatBan.objects.filter(pk=dat_ban_id).update(ban_an=None, cap_nhat_luc=now)
         return phien
 
     @classmethod
