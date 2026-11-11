@@ -120,6 +120,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -169,6 +170,12 @@ if USE_SQLITE:
             "NAME": BASE_DIR / "test_db.sqlite3",
         }
     }
+elif env("DATABASE_URL", default=""):
+    # Production (Neon): postgres://user:pass@host/db?sslmode=require
+    DATABASES = {"default": env.db("DATABASE_URL")}
+    DATABASES["default"]["ENGINE"] = "django.contrib.gis.db.backends.postgis"
+    DATABASES["default"]["CONN_MAX_AGE"] = 60
+    DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 else:
     DATABASES = {
         "default": {
@@ -224,8 +231,43 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
+if DEBUG or TESTING:
+    STORAGES["staticfiles"] = {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}
+
+# Cloudflare R2 (S3-compatible) for uploaded images. Enabled when R2_BUCKET is set.
+R2_BUCKET = env("R2_BUCKET", default="")
+if R2_BUCKET:
+    R2_PUBLIC_DOMAIN = env("R2_PUBLIC_DOMAIN")  # e.g. media.mockitchen.id.vn
+    STORAGES["default"] = {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": R2_BUCKET,
+            "endpoint_url": f"https://{env('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
+            "access_key": env("R2_ACCESS_KEY_ID"),
+            "secret_key": env("R2_SECRET_ACCESS_KEY"),
+            "region_name": "auto",
+            "signature_version": "s3v4",
+            "custom_domain": R2_PUBLIC_DOMAIN,
+            "querystring_auth": False,
+            "file_overwrite": False,
+            "default_acl": None,
+        },
+    }
+    MEDIA_URL = f"https://{R2_PUBLIC_DOMAIN}/"
+
+# Render terminates TLS at its proxy.
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.NguoiDung"
@@ -298,6 +340,18 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+if not DEBUG and not TESTING and RESEND_API_KEY:
+    # Fallback path also goes through Resend (SMTP) in production.
+    MAILERS["default"] = {
+        "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+        "OPTIONS": {
+            "host": "smtp.resend.com",
+            "port": 465,
+            "username": "resend",
+            "password": RESEND_API_KEY,
+            "use_ssl": True,
+        },
+    }
 
 # ==============================================================================
 # Caching Configuration (Redis with LocMem fallback)
@@ -360,7 +414,6 @@ else:
             },
         },
     }
-
 
 
 

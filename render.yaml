@@ -1,0 +1,62 @@
+# Render Blueprint: Dashboard → New → Blueprint → chọn repo này.
+services:
+  - type: web
+    name: moc-backend
+    runtime: docker
+    rootDir: moc-backend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore
+    healthCheckPath: /
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: api.mockitchen.id.vn,moc-backend.onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://mockitchen.id.vn,https://www.mockitchen.id.vn
+      - key: CSRF_TRUSTED_ORIGINS
+        value: https://mockitchen.id.vn,https://www.mockitchen.id.vn,https://api.mockitchen.id.vn
+      - key: FRONTEND_URL
+        value: https://mockitchen.id.vn
+      - key: PAYOS_RETURN_URL
+        value: https://api.mockitchen.id.vn/api/thanh-toan/payos/return/
+      - key: PAYOS_CANCEL_URL
+        value: https://api.mockitchen.id.vn/api/thanh-toan/payos/return/
+      - key: RESEND_FROM_EMAIL
+        value: Nhà hàng Mộc <no-reply@mockitchen.id.vn>
+      - key: R2_PUBLIC_DOMAIN
+        value: media.mockitchen.id.vn
+      - key: R2_BUCKET
+        value: moc-media
+      - key: USE_REDIS_CHANNEL_LAYER
+        value: "True"
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: moc-redis, property: connectionString }
+      - key: REDIS_CHANNEL_URL
+        fromService: { type: keyvalue, name: moc-redis, property: connectionString }
+      # Điền tay trên dashboard Render (không commit giá trị):
+      - key: DATABASE_URL
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: PAYOS_CLIENT_ID
+        sync: false
+      - key: PAYOS_API_KEY
+        sync: false
+      - key: PAYOS_CHECKSUM_KEY
+        sync: false
+
+  - type: keyvalue
+    name: moc-redis
+    plan: free
+    region: singapore
+    ipAllowList: []
