@@ -253,6 +253,8 @@ if R2_BUCKET and env("R2_ACCESS_KEY_ID", default=""):
         "BACKEND": "storages.backends.s3.S3Storage",
         "OPTIONS": {
             "bucket_name": R2_BUCKET,
+            # Same layout as the local media/ folder, so it can be uploaded as-is.
+            "location": env("R2_LOCATION", default="media"),
             "endpoint_url": f"https://{env('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
             "access_key": env("R2_ACCESS_KEY_ID"),
             "secret_key": env("R2_SECRET_ACCESS_KEY"),
@@ -264,7 +266,7 @@ if R2_BUCKET and env("R2_ACCESS_KEY_ID", default=""):
             "default_acl": None,
         },
     }
-    MEDIA_URL = f"https://{R2_PUBLIC_DOMAIN}/"
+    MEDIA_URL = f"https://{R2_PUBLIC_DOMAIN}/{STORAGES['default']['OPTIONS']['location']}/"
 
 # Render terminates TLS at its proxy.
 if not DEBUG:
