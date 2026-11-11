@@ -67,6 +67,10 @@ ALLOWED_HOSTS = env.list(
     "ALLOWED_HOSTS",
     default=["localhost", "127.0.0.1", "testserver"],
 )
+# Render sets this to the service's own *.onrender.com host (used by its health check).
+RENDER_EXTERNAL_HOSTNAME = env("RENDER_EXTERNAL_HOSTNAME", default="")
+if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 if TESTING:
     if "*" not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append("*")
