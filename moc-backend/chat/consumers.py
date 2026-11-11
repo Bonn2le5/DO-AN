@@ -26,14 +26,14 @@ class HoiThoaiConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
 
         # 1. Enforce Authentication (reject 4401 if anonymous)
         if not self.user or not self.user.is_authenticated:
-            await self.close(code=4401)
+            await self.tu_choi(4401)
             return
 
         # 2. Enforce Conversation Access:
         # Staff has access to all conversations; customer only if room.khach_hang_id == user.id (reject 4403 if forbidden)
         has_access, self.room, self.is_staff = await self._check_conversation_access(self.conversation_id, self.user)
         if not has_access:
-            await self.close(code=4403)
+            await self.tu_choi(4403)
             return
 
         self.room_group_name = f"chat_{self.conversation_id}"
@@ -222,7 +222,7 @@ class HopThuConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
     async def connect(self):
         user = self.scope.get("user")
         if not user or not user.is_authenticated:
-            await self.close(code=4401)
+            await self.tu_choi(4401)
             return
         self.group = STAFF_GROUP if await self._can_access_staff_inbox(user) else f"user_{user.id}"
         await self.channel_layer.group_add(self.group, self.channel_name)

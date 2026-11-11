@@ -14,7 +14,7 @@ from django.db import connections
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework_simplejwt.tokens import AccessToken
 
-from api.tests_channels_helper import WebsocketCommunicator
+from api.tests_channels_helper import WebsocketCommunicator, ma_dong_khi_tu_choi
 from config.asgi import application
 from orders.models import DonHang, ChiTietDonHang, LichSuTrangThaiDon
 from orders.services import DichVuDonHang
@@ -575,9 +575,7 @@ class WebSocketAdversarialStressTest(TransactionTestCase):
         communicator = WebsocketCommunicator(
             application, f"/ws/chat/{self.hoi_thoai.id}/?token=invalid.jwt.token"
         )
-        connected, close_code = await communicator.connect()
-        self.assertFalse(connected)
-        self.assertEqual(close_code, 4401)
+        self.assertEqual(await ma_dong_khi_tu_choi(communicator), 4401)
 
     async def test_websocket_chat_message_over_5000_chars_rejected(self):
         token = str(AccessToken.for_user(self.customer))

@@ -81,6 +81,11 @@ CORS_ALLOWED_ORIGINS = env.list(
 CSRF_TRUSTED_ORIGINS = env.list(
     "CSRF_TRUSTED_ORIGINS", default=["http://localhost:5173"]
 )
+# Trang được mở WebSocket (so với header Origin). Frontend ở tên miền khác backend
+# (mockitchen.id.vn so với api.mockitchen.id.vn) nên không thể chỉ dùng ALLOWED_HOSTS.
+WEBSOCKET_NGUON_HOP_LE = env.list(
+    "WEBSOCKET_NGUON_HOP_LE", default=CORS_ALLOWED_ORIGINS + ALLOWED_HOSTS
+)
 
 INSTALLED_APPS = [
     # Provides the ASGI-capable runserver used by Django Channels in development.
@@ -94,6 +99,7 @@ INSTALLED_APPS = [
     *(['django.contrib.gis', 'django.contrib.postgres'] if not TESTING else []),
     "channels",
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "api",
 
@@ -229,7 +235,59 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticatedOrReadOnly"],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "api.throttling.GioiHanKhach",
+        "api.throttling.GioiHanNguoiDung",
+    ],
+    # Số proxy đứng trước app (Render: 1) để lấy đúng IP khách từ X-Forwarded-For.
+    # 0 = dùng IP kết nối trực tiếp (chạy local). Đặt sai thì mọi khách dùng chung một bộ đếm,
+    # hoặc khách tự giả IP để né giới hạn.
+    "NUM_PROXIES": env.int("SO_PROXY", default=0 if DEBUG else 1),
+    "EXCEPTION_HANDLER": "api.exceptions.xu_ly_ngoai_le",
 }
+
+# Giới hạn tần suất theo phạm vi (api/throttling.py). Định dạng "số lần/đơn vị" (s, m, h, d).
+GIOI_HAN_TAN_SUAT = {
+    "khach": "120/m",                 # khách chưa đăng nhập, theo IP
+    "nguoi_dung": "600/m",            # tài khoản đã đăng nhập
+    "dang_nhap_ip": "10/m",           # dò mật khẩu từ một IP
+    "dang_nhap_tai_khoan": "20/h",    # dò mật khẩu một tài khoản từ nhiều IP
+    "dang_ky": "10/h",                # spam tạo tài khoản (mỗi lần gửi một email)
+    "gui_otp": "5/h",                 # gửi lại mã cho một email
+    "gui_otp_ip": "20/h",
+    "nhap_otp": "5/m",                # dò mã OTP 6 số của một email
+    "nhap_otp_ip": "20/m",
+    "doi_mat_khau": "5/m",
+    "dang_nhap_admin": "10/h",        # trang đăng nhập /admin của Django (không đi qua DRF)
+}
+if TESTING:
+    # Test chạy hàng trăm request liên tiếp: tắt giới hạn, test riêng bật lại bằng override_settings.
+    GIOI_HAN_TAN_SUAT = {}
+
+# JWT: access ngắn hạn; refresh được xoay vòng mỗi lần làm mới, token cũ bị thu hồi
+# (đăng xuất / đổi mật khẩu cũng thu hồi), nên refresh token bị lộ không dùng lại được.
+from datetime import timedelta  # noqa: E402
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=env.int("JWT_ACCESS_PHUT", default=10)),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=env.int("JWT_REFRESH_NGAY", default=1)),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
+}
+
+# Đường dẫn trang quản trị Django: đặt ADMIN_URL khó đoán ở production (vd. "quan-tri-7f3a/").
+ADMIN_URL = env("ADMIN_URL", default="admin/").strip("/") + "/"
+
+# HTTPS bắt buộc ở production (proxy Render đã báo giao thức qua X-Forwarded-Proto).
+if not DEBUG and not TESTING:
+    # Thiếu dòng này thì sau proxy mọi request đều là HTTP → chuyển hướng HTTPS vòng lặp vô hạn.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
+    # Health check của Render gọi nội bộ bằng HTTP: không chuyển hướng.
+    SECURE_REDIRECT_EXEMPT = [r"^$", r"^api/health/$"]
+    # Bắt đầu 1 giờ; chạy ổn định rồi tăng lên 31536000 (1 năm). Trình duyệt nhớ HSTS, khó gỡ.
+    SECURE_HSTS_SECONDS = env.int("HSTS_GIAY", default=3600)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool("HSTS_GOM_TEN_MIEN_CON", default=False)
 
 
 # Email
@@ -258,6 +316,9 @@ CACHES = {
         "TIMEOUT": 600,
     },
 }
+if TESTING:
+    # Test không ghi bộ đếm giới hạn / cache vào Redis đang dùng cho dev.
+    CACHES["default"] = {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "moc-test"}
 
 # ==============================================================================
 # PayOS Payment Gateway (https://my.payos.vn → Kênh thanh toán)

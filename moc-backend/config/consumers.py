@@ -7,6 +7,15 @@ import time
 class JWTExpiryConsumerMixin:
     """Close an authenticated WebSocket when its handshake access JWT expires."""
 
+    async def tu_choi(self, code):
+        """Từ chối kết nối với mã ứng dụng (4401 chưa đăng nhập, 4403 không có quyền, 4404 không thấy).
+
+        Phải accept rồi mới đóng: đóng trước accept thì server trả HTTP 403 cho bắt tay và trình duyệt
+        chỉ thấy mã 1006, frontend không phân biệt được nên kết nối lại mãi.
+        """
+        await self.accept()
+        await self.close(code=code)
+
     def start_jwt_expiry_timer(self):
         expiry = self.scope.get("jwt_exp")
         if expiry:

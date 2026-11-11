@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useKhiVanHanhDoi } from "@/hooks/useStaffOrderStream";
 import { Archive, Brush, Building2, CalendarCheck, CalendarClock, ChevronDown, CircleAlert, DoorOpen, Minus, Pencil, Plus, RefreshCw, RotateCcw, Search, Settings2, Sparkles, Wrench, X } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { formatCurrency } from "@/lib/utils";
@@ -150,6 +151,11 @@ export default function TablesPage() {
     const id = window.setInterval(() => void loadBranchData(true), 30_000);
     return () => window.clearInterval(id);
   }, [idle, loadBranchData, selectedBranch, isAdmin]);
+
+  // Realtime: bàn / phiên / đặt bàn / hoá đơn của chi nhánh đang xem vừa đổi → tải lại ngầm.
+  useKhiVanHanhDoi(["ban_an", "phien_phuc_vu", "dat_ban", "don_hang"], () => void loadBranchData(true), {
+    chiNhanhId: selectedBranch && selectedBranch !== "all" ? selectedBranch : null,
+  });
 
   const branchName = (id?: string) => branches.find((b) => b.id === id)?.name ?? "Chi nhánh";
   const activeTables = tables.filter((t) => !t.archived);

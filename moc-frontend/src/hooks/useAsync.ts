@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback, type DependencyList } from "react";
+import { useEffect, useRef, useState, useCallback, type DependencyList } from "react";
 
 interface UseAsyncState<T> {
   data: T | undefined;
   loading: boolean;
   error: Error | null;
-  refetch: () => void;
+  /** refetch(true): tải ngầm (realtime), giữ dữ liệu cũ trên màn hình, không bật loading. */
+  refetch: (ngam?: unknown) => void;
 }
 
 /**
@@ -16,10 +17,12 @@ export function useAsync<T>(fetcher: () => Promise<T>, deps: DependencyList = []
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const ngamRef = useRef(false);
 
   const run = useCallback(() => {
     let cancelled = false;
-    setLoading(true);
+    if (!ngamRef.current) setLoading(true);
+    ngamRef.current = false;
     setError(null);
     fetcher()
       .then((result) => {
@@ -39,5 +42,10 @@ export function useAsync<T>(fetcher: () => Promise<T>, deps: DependencyList = []
 
   useEffect(() => run(), [run]);
 
-  return { data, loading, error, refetch: () => setReloadKey((k) => k + 1) };
+  const refetch = useCallback((ngam?: unknown) => {
+    ngamRef.current = ngam === true; // nút bấm truyền event → vẫn hiện loading
+    setReloadKey((k) => k + 1);
+  }, []);
+
+  return { data, loading, error, refetch };
 }

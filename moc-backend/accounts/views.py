@@ -9,9 +9,15 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from api.permissions import LaNhanVienNhaHang
+from api.throttling import (
+    GioiHanDangKy, GioiHanDangNhapIP, GioiHanDangNhapTaiKhoan, GioiHanDoiMatKhau,
+    GioiHanGuiOtp, GioiHanGuiOtpIP, GioiHanNhapOtp, GioiHanNhapOtpIP,
+)
 from .models import VaiTro, QuyenHan, NguoiDungVaiTro
 from .serializers import (
     NguoiDungSerializer,
@@ -25,11 +31,46 @@ from .serializers import (
 
 class DangNhapTokenView(TokenObtainPairView):
     serializer_class = DangNhapTokenSerializer
+    # Chặn dò mật khẩu: theo IP và theo tài khoản (kẻ tấn công đổi IP vẫn bị chặn).
+    throttle_classes = [GioiHanDangNhapIP, GioiHanDangNhapTaiKhoan]
 
 NguoiDung = get_user_model()
 
 
+def thu_hoi_moi_token(nguoi_dung):
+    """Thu hồi mọi refresh token chưa thu hồi của tài khoản; trả về số token vừa thu hồi."""
+    con_hieu_luc = OutstandingToken.objects.filter(user=nguoi_dung, blacklistedtoken__isnull=True)
+    BlacklistedToken.objects.bulk_create(
+        [BlacklistedToken(token=t) for t in con_hieu_luc], ignore_conflicts=True
+    )
+    return len(con_hieu_luc)
+
+
+# Giới hạn riêng cho từng thao tác nhạy cảm (kể cả các URL bí danh trỏ về cùng hàm).
+_GIOI_HAN_DANG_KY = [GioiHanDangKy]
+_GIOI_HAN_GUI_OTP = [GioiHanGuiOtp, GioiHanGuiOtpIP]
+_GIOI_HAN_NHAP_OTP = [GioiHanNhapOtp, GioiHanNhapOtpIP]
+_GIOI_HAN_DOI_MAT_KHAU = [GioiHanDoiMatKhau]
+GIOI_HAN_THEO_HANH_DONG = {
+    "dang_ky": _GIOI_HAN_DANG_KY,
+    "register": _GIOI_HAN_DANG_KY,
+    "dang_ky_kebab": _GIOI_HAN_DANG_KY,
+    "gui_ma_xac_thuc": _GIOI_HAN_GUI_OTP,
+    "xac_thuc_email": _GIOI_HAN_NHAP_OTP,
+    "doi_mat_khau": _GIOI_HAN_DOI_MAT_KHAU,
+    "change_password": _GIOI_HAN_DOI_MAT_KHAU,
+    "change_password_kebab": _GIOI_HAN_DOI_MAT_KHAU,
+    "doi_mat_khau_kebab": _GIOI_HAN_DOI_MAT_KHAU,
+}
+
+
 class XacThucViewSet(viewsets.ViewSet):
+    def get_throttles(self):
+        rieng = GIOI_HAN_THEO_HANH_DONG.get(self.action)
+        if rieng:
+            # Giữ cả giới hạn chung, cộng thêm giới hạn riêng của thao tác.
+            return super().get_throttles() + [lop() for lop in rieng]
+        return super().get_throttles()
     @action(detail=False, methods=["post"], permission_classes=[AllowAny])
     def dang_ky(self, request):
         s = DangKySerializer(data=request.data)
@@ -163,7 +204,21 @@ class XacThucViewSet(viewsets.ViewSet):
         s.is_valid(raise_exception=True)
         request.user.set_password(s.validated_data["mat_khau_moi"])
         request.user.save()
-        return Response({"thong_bao": "Đã đổi mật khẩu thành công."})
+        # Đăng xuất mọi thiết bị khác: thu hồi toàn bộ refresh token đang có của tài khoản.
+        so_thu_hoi = thu_hoi_moi_token(request.user)
+        return Response({"thong_bao": "Đã đổi mật khẩu thành công.", "so_phien_da_dang_xuat": so_thu_hoi})
+
+    @action(detail=False, methods=["post"], permission_classes=[AllowAny], url_path="dang-xuat")
+    def dang_xuat(self, request):
+        """Thu hồi refresh token gửi lên (access token có thể đã hết hạn nên không bắt đăng nhập)."""
+        refresh = str(request.data.get("refresh") or "")
+        if not refresh:
+            raise ValidationError({"refresh": "Cần gửi refresh token."})
+        try:
+            RefreshToken(refresh).blacklist()
+        except TokenError:
+            pass  # token đã hết hạn hoặc đã bị thu hồi: coi như đã đăng xuất
+        return Response({"thong_bao": "Đã đăng xuất."})
 
     @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated], url_path="change_password")
     def change_password(self, request):

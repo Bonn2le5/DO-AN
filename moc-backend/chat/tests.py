@@ -7,7 +7,7 @@ from django.test import TransactionTestCase, TestCase
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
-from api.tests_channels_helper import WebsocketCommunicator
+from api.tests_channels_helper import WebsocketCommunicator, ma_dong_khi_tu_choi
 from config.asgi import application
 from chat.models import HoiThoai, TinNhan
 
@@ -49,18 +49,14 @@ class ChatWebSocketTestCase(TransactionTestCase):
         communicator = WebsocketCommunicator(
             application, f"/ws/chat/{self.hoi_thoai.id}/"
         )
-        connected, close_code = await communicator.connect()
-        self.assertFalse(connected)
-        self.assertEqual(close_code, 4401)
+        self.assertEqual(await ma_dong_khi_tu_choi(communicator), 4401)
 
     async def test_chat_forbidden_customer_rejected(self):
         token = str(AccessToken.for_user(self.other_user))
         communicator = WebsocketCommunicator(
             application, f"/ws/chat/{self.hoi_thoai.id}/?token={token}"
         )
-        connected, close_code = await communicator.connect()
-        self.assertFalse(connected)
-        self.assertEqual(close_code, 4403)
+        self.assertEqual(await ma_dong_khi_tu_choi(communicator), 4403)
 
     async def test_chat_customer_connect_and_send_message(self):
         token = str(AccessToken.for_user(self.user))

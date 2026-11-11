@@ -1,3 +1,5 @@
+import logging
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.db import transaction
@@ -5,6 +7,7 @@ from django.utils import timezone
 from .models import HoiThoai, TinNhan
 
 STAFF_GROUP = "staff_inbox"
+logger = logging.getLogger(__name__)
 
 
 def is_staff_user(user):
@@ -44,18 +47,26 @@ def save_message(*, room_id, user, text, msg_type="van_ban", client_id=None):
     return room, serialize_message(msg, client_id)
 
 
+def _gui_nhom(nhom, su_kien):
+    """Phát sự kiện realtime; channel layer (Redis) lỗi thì chỉ ghi log.
+    Tin nhắn đã lưu DB, client lấy bù qua ?after_id khi kết nối lại."""
+    try:
+        async_to_sync(get_channel_layer().group_send)(nhom, su_kien)
+    except Exception:
+        logger.warning("Không phát được sự kiện %s tới nhóm %s", su_kien.get("type"), nhom, exc_info=True)
+
+
 def broadcast_message(room, payload):
     """Dùng trong code sync (REST view)."""
-    send = async_to_sync(get_channel_layer().group_send)
-    send(f"chat_{room.id}", {"type": "chat_message", **payload})
+    _gui_nhom(f"chat_{room.id}", {"type": "chat_message", **payload})
     inbox = {"type": "inbox_update", "conversation_id": room.id,
              "customer_id": room.khach_hang_id, "last_message": payload}
-    send(STAFF_GROUP, inbox)
-    send(f"user_{room.khach_hang_id}", inbox)
+    _gui_nhom(STAFF_GROUP, inbox)
+    _gui_nhom(f"user_{room.khach_hang_id}", inbox)
 
 
 def broadcast_read(room, reader, last_id=None):
-    async_to_sync(get_channel_layer().group_send)(f"chat_{room.id}", {
+    _gui_nhom(f"chat_{room.id}", {
         "type": "chat_read_receipt", "conversation_id": room.id,
         "reader_id": reader.id, "last_read_message_id": last_id,
         "read_at": timezone.now().isoformat(),

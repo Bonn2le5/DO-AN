@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
+import { useKhiVanHanhDoi } from "@/hooks/useStaffOrderStream";
 import { formatCurrency } from "@/lib/utils";
 import { getDashboard, type DashboardBranch, type DashboardData, type LiveTableState, type Range } from "../api/admin.api";
 import { useCan, useRole } from "../permissions";
@@ -26,6 +27,7 @@ export default function DashboardPage() {
   const isAdmin = useRole() === "admin";
   const [range, setRange] = useState<Range>(7);
   const { data, loading, refetch } = useAsync(() => getDashboard(range), [range]);
+  useKhiVanHanhDoi(["don_hang", "dat_ban", "phien_phuc_vu", "ban_an"], () => refetch(true), { doTre: 3000 });
 
   // Trang này hay được để mở ở quầy: tự làm mới mỗi phút.
   useEffect(() => { const id = window.setInterval(() => void refetch(), 60_000); return () => window.clearInterval(id); }, [refetch]);

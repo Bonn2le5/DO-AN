@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { NguoiDung } from "@/types";
-import { clearTokens } from "@/api/client";
+import { apiClient, clearTokens } from "@/api/client";
 
 interface AuthState {
   nguoiDung: NguoiDung | null;
@@ -19,7 +19,10 @@ export const useAuthStore = create<AuthState>()(
       dangNhap: (user) => set({ nguoiDung: user, daDangNhap: true }),
 
       dangXuat: () => {
+        // Xoá token trước để request đăng xuất không gửi kèm access token (có thể đã hết hạn → 401).
+        const refresh = localStorage.getItem("refresh_token");
         clearTokens();
+        if (refresh) apiClient.post("/xac-thuc/dang-xuat/", { refresh }).catch(() => {});
         set({ nguoiDung: null, daDangNhap: false });
       },
     }),

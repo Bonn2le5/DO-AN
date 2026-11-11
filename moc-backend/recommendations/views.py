@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import SimpleRateThrottle
+from api.throttling import ChoQuaKhiCacheLoi
 
 from foods.models import MonAn
 from .models import TuongTacMonAn, GoiYMonAn, SuKienGoiY
@@ -176,7 +177,7 @@ class TroLyGoiMonSerializer(serializers.Serializer):
     goi_y_nhanh = serializers.ChoiceField(choices=list(GOI_Y_NHANH), required=False)
 
 
-class GioiHanTroLy(SimpleRateThrottle):
+class GioiHanTroLy(ChoQuaKhiCacheLoi, SimpleRateThrottle):
     """API mở cho khách chưa đăng nhập và mỗi câu hỏi tốn tiền gọi AI → chặn gọi dồn dập.
     Tính theo tài khoản nếu đã đăng nhập, còn lại theo IP."""
     scope = "tro_ly"

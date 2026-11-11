@@ -25,7 +25,7 @@ class TheoDoiDonHangConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer)
 
         # 1. Enforce Authentication (reject 4401 if anonymous)
         if not self.user or not self.user.is_authenticated or isinstance(self.user, AnonymousUser):
-            await self.close(code=4401)
+            await self.tu_choi(4401)
             return
 
         # 2. Check Order Existence & Authorization
@@ -33,7 +33,7 @@ class TheoDoiDonHangConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer)
         if not has_access:
             # 4404 if not found, 4403 if forbidden for another customer
             close_code = 4404 if result is None else 4403
-            await self.close(code=close_code)
+            await self.tu_choi(close_code)
             return
 
         self.order_data = result
@@ -139,14 +139,14 @@ class DonHangNhanVienConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer
 
         # 1. Enforce Authentication (reject 4401 if anonymous)
         if not self.user or not self.user.is_authenticated or isinstance(self.user, AnonymousUser):
-            await self.close(code=4401)
+            await self.tu_choi(4401)
             return
 
         # 2. Enforce Staff Privilege (reject 4403 if not restaurant staff)
         is_admin, branch_id = await self._staff_scope(self.user)
         is_staff = is_admin or bool(branch_id)
         if not is_staff:
-            await self.close(code=4403)
+            await self.tu_choi(4403)
             return
 
         self.room_group_name = "staff_orders" if is_admin else f"staff_orders_branch_{branch_id}"
@@ -174,6 +174,10 @@ class DonHangNhanVienConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer
 
     async def order_created(self, event):
         """Forward real-time new order event to staff client."""
+        await self.send_json(event)
+
+    async def van_hanh_cap_nhat(self, event):
+        """Bàn / phiên phục vụ / đặt bàn / đơn hàng vừa đổi: màn hình nhân viên tự tải lại."""
         await self.send_json(event)
 
     @database_sync_to_async

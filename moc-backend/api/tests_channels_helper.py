@@ -16,4 +16,17 @@ if "daphne" not in sys.modules:
 from channels.testing import WebsocketCommunicator
 from channels.layers import get_channel_layer
 
-__all__ = ["WebsocketCommunicator", "get_channel_layer"]
+__all__ = ["WebsocketCommunicator", "get_channel_layer", "ma_dong_khi_tu_choi"]
+
+
+async def ma_dong_khi_tu_choi(communicator):
+    """Mã đóng khi server từ chối kết nối.
+
+    Server phải accept rồi mới đóng: nếu đóng trước accept, trình duyệt thật chỉ thấy mã 1006
+    (WebsocketCommunicator vẫn báo mã nên không tự phát hiện được lỗi này).
+    """
+    connected, _ = await communicator.connect()
+    assert connected, "Server từ chối ngay lúc bắt tay: trình duyệt sẽ không nhận được mã đóng"
+    msg = await communicator.receive_output()
+    assert msg["type"] == "websocket.close", msg
+    return msg.get("code")

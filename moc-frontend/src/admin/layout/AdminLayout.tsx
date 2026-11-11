@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useChatInbox } from "@/hooks/useChatInbox";
+import { useStaffOrderStream } from "@/hooks/useStaffOrderStream";
 import AdminSidebar from "./AdminSidebar";
 import { Toaster, useToast } from "../components/toast";
 import { PREVIEW, usePreviewRole, useRole } from "../permissions";
@@ -26,6 +27,9 @@ export default function AdminLayout() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
+
+  // Luồng realtime bàn / phiên / đặt bàn / đơn hàng: các trang nghe qua useKhiVanHanhDoi.
+  useStaffOrderStream(isAuthenticated && !PREVIEW && role !== null);
 
   // Một kết nối WebSocket duy nhất cho toàn khu admin (thay cho polling 3s).
   const inbox = useChatInbox(isAuthenticated && role === "admin", (item, message) => {

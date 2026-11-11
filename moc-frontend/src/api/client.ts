@@ -56,6 +56,13 @@ export function refreshAccessToken(): Promise<string | null> {
       return access;
     })
     .catch(() => {
+      // Refresh token xoay vòng: tab khác có thể vừa làm mới trước, khiến token cũ bị thu hồi.
+      // Khi đó dùng token mới tab kia đã lưu thay vì đăng xuất.
+      const refreshMoi = localStorage.getItem("refresh_token");
+      const accessMoi = localStorage.getItem("access_token");
+      if (refreshMoi && refreshMoi !== refreshToken && accessMoi && tokenExpiry(accessMoi) > Date.now()) {
+        return accessMoi;
+      }
       clearTokens();
       window.dispatchEvent(new Event("auth:expired"));
       return null;

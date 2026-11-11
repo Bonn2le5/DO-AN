@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
+import { useKhiVanHanhDoi } from "@/hooks/useStaffOrderStream";
 import { formatCurrency } from "@/lib/utils";
 import { ordersStore } from "../api/admin.api";
 import DataTable from "../components/DataTable";
@@ -19,6 +20,7 @@ export default function OrdersPage() {
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const { data, loading, refetch } = useAsync(() => ordersStore.list());
+  useKhiVanHanhDoi(["don_hang"], () => refetch(true));
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: data?.length ?? 0 };

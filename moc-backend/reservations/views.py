@@ -20,6 +20,14 @@ from .serializers import (
 from .services import DichVuDatBan, DichVuPhienPhucVu, huy_giu_cho_qua_han_coc, thoi_diem_hen, tinh_suc_chua_con_lai
 
 
+def _so_nguyen_tham_so(tham_so, ten):
+    """Đọc tham số query kiểu số nguyên; sai kiểu thì trả 400 thay vì lỗi 500."""
+    try:
+        return int(tham_so[ten])
+    except (TypeError, ValueError):
+        raise ValidationError({ten: "Phải là số nguyên."})
+
+
 class BanAnViewSet(viewsets.ModelViewSet):
     serializer_class = BanAnSerializer
     permission_classes = [LaNhanVienHoacChiDoc]
@@ -47,9 +55,9 @@ class BanAnViewSet(viewsets.ModelViewSet):
                 danh_sach = danh_sach.filter(chi_nhanh_id=branch_id)
         tham_so = self.request.query_params
         if tham_so.get("chi_nhanh"):
-            danh_sach = danh_sach.filter(chi_nhanh_id=tham_so["chi_nhanh"])
+            danh_sach = danh_sach.filter(chi_nhanh_id=_so_nguyen_tham_so(tham_so, "chi_nhanh"))
         if tham_so.get("guest_count"):
-            danh_sach = danh_sach.filter(suc_chua__gte=int(tham_so["guest_count"]))
+            danh_sach = danh_sach.filter(suc_chua__gte=_so_nguyen_tham_so(tham_so, "guest_count"))
         if tham_so.get("reservation_date") and tham_so.get("start_time"):
             ban_da_dat = DatBan.objects.filter(
                 ngay_dat=tham_so["reservation_date"],
@@ -389,7 +397,9 @@ class DatBanViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Cần cung cấp chi_nhanh_id và ngay."}, status=400)
 
         try:
-            chi_nhanh = ChiNhanh.objects.get(id=chi_nhanh_id)
+            chi_nhanh = ChiNhanh.objects.get(id=int(chi_nhanh_id))
+        except (TypeError, ValueError):
+            return Response({"detail": "chi_nhanh_id phải là số nguyên."}, status=400)
         except ChiNhanh.DoesNotExist:
             return Response({"detail": "Chi nhánh không tồn tại."}, status=404)
 

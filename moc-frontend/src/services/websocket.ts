@@ -17,9 +17,15 @@ export function getWebSocketUrl(path: string, accessToken?: string): string {
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
   const envWsUrl = import.meta.env.VITE_WS_URL as string | undefined;
 
+  const envApiUrl = import.meta.env.VITE_API_URL as string | undefined;
+
   let base = "";
   if (envWsUrl) {
     base = `${envWsUrl.replace(/\/+$/, "")}${cleanPath}`;
+  } else if (envApiUrl && /^https?:\/\//i.test(envApiUrl)) {
+    // Backend ở tên miền riêng (vd. https://api.mockitchen.id.vn/api): WebSocket mở tới cùng máy chủ đó.
+    const api = new URL(envApiUrl);
+    base = `${api.protocol === "https:" ? "wss:" : "ws:"}//${api.host}${cleanPath}`;
   } else {
     const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
     const protocol = isHttps ? "wss:" : "ws:";

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Building2, CalendarDays, ChevronLeft, ChevronRight, Phone, Search, UtensilsCrossed } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
+import { useKhiVanHanhDoi } from "@/hooks/useStaffOrderStream";
 import { formatCurrency } from "@/lib/utils";
 import { getDepositPolicy, getTableManagementBranches, needsRefund, reservationsStore, setReservationStatus, tablesStore } from "../api/admin.api";
 import ReservationDrawer from "../components/ReservationDrawer";
@@ -58,6 +59,7 @@ export default function ReservationsPage() {
   const queue: Queue = queueParam === "pending_confirmation" ? "confirm" : queueParam === "needs_deposit" ? "deposit" : queueParam === "refund" ? "refund" : "none";
 
   const { data: reservations, loading, refetch } = useAsync(() => reservationsStore.list());
+  useKhiVanHanhDoi(["dat_ban", "phien_phuc_vu"], () => refetch(true));
   const { data: tables } = useAsync(() => tablesStore.list());
   const { data: branches } = useAsync(() => getTableManagementBranches());
   const { data: policy } = useAsync(() => getDepositPolicy());

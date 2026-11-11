@@ -7,7 +7,7 @@ from django.test import TransactionTestCase, TestCase
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework_simplejwt.tokens import AccessToken
-from api.tests_channels_helper import WebsocketCommunicator
+from api.tests_channels_helper import WebsocketCommunicator, ma_dong_khi_tu_choi
 from config.asgi import application
 from orders.models import DonHang, LichSuTrangThaiDon
 from orders.services import DichVuDonHang
@@ -208,18 +208,14 @@ class OrderWebSocketTestCase(TransactionTestCase):
         communicator = WebsocketCommunicator(
             application, f"/ws/orders/{self.don_hang.id}/"
         )
-        connected, close_code = await communicator.connect()
-        self.assertFalse(connected)
-        self.assertEqual(close_code, 4401)
+        self.assertEqual(await ma_dong_khi_tu_choi(communicator), 4401)
 
     async def test_order_tracking_forbidden_customer_rejected(self):
         token = str(AccessToken.for_user(self.other_user))
         communicator = WebsocketCommunicator(
             application, f"/ws/orders/{self.don_hang.id}/?token={token}"
         )
-        connected, close_code = await communicator.connect()
-        self.assertFalse(connected)
-        self.assertEqual(close_code, 4403)
+        self.assertEqual(await ma_dong_khi_tu_choi(communicator), 4403)
 
     async def test_order_snapshot_and_realtime_fsm_update(self):
         token = str(AccessToken.for_user(self.user))
@@ -285,9 +281,7 @@ class OrderWebSocketTestCase(TransactionTestCase):
         # 1. Non-staff is rejected with 4403
         token_customer = str(AccessToken.for_user(self.user))
         comm_cust = WebsocketCommunicator(application, f"/ws/orders/staff/?token={token_customer}")
-        c_ok, c_code = await comm_cust.connect()
-        self.assertFalse(c_ok)
-        self.assertEqual(c_code, 4403)
+        self.assertEqual(await ma_dong_khi_tu_choi(comm_cust), 4403)
 
         # 2. Staff connects successfully
         token_staff = str(AccessToken.for_user(self.staff_user))
@@ -300,7 +294,10 @@ class OrderWebSocketTestCase(TransactionTestCase):
 
         # 3. When an order transitions, staff stream receives the update
         await self._advance_order_status(DonHang.TrangThai.DA_XAC_NHAN)
+        # Luồng nhân viên còn nhận "van_hanh_cap_nhat" (đơn vừa lưu): bỏ qua, lấy sự kiện trạng thái.
         staff_update = await comm_staff.receive_json_from()
+        while staff_update["type"] == "van_hanh_cap_nhat":
+            staff_update = await comm_staff.receive_json_from()
         self.assertEqual(staff_update["type"], "order_status_update")
         self.assertEqual(staff_update["order_id"], self.don_hang.id)
         self.assertEqual(staff_update["to_status"], DonHang.TrangThai.DA_XAC_NHAN)
