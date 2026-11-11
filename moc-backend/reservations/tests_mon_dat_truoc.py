@@ -1,5 +1,6 @@
 from datetime import time, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from django.test import TestCase
 from django.utils import timezone
@@ -10,6 +11,12 @@ from branches.models import ChiNhanh
 from foods.models import DanhMuc, MonAn
 from orders.models import ChiTietDonHang
 from reservations.models import BanAn, DatBan, MonAnTrongDatBan
+
+
+def _ngay_mai_vn():
+    """Ngày mai theo giờ Việt Nam — cùng mốc với code khi xét \"đặt trong ngày\".
+    Dùng ngày UTC thì từ 0h đến 7h sáng, \"ngày mai\" của test lại là hôm nay của code."""
+    return timezone.localdate(timezone=ZoneInfo("Asia/Ho_Chi_Minh")) + timedelta(days=1)
 
 
 class MonDatTruocTest(TestCase):
@@ -90,11 +97,11 @@ class MonDatTruocTest(TestCase):
     def test_dat_ban_tu_choi_mon_an_khong_hien_thi(self):
         self.bo.hien_thi = False
         self.bo.save()
-        r = self._dat_online(timezone.localdate() + timedelta(days=1), 1)
+        r = self._dat_online(_ngay_mai_vn(), 1)
         self.assertEqual(r.status_code, 400)
         self.assertIn("danh_sach_mon", r.data)
 
     def test_ton_kho_chi_kiem_tra_khi_dat_trong_ngay(self):
         self.bo.ton_kho_cache = 1
         self.bo.save()
-        self.assertEqual(self._dat_online(timezone.localdate() + timedelta(days=1), 3).status_code, 201)
+        self.assertEqual(self._dat_online(_ngay_mai_vn(), 3).status_code, 201)

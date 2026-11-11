@@ -104,10 +104,11 @@ class PhanQuyenQuanLyNhanVienTest(TestCase):
         self.assertEqual(self.ql.patch(f"/api/reservations/{r.id}/trang_thai/", {"status": "da_huy", "version": r.phien_ban}, format="json").status_code, 200)
 
     # --- Kho và nhân viên ---
-    def test_kho_nhan_vien_chi_xem_quan_ly_toan_quyen(self):
+    def test_kho_nhan_vien_chi_xem_quan_ly_chi_lap_phieu(self):
+        # Nguyên liệu dùng chung mọi chi nhánh: chỉ quản trị viên thêm/sửa (chi tiết: api/tests_permission_routes).
         self.assertEqual(self.nv.get("/api/ingredients/").status_code, 200)
         self.assertEqual(self.nv.post("/api/ingredients/", {"ten": "Muối", "don_vi": "kg"}, format="json").status_code, 403)
-        self.assertNotEqual(self.ql.post("/api/ingredients/", {"ten": "Muối", "don_vi": "kg"}, format="json").status_code, 403)
+        self.assertEqual(self.ql.post("/api/ingredients/", {"ten": "Muối", "don_vi": "kg"}, format="json").status_code, 403)
         self.assertEqual(self.nv.get("/api/dining-sessions/canh-bao-kho/").status_code, 200)
 
     def test_quan_ly_chi_quan_ly_nhan_vien_chi_nhanh_minh(self):

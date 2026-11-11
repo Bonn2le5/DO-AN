@@ -8,7 +8,7 @@ export type CancellationBucket = ">24h" | "6-24h" | "<6h" | "no_show";
 
 export type Module =
   | "dashboard" | "orders" | "reservations" | "tables" | "chat"
-  | "foods" | "categories" | "ingredients" | "promotions" | "posts" | "reviews"
+  | "foods" | "categories" | "ingredients" | "stock" | "promotions" | "posts" | "reviews"
   | "payments" | "deposit" | "branches" | "users" | "roles" | "ai" | "settings";
 export type Action = "view" | "create" | "update" | "delete";
 export type RoleName = "admin" | "branch_manager" | "staff";

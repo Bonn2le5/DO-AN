@@ -281,7 +281,7 @@ export default function IngredientsPage() {
           ]}
           rowActions={(row, reload) => (
             <>
-              {can("ingredients", "update") && <button className="icon-btn w-8! h-8!" aria-label="Nhập / xuất kho" title="Nhập / xuất / kiểm kê" onClick={() => setMoveRow({ row, reload })}><ArrowDownUp width={15} height={15} /></button>}
+              {can("stock", "create") && <button className="icon-btn w-8! h-8!" aria-label="Nhập / xuất kho" title="Nhập / xuất / kiểm kê" onClick={() => setMoveRow({ row, reload })}><ArrowDownUp width={15} height={15} /></button>}
               <button className="icon-btn w-8! h-8!" aria-label="Chi tiết" title="Định mức món & lịch sử" onClick={() => setDetail({ row, reload })}><History width={15} height={15} /></button>
             </>
           )}

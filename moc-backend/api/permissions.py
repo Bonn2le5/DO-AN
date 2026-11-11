@@ -75,8 +75,13 @@ class LaNhanVienNhaHang(BasePermission):
             return False
         if module in {"branches", "foods", "categories", "promotions"}:
             return request.method in SAFE_METHODS
-        if module == "ingredients" and not is_manager:
-            return request.method in SAFE_METHODS
+        if module == "ingredients":
+            if request.method in SAFE_METHODS:
+                return True
+            # Nguyên liệu, định mức món và tồn kho dùng chung cho mọi chi nhánh: danh mục nguyên liệu
+            # và định mức chỉ quản trị viên sửa. Quản lý chi nhánh chỉ được lập phiếu nhập/xuất/kiểm kê.
+            phan_dau = [p for p in path.split("/") if p and p != "api"][:1]
+            return is_manager and request.method == "POST" and phan_dau in (["kho"], ["inventory-transactions"])
         if module == "dashboard":
             return is_manager and request.method in SAFE_METHODS
 
@@ -93,7 +98,7 @@ class LaNhanVienNhaHang(BasePermission):
             return action in {"view", "create"} or (
                 action == "update" and path.rstrip("/").endswith(("/mark_success", "/xac_nhan_thanh_cong"))
             )
-        if module in {"tables", "ingredients"} and is_manager:
+        if module == "tables" and is_manager:
             return action in {"view", "create", "update", "delete"}
         return action in {"view", "create", "update"}
 

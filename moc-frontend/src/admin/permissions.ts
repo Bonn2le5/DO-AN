@@ -15,6 +15,7 @@ export const MODULES: { key: Module; label: string }[] = [
   { key: "foods", label: "Món ăn" },
   { key: "categories", label: "Danh mục & tag" },
   { key: "ingredients", label: "Nguyên liệu" },
+  { key: "stock", label: "Nhập / xuất kho" },
   { key: "promotions", label: "Khuyến mãi" },
   { key: "posts", label: "Bài viết" },
   { key: "reviews", label: "Đánh giá" },
@@ -43,14 +44,16 @@ const ALL: Action[] = ["view", "create", "update", "delete"];
 export const MATRIX: Record<RoleName, Partial<Record<Module, Action[]>>> = {
   admin: Object.fromEntries(MODULES.map((m) => [m.key, ALL])),
   // Quản lý chi nhánh: vận hành như nhân viên, cộng thêm huỷ đặt bàn/hoá đơn đã gửi bếp,
-  // cấu hình bàn, kho nguyên liệu và nhân viên của chi nhánh mình.
+  // cấu hình bàn, lập phiếu nhập/xuất kho và quản lý nhân viên của chi nhánh mình.
   branch_manager: {
     dashboard: ["view"],
     orders: ["view", "create", "update", "delete"],
     reservations: ["view", "create", "update", "delete"],
     tables: ["view", "create", "update", "delete"],
     payments: ["view", "create", "update"],
-    ingredients: ["view", "create", "update", "delete"],
+    // Nguyên liệu và định mức dùng chung mọi chi nhánh: chỉ quản trị viên sửa; quản lý chỉ lập phiếu kho.
+    ingredients: ["view"],
+    stock: ["view", "create"],
     users: ["view", "create", "update"],
   },
   staff: {

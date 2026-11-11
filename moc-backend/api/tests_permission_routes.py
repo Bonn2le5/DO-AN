@@ -87,3 +87,49 @@ class TongQuanTheoVaiTroTest(TestCase):
         )
         for path in (f"/api/reservations/{r.id}/record-refund/", f"/api/dat-ban/{r.id}/ghi-nhan-hoan-tien/"):
             self.assertEqual(nv.post(path, {}, format="json").status_code, 403, path)
+
+
+class QuyenKhoNguyenLieuTest(TongQuanTheoVaiTroTest):
+    """Nguyên liệu, định mức và tồn kho dùng chung mọi chi nhánh: quản lý chi nhánh chỉ lập phiếu kho."""
+
+    test_quan_ly_xem_tong_quan_nhan_vien_khong = None  # không chạy lại test của lớp cha
+
+    def setUp(self):
+        super().setUp()
+        from decimal import Decimal
+        from foods.models import DanhMuc, DinhMucNguyenLieu, MonAn, NguyenLieu
+        self.nl = NguyenLieu.objects.create(ten="Tôm", don_vi="kg", ton_kho_hien_tai=Decimal("10"), ton_kho_toi_thieu=Decimal("1"))
+        mon = MonAn.objects.create(danh_muc=DanhMuc.objects.create(ten="Lẩu", duong_dan="lau"), ten="Lẩu", duong_dan="lau", don_gia=100000)
+        self.mon = mon
+        self.dm = DinhMucNguyenLieu.objects.create(mon_an=mon, nguyen_lieu=self.nl, so_luong_can=Decimal("0.2"))
+
+    def _ghi(self, c):
+        """Mã trạng thái của mọi thao tác ghi lên nguyên liệu / định mức / phiếu kho."""
+        return {
+            "tao_nguyen_lieu": c.post("/api/nguyen-lieu/", {"ten": "Mực", "don_vi": "kg"}, format="json").status_code,
+            "sua_nguyen_lieu": c.patch(f"/api/nguyen-lieu/{self.nl.id}/", {"ten": "Tôm sú"}, format="json").status_code,
+            "xoa_nguyen_lieu": c.delete(f"/api/ingredients/{self.nl.id}/").status_code,
+            "tao_dinh_muc": c.post("/api/dinh-muc-nguyen-lieu/", {"mon_an": self.mon.id, "nguyen_lieu": self.nl.id, "so_luong_can": "1"}, format="json").status_code,
+            "sua_dinh_muc": c.patch(f"/api/dinh-muc-nguyen-lieu/{self.dm.id}/", {"so_luong_can": "5"}, format="json").status_code,
+            "xoa_dinh_muc": c.delete(f"/api/dinh-muc-nguyen-lieu/{self.dm.id}/").status_code,
+        }
+
+    def test_quan_ly_chi_nhanh_chi_xem_va_lap_phieu_kho(self):
+        ql = self._client("ql", "quan_ly_chi_nhanh")
+        for path in ("/api/nguyen-lieu/", "/api/kho/", "/api/dinh-muc-nguyen-lieu/"):
+            self.assertEqual(ql.get(path).status_code, 200, path)
+        r = ql.post("/api/kho/", {"nguyen_lieu": self.nl.id, "loai_giao_dich": "nhap", "so_luong": "2"}, format="json")
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(ql.post("/api/inventory-transactions/", {"nguyen_lieu": self.nl.id, "loai_giao_dich": "xuat", "so_luong": "1"}, format="json").status_code, 201)
+        self.assertEqual(set(self._ghi(ql).values()), {403}, self._ghi(ql))
+
+    def test_nhan_vien_chi_xem(self):
+        nv = self._client("nv", "nhan_vien_ban_hang")
+        self.assertEqual(nv.get("/api/nguyen-lieu/").status_code, 200)
+        self.assertEqual(nv.post("/api/kho/", {"nguyen_lieu": self.nl.id, "loai_giao_dich": "nhap", "so_luong": "2"}, format="json").status_code, 403)
+        self.assertEqual(set(self._ghi(nv).values()), {403})
+
+    def test_quan_tri_vien_van_toan_quyen(self):
+        qt = self._client("qt", "quan_tri_vien")
+        kq = self._ghi(qt)
+        self.assertNotIn(403, kq.values(), kq)  # 400 ở đây là kiểm tra dữ liệu (trùng định mức, nguyên liệu đang dùng)
