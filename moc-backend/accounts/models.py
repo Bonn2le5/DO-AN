@@ -62,6 +62,10 @@ class NguoiDung(AbstractUser):
         choices=[("nam", "Nam"), ("nu", "Nữ"), ("khac", "Khác")],
         blank=True,
     )
+    # Bằng chứng đồng ý Chính sách bảo vệ dữ liệu cá nhân khi đăng ký (khoản 1, 2 Điều 6 NĐ 356/2025):
+    # thời điểm và phiên bản chính sách người dùng đã thấy. Tài khoản tạo trước tính năng này để trống.
+    dong_y_chinh_sach_luc = models.DateTimeField(null=True, blank=True)
+    phien_ban_chinh_sach = models.CharField(max_length=20, blank=True)
     danh_sach_vai_tro = models.ManyToManyField(
         VaiTro, through="NguoiDungVaiTro", related_name="nguoi_dung", blank=True
     )
@@ -146,7 +150,11 @@ class XacThucEmail(models.Model):
     nguoi_dung = models.OneToOneField(
         NguoiDung, on_delete=models.CASCADE, related_name="xac_thuc_email"
     )
+    SO_LAN_SAI_TOI_DA = 5
+
     ma_xac_thuc = models.CharField(max_length=6, blank=True)
+    # Số lần nhập sai mã hiện tại; đủ SO_LAN_SAI_TOI_DA thì mã bị vô hiệu, phải xin mã mới.
+    so_lan_sai = models.PositiveSmallIntegerField(default=0)
     da_xac_thuc = models.BooleanField(default=False)
     tao_luc = models.DateTimeField(auto_now_add=True)
     het_han_luc = models.DateTimeField(null=True, blank=True)
@@ -162,6 +170,7 @@ class XacThucEmail(models.Model):
         """Tạo mã OTP 6 chữ số và đặt thời hạn 15 phút."""
         self.ma_xac_thuc = str(secrets.randbelow(900000) + 100000)
         self.het_han_luc = timezone.now() + timezone.timedelta(minutes=15)
+        self.so_lan_sai = 0
         self.save()
         return self.ma_xac_thuc
 

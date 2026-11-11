@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { Check, Loader2, RotateCcw, SendHorizontal, Sparkles, UtensilsCrossed, X } from "lucide-react";
 import { hoiTroLyGoiMon, ghiSuKienGoiY } from "@/api/recommendations.api";
 import PlaceholderMedia from "@/components/ui/PlaceholderMedia";
@@ -171,6 +172,13 @@ export default function TroLyGoiMon({
               {dangHoi ? <Loader2 size={18} className="animate-spin" /> : <SendHorizontal size={18} />}
             </button>
           </div>
+          {/* Báo trước khi gửi: câu khách gõ đi tới dịch vụ AI ở nước ngoài, có thể chứa thông tin dị ứng (dữ liệu sức khỏe).
+              Điều 9 Luật 91/2025; khoản 4 Điều 6 NĐ 356/2025; checklist 07 mục B. Nút gợi ý nhanh không gọi AI. */}
+          <p className="text-xs text-muted leading-relaxed mt-1.5">
+            Câu bạn gõ được gửi tới dịch vụ AI để hiểu khẩu vị, không kèm tên hay số điện thoại. Đừng nhập thông tin cá nhân.
+            Thông tin dị ứng chỉ dùng để lọc món.{" "}
+            <Link to="/chinh-sach-bao-mat#tro-ly-ai" target="_blank" className="underline underline-offset-2 hover:text-primary">Tìm hiểu thêm</Link>
+          </p>
         </form>
 
         {!thucDon && monDaThem.length > 0 && (
@@ -209,6 +217,7 @@ export default function TroLyGoiMon({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h4 className="font-semibold">Thực đơn AI đề xuất</h4>
+                <p className="text-xs text-muted mt-0.5">Chỉ để tham khảo. Nếu có dị ứng, vui lòng báo nhân viên khi đến.</p>
                 <p className="text-[13px] text-muted mt-0.5">
                   {pt!.soNguoi} khách
                   {pt!.nganSach ? ` · ngân sách ${formatCurrency(pt!.nganSach)}` : ""}

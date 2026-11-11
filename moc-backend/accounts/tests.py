@@ -59,7 +59,23 @@ class DangKyTestCase(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.payload = {"ho_ten": "Nguyen Van A", "thu_dien_tu": "a@moc.vn", "so_dien_thoai": "0901234567", "mat_khau": "secret123"}
+        self.payload = {"ho_ten": "Nguyen Van A", "thu_dien_tu": "a@moc.vn", "so_dien_thoai": "0901234567", "mat_khau": "secret123",
+                        "dong_y_chinh_sach": True, "phien_ban_chinh_sach": "1.0"}
+
+    def test_luu_bang_chung_dong_y_chinh_sach(self):
+        self.assertEqual(self.client.post(self.URL, self.payload, format="json").status_code, 201)
+        nd = NguoiDung.objects.get(thu_dien_tu="a@moc.vn")
+        self.assertIsNotNone(nd.dong_y_chinh_sach_luc)
+        self.assertEqual(nd.phien_ban_chinh_sach, "1.0")
+
+    def test_khong_dong_y_thi_khong_tao_tai_khoan(self):
+        for thieu in ({"dong_y_chinh_sach": False}, {"dong_y_chinh_sach": None}):
+            r = self.client.post(self.URL, {**self.payload, **thieu}, format="json")
+            self.assertEqual(r.status_code, 400)
+            self.assertIn("dong_y_chinh_sach", r.data)
+        payload = {k: v for k, v in self.payload.items() if k != "dong_y_chinh_sach"}
+        self.assertEqual(self.client.post(self.URL, payload, format="json").status_code, 400)
+        self.assertFalse(NguoiDung.objects.filter(thu_dien_tu="a@moc.vn").exists())
 
     def test_email_hoa_thuong_va_trung(self):
         self.assertEqual(self.client.post(self.URL, dict(self.payload, thu_dien_tu="A@Moc.vn"), format="json").status_code, 201)

@@ -5,11 +5,14 @@ import Footer from "./Footer";
 import ChatWidget from "@/components/chat/ChatWidget";
 
 export default function Layout() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
 
+  // Sang trang mới thì về đầu trang; có #muc thì cuộn tới mục đó (vd. /chinh-sach-bao-mat#tro-ly-ai).
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
+    const muc = hash && document.getElementById(decodeURIComponent(hash.slice(1)));
+    if (muc) muc.scrollIntoView();
+    else window.scrollTo(0, 0);
+  }, [pathname, hash]);
 
   return (
     <div className="min-h-screen flex flex-col">

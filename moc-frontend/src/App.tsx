@@ -19,6 +19,8 @@ import AccountBookingsPage from "@/pages/account/AccountBookingsPage";
 import AccountSecurityPage from "@/pages/account/AccountSecurityPage";
 import AccountReviewsPage from "@/pages/account/AccountReviewsPage";
 import NotFoundPage from "@/pages/NotFoundPage";
+import PrivacyPolicyPage from "@/pages/legal/PrivacyPolicyPage";
+import TermsPage from "@/pages/legal/TermsPage";
 
 import { adminRoutes } from "@/admin/routes";
 
@@ -56,6 +58,8 @@ export default function App() {
           <Route path="khuyen-mai" element={<PromotionsPage />} />
           <Route path="bai-viet" element={<BlogPage />} />
           <Route path="bai-viet/:slug" element={<BlogDetailPage />} />
+          <Route path="chinh-sach-bao-mat" element={<PrivacyPolicyPage />} />
+          <Route path="dieu-khoan" element={<TermsPage />} />
           <Route path="dang-nhap" element={<LoginPage />} />
           <Route path="dang-ky" element={<RegisterPage />} />
           <Route path="xac-thuc-email" element={<EmailVerificationPage />} />

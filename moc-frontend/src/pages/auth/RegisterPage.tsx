@@ -11,6 +11,8 @@ const schema = z
     phone: z.string().regex(/^(0|\+84)\d{9,10}$/, "Số điện thoại không hợp lệ"),
     password: z.string().min(6, "Mật khẩu tối thiểu 6 ký tự"),
     confirmPassword: z.string(),
+    // Không tích sẵn (khoản 3 Điều 6 NĐ 356/2025); bắt buộc để tạo tài khoản.
+    agree: z.boolean().refine((v) => v, "Vui lòng đồng ý để tạo tài khoản"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Mật khẩu xác nhận không khớp",
@@ -25,7 +27,7 @@ export default function RegisterPage() {
     handleSubmit,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema) });
+  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { agree: false } });
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -44,7 +46,7 @@ export default function RegisterPage() {
       <div className="text-center mb-9">
         <div className="font-display text-3xl mb-2">Tạo tài khoản mới</div>
         <p className="text-muted text-sm">
-          Nhận ưu đãi và gợi ý món ăn dành riêng cho bạn
+          Lưu lịch đặt bàn, món yêu thích và nhận gợi ý món theo khẩu vị
         </p>
       </div>
 
@@ -108,6 +110,25 @@ export default function RegisterPage() {
             <p className="text-xs text-primary mt-1.5">
               {errors.confirmPassword.message}
             </p>
+          )}
+        </div>
+        <div>
+          <label className="flex gap-2.5 items-start text-[13px] leading-relaxed text-muted cursor-pointer">
+            <input
+              {...register("agree")}
+              type="checkbox"
+              className="mt-[3px] h-4 w-4 shrink-0 accent-[var(--color-primary)]"
+            />
+            <span>
+              Tôi đồng ý để nhà hàng Mộc dùng họ tên, email, số điện thoại để tạo tài khoản, xác thực email và quản lý
+              đặt bàn, theo{" "}
+              <Link to="/chinh-sach-bao-mat" target="_blank" className="text-primary underline underline-offset-2">Chính sách bảo vệ dữ liệu cá nhân</Link>
+              {" "}và{" "}
+              <Link to="/dieu-khoan" target="_blank" className="text-primary underline underline-offset-2">Điều khoản sử dụng</Link>.
+            </span>
+          </label>
+          {errors.agree && (
+            <p className="text-xs text-primary mt-1.5">{errors.agree.message}</p>
           )}
         </div>
         {errors.root && (

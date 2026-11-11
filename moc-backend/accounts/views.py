@@ -1,3 +1,5 @@
+import secrets
+
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.validators import validate_email
@@ -135,8 +137,9 @@ class XacThucViewSet(viewsets.ViewSet):
     def xac_thuc_email(self, request):
         """Xác thực OTP. Trả về tokens nếu thành công."""
         from .models import XacThucEmail
-        email = request.data.get("email", "").strip().lower()
-        ma_otp = request.data.get("ma_xac_thuc", "").strip()
+        # Ép kiểu chuỗi: JSON gửi số / mảng thì không lỗi 500.
+        email = str(request.data.get("email") or "").strip().lower()
+        ma_otp = str(request.data.get("ma_xac_thuc") or "").strip()
 
         if not email or not ma_otp:
             return Response({"detail": "Cần cung cấp email và mã xác thực."}, status=400)
@@ -146,19 +149,28 @@ class XacThucViewSet(viewsets.ViewSet):
         except NguoiDung.DoesNotExist:
             return Response({"detail": "Email không tồn tại."}, status=404)
 
-        try:
-            xac_thuc = nguoi_dung.xac_thuc_email
-        except XacThucEmail.DoesNotExist:
-            return Response({"detail": "Chưa có yêu cầu xác thực. Vui lòng đăng ký lại."}, status=400)
+        with transaction.atomic():
+            # Khoá dòng: các lần nhập đồng thời không cùng đọc một số lần sai cũ để vượt giới hạn.
+            xac_thuc = XacThucEmail.objects.select_for_update().filter(nguoi_dung=nguoi_dung).first()
+            if xac_thuc is None:
+                return Response({"detail": "Chưa có yêu cầu xác thực. Vui lòng đăng ký lại."}, status=400)
 
-        if xac_thuc.da_xac_thuc:
-            return Response({"detail": "Email đã được xác thực."}, status=400)
+            if xac_thuc.da_xac_thuc:
+                return Response({"detail": "Email đã được xác thực."}, status=400)
 
-        if not xac_thuc.con_hieu_luc:
-            return Response({"detail": "Mã xác thực đã hết hạn. Vui lòng yêu cầu gửi lại."}, status=400)
+            if not xac_thuc.con_hieu_luc:
+                return Response({"detail": "Mã xác thực đã hết hạn. Vui lòng yêu cầu gửi lại."}, status=400)
 
-        if xac_thuc.ma_xac_thuc != ma_otp:
-            return Response({"detail": "Mã xác thực không chính xác."}, status=400)
+            if xac_thuc.so_lan_sai >= XacThucEmail.SO_LAN_SAI_TOI_DA:
+                return Response({"detail": "Bạn đã nhập sai quá nhiều lần. Vui lòng yêu cầu gửi mã mới."}, status=400)
+
+            if not secrets.compare_digest(xac_thuc.ma_xac_thuc, ma_otp):
+                xac_thuc.so_lan_sai += 1
+                xac_thuc.save(update_fields=["so_lan_sai"])
+                con_lai = XacThucEmail.SO_LAN_SAI_TOI_DA - xac_thuc.so_lan_sai
+                if con_lai <= 0:
+                    return Response({"detail": "Bạn đã nhập sai quá nhiều lần. Vui lòng yêu cầu gửi mã mới."}, status=400)
+                return Response({"detail": f"Mã xác thực không chính xác. Còn {con_lai} lần thử."}, status=400)
 
         # Kích hoạt tài khoản
         nguoi_dung.is_active = True

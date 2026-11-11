@@ -88,3 +88,56 @@ class ThamSoSaiKieuTest(TestCase):
             "/api/dat-ban/khung-gio-trong/?chi_nhanh_id=1 OR 1=1&ngay=2026-11-12",
         ):
             self.assertEqual(c.get(url).status_code, 400, url)
+
+
+class DoMaOtpTest(TestCase):
+    """Chặn dò mã OTP 6 số: giới hạn theo đúng trường email của view + vô hiệu mã sau 5 lần sai."""
+    URL = "/api/xac-thuc/xac-thuc-email/"
+
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.nd = NguoiDung.objects.create_user(
+            username="moi", thu_dien_tu="moi@moc.vn", email="moi@moc.vn", password="Passw0rd!x", is_active=False
+        )
+        self.xt = XacThucEmail.objects.create(nguoi_dung=self.nd)
+        self.ma = self.xt.tao_ma()
+
+    def _nhap(self, ma, **them):
+        return self.client.post(self.URL, {"email": "moi@moc.vn", "ma_xac_thuc": ma, **them}, format="json",
+                                REMOTE_ADDR=them.pop("ip", "10.9.0.1"))
+
+    @override_settings(GIOI_HAN_TAN_SUAT={"nhap_otp": "3/m"})
+    def test_truong_gia_khong_lam_lech_bo_dem(self):
+        # Kẻ tấn công gửi email nạn nhân ở trường view dùng + chuỗi ngẫu nhiên ở trường khác,
+        # mỗi lần một IP: bộ đếm vẫn tính theo email nạn nhân.
+        for i in range(3):
+            r = self.client.post(self.URL, {"email": "moi@moc.vn", "thu_dien_tu": f"gia{i}@x.vn", "ma_xac_thuc": "000000"},
+                                 format="json", REMOTE_ADDR=f"10.9.1.{i}")
+            self.assertEqual(r.status_code, 400)
+        r = self.client.post(self.URL, {"email": "moi@moc.vn", "thu_dien_tu": "gia9@x.vn", "ma_xac_thuc": self.ma},
+                             format="json", REMOTE_ADDR="10.9.1.99")
+        self.assertEqual(r.status_code, 429)
+
+    def test_sai_5_lan_thi_ma_vo_hieu_ke_ca_ma_dung(self):
+        for con_lai in (4, 3, 2, 1):
+            r = self._nhap("000000")
+            self.assertIn(f"Còn {con_lai} lần", r.data["detail"])
+        self.assertIn("quá nhiều lần", self._nhap("000000").data["detail"])
+        r = self._nhap(self.ma)
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("gửi mã mới", r.data["detail"])
+        self.nd.refresh_from_db()
+        self.assertFalse(self.nd.is_active)
+
+        # Xin mã mới thì bộ đếm về 0 và mã mới dùng được
+        self.xt.refresh_from_db()
+        ma_moi = self.xt.tao_ma()
+        r = self._nhap(ma_moi)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.nd.refresh_from_db()
+        self.assertTrue(self.nd.is_active)
+
+    def test_du_lieu_sai_kieu_khong_loi_500(self):
+        for body in ({"email": ["moi@moc.vn"], "ma_xac_thuc": 123456}, {"email": 1, "ma_xac_thuc": None}):
+            self.assertIn(self.client.post(self.URL, body, format="json").status_code, (400, 404))

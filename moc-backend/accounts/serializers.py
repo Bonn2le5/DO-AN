@@ -1,5 +1,6 @@
 import re
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import VaiTro, QuyenHan, NguoiDungVaiTro
@@ -56,10 +57,20 @@ class DangKySerializer(serializers.ModelSerializer):
         "min_length": "Mật khẩu tối thiểu 6 ký tự.",
     })
     ho_ten = serializers.CharField(write_only=True, required=False)
+    # Đồng ý Chính sách bảo vệ dữ liệu cá nhân là bắt buộc để tạo tài khoản (Điều 9 Luật 91/2025).
+    # Lưu thời điểm + phiên bản chính sách hiển thị trên form làm bằng chứng (khoản 1, 2 Điều 6 NĐ 356/2025).
+    dong_y_chinh_sach = serializers.BooleanField(write_only=True, error_messages={
+        "required": "Vui lòng đồng ý với Chính sách bảo vệ dữ liệu cá nhân.",
+    })
+    phien_ban_chinh_sach = serializers.CharField(max_length=20, error_messages={
+        "required": "Thiếu phiên bản chính sách.",
+        "blank": "Thiếu phiên bản chính sách.",
+    })
 
     class Meta:
         model = NguoiDung
-        fields = ("thu_dien_tu", "username", "ho_ten", "mat_khau", "first_name", "last_name", "so_dien_thoai")
+        fields = ("thu_dien_tu", "username", "ho_ten", "mat_khau", "first_name", "last_name", "so_dien_thoai",
+                  "dong_y_chinh_sach", "phien_ban_chinh_sach")
         extra_kwargs = {
             "username": {"required": False},
             # Kiểm tra trùng email tự làm trong validate() để không phân biệt hoa/thường
@@ -81,6 +92,11 @@ class DangKySerializer(serializers.ModelSerializer):
             thu_dien_tu__iexact=thu_dien_tu, is_active=False, xac_thuc_email__da_xac_thuc=False
         )
 
+    def validate_dong_y_chinh_sach(self, value):
+        if value is not True:
+            raise serializers.ValidationError("Vui lòng đồng ý với Chính sách bảo vệ dữ liệu cá nhân.")
+        return value
+
     def validate(self, attrs):
         thu_dien_tu = attrs["thu_dien_tu"].strip().lower()
         so_dien_thoai = re.sub(r"[\s.-]", "", attrs["so_dien_thoai"])
@@ -100,6 +116,8 @@ class DangKySerializer(serializers.ModelSerializer):
     def create(self, du_lieu_da_xac_thuc):
         ho_ten = du_lieu_da_xac_thuc.pop("ho_ten", "").strip()
         mat_khau = du_lieu_da_xac_thuc.pop("mat_khau")
+        du_lieu_da_xac_thuc.pop("dong_y_chinh_sach")
+        du_lieu_da_xac_thuc["dong_y_chinh_sach_luc"] = timezone.now()
 
         # 0. Đăng ký lại khi chưa xác thực: xóa bản cũ để tạo lại và gửi mã mới
         self.tai_khoan_cho_xac_thuc(du_lieu_da_xac_thuc["thu_dien_tu"]).delete()

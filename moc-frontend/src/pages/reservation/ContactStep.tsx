@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Link } from "react-router-dom";
 import { z } from "zod";
 import { MapPin, ShieldCheck, Users } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -85,6 +86,11 @@ export default function ContactStep({
                 <input id="reservation-note" autoFocus={!initialValues.ghiChu} {...register("ghiChu")} placeholder="Ghi chú, ví dụ: có trẻ em, cần ghế em bé" className="reservation-field py-2.5!" />
               </Field>
             )}
+            {/* Thông báo xử lý dữ liệu (Điều 9 Luật 91/2025). Đặt bàn là thực hiện hợp đồng nên không cần ô tích. */}
+            <p className="text-xs text-muted leading-relaxed">
+              Nhà hàng dùng tên và số điện thoại để xác nhận đặt chỗ. Ghi chú (ví dụ dị ứng) chỉ dùng để phục vụ bữa ăn.{" "}
+              <Link to="/chinh-sach-bao-mat" target="_blank" className="underline underline-offset-2 hover:text-primary">Chính sách bảo mật</Link>
+            </p>
           </section>
 
           <section className="p-4 lg:p-5 flex-1" aria-labelledby="sec-booking">

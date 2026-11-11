@@ -78,16 +78,20 @@ class _TheoIP(_GioiHanCoBan):
 
 
 class _TheoEmail(_GioiHanCoBan):
-    """Theo email trong body: chặn dò một tài khoản dù kẻ tấn công đổi IP liên tục."""
-    truong_email = ("thu_dien_tu", "email")
+    """Theo email trong body: chặn dò một tài khoản dù kẻ tấn công đổi IP liên tục.
+
+    `truong_email` PHẢI là đúng trường mà view dùng để tìm tài khoản, và chỉ một trường:
+    nếu đọc dự phòng sang trường khác, kẻ tấn công gửi email nạn nhân ở trường view dùng
+    kèm chuỗi ngẫu nhiên ở trường kia → bộ đếm tính theo chuỗi ngẫu nhiên, giới hạn vô tác dụng.
+    Chuẩn hoá (strip + lower) giống view.
+    """
+    truong_email = ""
 
     def dinh_danh(self, request):
         data = request.data if hasattr(request.data, "get") else {}
-        for truong in self.truong_email:
-            email = str(data.get(truong) or "").strip().lower()
-            if email:
-                return email
-        return None
+        gia_tri = data.get(self.truong_email)
+        email = gia_tri.strip().lower() if isinstance(gia_tri, str) else ""
+        return email or None
 
 
 class GioiHanDangNhapIP(_TheoIP):
@@ -96,6 +100,7 @@ class GioiHanDangNhapIP(_TheoIP):
 
 class GioiHanDangNhapTaiKhoan(_TheoEmail):
     scope = "dang_nhap_tai_khoan"
+    truong_email = "thu_dien_tu"  # DangNhapTokenSerializer: USERNAME_FIELD
 
 
 class GioiHanDangKy(_TheoIP):
@@ -104,6 +109,7 @@ class GioiHanDangKy(_TheoIP):
 
 class GioiHanGuiOtp(_TheoEmail):
     scope = "gui_otp"
+    truong_email = "email"  # XacThucViewSet.gui_ma_xac_thuc đọc request.data["email"]
 
 
 class GioiHanGuiOtpIP(_TheoIP):
@@ -112,6 +118,7 @@ class GioiHanGuiOtpIP(_TheoIP):
 
 class GioiHanNhapOtp(_TheoEmail):
     scope = "nhap_otp"
+    truong_email = "email"  # XacThucViewSet.xac_thuc_email đọc request.data["email"]
 
 
 class GioiHanNhapOtpIP(_TheoIP):

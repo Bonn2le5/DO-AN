@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { CHU_SO_HUU } from "@/lib/legal";
 import logoDayDu from "@/assets/logo-day-du.webp";
 
 // lucide-react no longer ships brand/social glyphs, so these two are inlined.
@@ -81,8 +82,18 @@ export default function Footer() {
           </div>
         </div>
         <div className="flex flex-col sm:flex-row justify-between gap-2 py-6 text-[12.5px] text-white/50">
-          <span>© 2026 MỘC Kitchen. All rights reserved.</span>
-          <span>Điều khoản · Chính sách bảo mật</span>
+          <div className="space-y-1">
+            <div>© 2026 MỘC Kitchen. All rights reserved.</div>
+            {/* Luật TMĐT 122/2025 Điều 11: công bố tên chủ sở hữu, mã số thuế. Điền trong src/lib/legal.ts. */}
+            <div>
+              {CHU_SO_HUU.tenDonVi ?? "[ĐIỀN: tên đơn vị]"} · MST: {CHU_SO_HUU.maSoThue ?? "[ĐIỀN]"}
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <Link to="/dieu-khoan" className="hover:text-gold transition-colors">Điều khoản</Link>
+            <span aria-hidden="true">·</span>
+            <Link to="/chinh-sach-bao-mat" className="hover:text-gold transition-colors">Chính sách bảo mật</Link>
+          </div>
         </div>
       </div>
     </footer>

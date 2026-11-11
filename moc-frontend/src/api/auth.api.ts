@@ -1,4 +1,5 @@
 import { apiClient, setAccessToken, setRefreshToken } from "./client";
+import { PHIEN_BAN_CHINH_SACH } from "@/lib/legal";
 
 export interface LoginPayload {
   email: string;
@@ -7,6 +8,8 @@ export interface LoginPayload {
 export interface RegisterPayload extends LoginPayload {
   name: string;
   phone: string;
+  /** Đã tích ô đồng ý Chính sách bảo vệ dữ liệu cá nhân */
+  agree: boolean;
 }
 export interface AuthResult {
   accessToken: string;
@@ -25,7 +28,10 @@ export async function login(payload: LoginPayload): Promise<AuthResult> {
 }
 
 export async function register(payload: RegisterPayload): Promise<{ email: string; message: string }> {
-  const { data } = await apiClient.post("/xac-thuc/dang-ky/", { thu_dien_tu: payload.email, mat_khau: payload.password, ho_ten: payload.name, so_dien_thoai: payload.phone });
+  const { data } = await apiClient.post("/xac-thuc/dang-ky/", {
+    thu_dien_tu: payload.email, mat_khau: payload.password, ho_ten: payload.name, so_dien_thoai: payload.phone,
+    dong_y_chinh_sach: payload.agree, phien_ban_chinh_sach: PHIEN_BAN_CHINH_SACH,
+  });
   // Backend now returns { email, message } instead of tokens (email verification required)
   return { email: data.email ?? payload.email, message: data.message ?? "" };
 }
