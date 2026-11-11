@@ -37,3 +37,10 @@ pnpm-debug.log*
 
 # Generated test output
 tests/e2e_report.json
+
+# Báo cáo, tài liệu nộp và file nén — không đưa vào repo code
+*.docx
+*.pdf
+*.pages
+*.zip
+tu.md
