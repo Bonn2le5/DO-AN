@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { ghiTuongTac } from "@/api/recommendations.api";
+import { boYeuThich, ghiTuongTac } from "@/api/recommendations.api";
 
 interface FavoriteState {
   ids: Set<string>;
@@ -13,8 +13,10 @@ export const useFavoriteStore = create<FavoriteState>((set, get) => ({
   toggle: (foodId) => {
     set((state) => {
       const next = new Set(state.ids);
-      if (next.has(foodId)) next.delete(foodId);
-      else {
+      if (next.has(foodId)) {
+        next.delete(foodId);
+        boYeuThich(foodId);
+      } else {
         next.add(foodId);
         ghiTuongTac(foodId, "yeu_thich"); // tín hiệu khẩu vị cho AI gợi ý (trọng số 2)
       }

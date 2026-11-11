@@ -1,5 +1,5 @@
 /**
- * Hộp thư chat cho staff: danh sách hội thoại + tin mới qua WebSocket (/ws/chat/inbox/).
+ * Hộp thư chat cho staff: danh sách hội thoại + tin mới qua WebSocket (/ws/hoi-thoai/hop-thu/).
  * Chỉ gọi REST khi mở lần đầu, sau khi kết nối lại, hoặc khi có hội thoại mới chưa biết.
  * Path: moc-frontend/src/hooks/useChatInbox.ts
  */
@@ -25,7 +25,7 @@ export interface InboxMessage {
   created_at?: string;
 }
 
-const CHAT_API = "/chat/conversations/";
+const CHAT_API = "/hoi-thoai/";
 const PING_MS = 25_000;
 
 const mapItem = (r: any): InboxItem => ({
@@ -85,7 +85,7 @@ export function useChatInbox(
 
     const connect = async () => {
       if (closing) return;
-      const socket = await openAuthenticatedWebSocket("/ws/chat/inbox/");
+      const socket = await openAuthenticatedWebSocket("/ws/hoi-thoai/hop-thu/");
       if (!socket) return;
       if (closing) {
         socket.close();

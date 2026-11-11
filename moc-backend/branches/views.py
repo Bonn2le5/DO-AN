@@ -3,8 +3,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from api.permissions import LaNhanVienHoacChiDoc
-from .models import ChiNhanh, Branch
-from .serializers import ChiNhanhSerializer, BranchSerializer
+from .models import ChiNhanh
+from .serializers import ChiNhanhSerializer
 from .services import find_nearest_branches
 
 
@@ -152,6 +152,3 @@ class ChiNhanhViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="tim-gan-nhat")
     def tim_gan_nhat(self, request):
         return self.nearest(request)
-
-
-BranchViewSet = ChiNhanhViewSet

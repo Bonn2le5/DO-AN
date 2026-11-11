@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ChiNhanh, Branch
+from .models import ChiNhanh
 
 
 class ChiNhanhSerializer(serializers.ModelSerializer):
@@ -42,6 +42,3 @@ class ChiNhanhSerializer(serializers.ModelSerializer):
             "kinh_do", "vi_do", "con_hoat_dong",
             "khoang_cach_km", "khoang_cach_m", "tao_luc", "cap_nhat_luc"
         )
-
-
-BranchSerializer = ChiNhanhSerializer

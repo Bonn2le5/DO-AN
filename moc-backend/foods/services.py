@@ -251,8 +251,3 @@ class DichVuKho:
             }
             for nl in nl_map.values()
         ]
-
-
-# Backward-compatible service aliases
-InventoryService = DichVuKho
-WarehouseService = DichVuKho

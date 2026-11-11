@@ -11,31 +11,31 @@ type Item = { to: string; label: string; icon: typeof Tag; module: Module; end?:
 const GROUPS: { title: string; items: Item[] }[] = [
   { title: "Vận hành", items: [
     { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, module: "dashboard", end: true },
-    { to: "/admin/orders", label: "Đơn hàng", icon: ShoppingBag, module: "orders" },
-    { to: "/admin/reservations", label: "Đặt bàn", icon: CalendarDays, module: "reservations" },
-    { to: "/admin/tables", label: "Sơ đồ bàn", icon: Armchair, module: "tables" },
-    { to: "/admin/chat", label: "Chat khách hàng", icon: MessageCircle, module: "chat" },
+    { to: "/admin/don-hang", label: "Đơn hàng", icon: ShoppingBag, module: "orders" },
+    { to: "/admin/dat-ban", label: "Đặt bàn", icon: CalendarDays, module: "reservations" },
+    { to: "/admin/ban-an", label: "Sơ đồ bàn", icon: Armchair, module: "tables" },
+    { to: "/admin/hoi-thoai", label: "Chat khách hàng", icon: MessageCircle, module: "chat" },
   ] },
   { title: "Thực đơn", items: [
-    { to: "/admin/menu", label: "Món ăn", icon: UtensilsCrossed, module: "foods" },
-    { to: "/admin/categories", label: "Danh mục & tag", icon: Tag, module: "categories" },
-    { to: "/admin/ingredients", label: "Nguyên liệu & kho", icon: Package, module: "ingredients" },
+    { to: "/admin/mon-an", label: "Món ăn", icon: UtensilsCrossed, module: "foods" },
+    { to: "/admin/danh-muc", label: "Danh mục & tag", icon: Tag, module: "categories" },
+    { to: "/admin/nguyen-lieu", label: "Nguyên liệu & kho", icon: Package, module: "ingredients" },
   ] },
   { title: "Tiếp thị", items: [
-    { to: "/admin/promotions", label: "Khuyến mãi", icon: Percent, module: "promotions" },
-    { to: "/admin/posts", label: "Bài viết", icon: Newspaper, module: "posts" },
-    { to: "/admin/reviews", label: "Đánh giá", icon: Star, module: "reviews" },
+    { to: "/admin/khuyen-mai", label: "Khuyến mãi", icon: Percent, module: "promotions" },
+    { to: "/admin/bai-viet", label: "Bài viết", icon: Newspaper, module: "posts" },
+    { to: "/admin/danh-gia", label: "Đánh giá", icon: Star, module: "reviews" },
   ] },
   { title: "Tài chính", items: [
-    { to: "/admin/payments", label: "Hóa đơn & thanh toán", icon: CreditCard, module: "payments" },
-    { to: "/admin/deposit-policy", label: "Chính sách cọc", icon: Landmark, module: "deposit" },
+    { to: "/admin/thanh-toan", label: "Hóa đơn & thanh toán", icon: CreditCard, module: "payments" },
+    { to: "/admin/chinh-sach-coc", label: "Chính sách cọc", icon: Landmark, module: "deposit" },
   ] },
   { title: "Hệ thống", items: [
-    { to: "/admin/branches", label: "Chi nhánh", icon: MapPin, module: "branches" },
-    { to: "/admin/users", label: "Người dùng", icon: Users, module: "users" },
-    { to: "/admin/roles", label: "Vai trò & quyền", icon: ShieldCheck, module: "roles" },
+    { to: "/admin/chi-nhanh", label: "Chi nhánh", icon: MapPin, module: "branches" },
+    { to: "/admin/nguoi-dung", label: "Người dùng", icon: Users, module: "users" },
+    { to: "/admin/vai-tro", label: "Vai trò & quyền", icon: ShieldCheck, module: "roles" },
     { to: "/admin/ai", label: "AI gợi ý món", icon: Sparkles, module: "ai" },
-    { to: "/admin/settings", label: "Cài đặt", icon: Settings, module: "settings" },
+    { to: "/admin/cai-dat", label: "Cài đặt", icon: Settings, module: "settings" },
   ] },
 ];
 

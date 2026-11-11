@@ -26,11 +26,6 @@ class MoHinhThoiGian(models.Model):
         abstract = True
 
 
-class TimeStampedModel(MoHinhThoiGian):
-    class Meta:
-        abstract = True
-
-
 class DanhMuc(MoHinhThoiGian):
     ten = models.CharField(max_length=100, unique=True)
     duong_dan = models.SlugField(unique=True, blank=True)
@@ -187,15 +182,3 @@ class LichSuXuatNhapKho(MoHinhThoiGian):
 
     class Meta:
         db_table = "lich_su_xuat_nhap_kho"
-
-
-# Backward-compatible model aliases
-Category = DanhMuc
-Tag = TheMonAn
-Ingredient = NguyenLieu
-Food = MonAn
-FoodTag = MonAnThe
-FoodIngredient = DinhMucNguyenLieu
-FoodImage = HinhAnhMonAn
-InventoryTransaction = LichSuXuatNhapKho
-InventoryHistory = LichSuXuatNhapKho

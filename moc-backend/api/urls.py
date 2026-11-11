@@ -12,14 +12,14 @@ from accounts.views import (
 from foods.views import DanhMucViewSet, NguyenLieuViewSet, MonAnViewSet, TheMonAnViewSet, LichSuKhoViewSet, DinhMucNguyenLieuViewSet
 from orders.views import DonHangViewSet
 from reservations.views import BanAnViewSet, DatBanViewSet, PhongRiengViewSet, PhienPhucVuViewSet
-from promotions.views import PromotionViewSet, PromotionCodeViewSet, PromotionUsageViewSet
-from posts.views import PostViewSet, PostCategoryViewSet
-from reviews.views import ReviewViewSet
-from recommendations.views import InteractionViewSet, RecommendationViewSet
-from chat.views import ChatRoomViewSet
-from analytics.views import NotificationViewSet, DashboardViewSet
-from branches.views import BranchViewSet
-from payments.views import PaymentViewSet, PhieuHoanTienViewSet
+from promotions.views import KhuyenMaiViewSet, MaKhuyenMaiViewSet, LichSuDungKhuyenMaiViewSet
+from posts.views import BaiVietViewSet, DanhMucBaiVietViewSet
+from reviews.views import DanhGiaViewSet
+from recommendations.views import TuongTacMonAnViewSet, GoiYMonAnViewSet
+from chat.views import HoiThoaiViewSet
+from analytics.views import ThongBaoViewSet, TongQuanViewSet
+from branches.views import ChiNhanhViewSet
+from payments.views import ThanhToanViewSet, PhieuHoanTienViewSet
 
 
 router = DefaultRouter()
@@ -32,6 +32,7 @@ router.register("nguoi-dung", NguoiDungViewSet, basename="nguoi-dung")
 router.register("roles", VaiTroViewSet, basename="role")
 router.register("vai-tro", VaiTroViewSet, basename="vai-tro")
 router.register("permissions", QuyenHanViewSet, basename="permission")
+router.register("quyen-han", QuyenHanViewSet, basename="quyen-han")
 
 # 2. Foods
 router.register("foods", MonAnViewSet, basename="food")
@@ -47,12 +48,13 @@ router.register("kho", LichSuKhoViewSet, basename="kho")
 router.register("dinh-muc-nguyen-lieu", DinhMucNguyenLieuViewSet, basename="dinh-muc-nguyen-lieu")
 
 # 3. Branches
-router.register("branches", BranchViewSet, basename="branch")
-router.register("chi-nhanh", BranchViewSet, basename="chi-nhanh")
+router.register("branches", ChiNhanhViewSet, basename="branch")
+router.register("chi-nhanh", ChiNhanhViewSet, basename="chi-nhanh")
 
 # 4. Tables & Reservations
 router.register("tables", BanAnViewSet, basename="table")
 router.register("rooms", PhongRiengViewSet, basename="room")
+router.register("phong-rieng", PhongRiengViewSet, basename="phong-rieng")
 router.register("ban-an", BanAnViewSet, basename="ban-an")
 router.register("reservations", DatBanViewSet, basename="reservation")
 router.register("dat-ban", DatBanViewSet, basename="dat-ban")
@@ -64,42 +66,45 @@ router.register("orders", DonHangViewSet, basename="order")
 router.register("don-hang", DonHangViewSet, basename="don-hang")
 
 # 6. Payments
-router.register("payments", PaymentViewSet, basename="payment")
-router.register("thanh-toan", PaymentViewSet, basename="thanh-toan")
+router.register("payments", ThanhToanViewSet, basename="payment")
+router.register("thanh-toan", ThanhToanViewSet, basename="thanh-toan")
 router.register("refund-receipts", PhieuHoanTienViewSet, basename="refund-receipt")
 router.register("phieu-hoan-tien", PhieuHoanTienViewSet, basename="phieu-hoan-tien")
 
 # 7. Promotions
-router.register("promotions", PromotionViewSet, basename="promotion")
-router.register("khuyen-mai", PromotionViewSet, basename="khuyen-mai")
-router.register("promotion-codes", PromotionCodeViewSet, basename="promotion-code")
-router.register("promotion-usages", PromotionUsageViewSet, basename="promotion-usage")
+router.register("promotions", KhuyenMaiViewSet, basename="promotion")
+router.register("khuyen-mai", KhuyenMaiViewSet, basename="khuyen-mai")
+router.register("promotion-codes", MaKhuyenMaiViewSet, basename="promotion-code")
+router.register("promotion-usages", LichSuDungKhuyenMaiViewSet, basename="promotion-usage")
+router.register("ma-khuyen-mai", MaKhuyenMaiViewSet, basename="ma-khuyen-mai")
+router.register("lich-su-khuyen-mai", LichSuDungKhuyenMaiViewSet, basename="lich-su-khuyen-mai")
 
 # 9. Reviews
-router.register("reviews", ReviewViewSet, basename="review")
-router.register("danh-gia", ReviewViewSet, basename="danh-gia")
+router.register("reviews", DanhGiaViewSet, basename="review")
+router.register("danh-gia", DanhGiaViewSet, basename="danh-gia")
 
 # 10. Posts
-router.register("posts", PostViewSet, basename="post")
-router.register("bai-viet", PostViewSet, basename="bai-viet")
-router.register("post-categories", PostCategoryViewSet, basename="post-category")
-router.register("danh-muc-bai-viet", PostCategoryViewSet, basename="danh-muc-bai-viet")
+router.register("posts", BaiVietViewSet, basename="post")
+router.register("bai-viet", BaiVietViewSet, basename="bai-viet")
+router.register("post-categories", DanhMucBaiVietViewSet, basename="post-category")
+router.register("danh-muc-bai-viet", DanhMucBaiVietViewSet, basename="danh-muc-bai-viet")
 
 # 11. Chat
-router.register("chat/rooms", ChatRoomViewSet, basename="chat-room")
-router.register("chat/conversations", ChatRoomViewSet, basename="chat-conversation")
-router.register("hoi-thoai", ChatRoomViewSet, basename="hoi-thoai")
+router.register("chat/rooms", HoiThoaiViewSet, basename="chat-room")
+router.register("chat/conversations", HoiThoaiViewSet, basename="chat-conversation")
+router.register("hoi-thoai", HoiThoaiViewSet, basename="hoi-thoai")
 
 # 12. Recommendations
-router.register("recommendations", RecommendationViewSet, basename="recommendation")
-router.register("goi-y", RecommendationViewSet, basename="goi-y")
-router.register("interactions", InteractionViewSet, basename="interaction")
-router.register("tuong-tac", InteractionViewSet, basename="tuong-tac")
+router.register("recommendations", GoiYMonAnViewSet, basename="recommendation")
+router.register("goi-y", GoiYMonAnViewSet, basename="goi-y")
+router.register("interactions", TuongTacMonAnViewSet, basename="interaction")
+router.register("tuong-tac", TuongTacMonAnViewSet, basename="tuong-tac")
 
 # 13. Analytics & Notifications
-router.register("notifications", NotificationViewSet, basename="notification")
-router.register("thong-bao", NotificationViewSet, basename="thong-bao")
-router.register("analytics/dashboard", DashboardViewSet, basename="dashboard")
+router.register("notifications", ThongBaoViewSet, basename="notification")
+router.register("thong-bao", ThongBaoViewSet, basename="thong-bao")
+router.register("analytics/dashboard", TongQuanViewSet, basename="dashboard")
+router.register("thong-ke/tong-quan", TongQuanViewSet, basename="thong-ke-tong-quan")
 
 urlpatterns = [
     path("health/", health_check, name="health-check"),
@@ -107,26 +112,24 @@ urlpatterns = [
     path("auth/dang-nhap/", DangNhapTokenView.as_view(), name="token-obtain-pair-vn"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
     path("auth/lam-moi/", TokenRefreshView.as_view(), name="token-refresh-vn"),
-    path("analytics/ai/", DashboardViewSet.as_view({"get": "ai"}), name="analytics-ai"),
-    path("analytics/settings/", DashboardViewSet.as_view({"get": "restaurant_settings", "put": "restaurant_settings"}), name="analytics-settings"),
+    path("xac-thuc/dang-nhap/", DangNhapTokenView.as_view(), name="xac-thuc-dang-nhap"),
+    path("xac-thuc/lam-moi/", TokenRefreshView.as_view(), name="xac-thuc-lam-moi"),
+    path("analytics/ai/", TongQuanViewSet.as_view({"get": "ai"}), name="analytics-ai"),
+    path("analytics/settings/", TongQuanViewSet.as_view({"get": "restaurant_settings", "put": "restaurant_settings"}), name="analytics-settings"),
+    path("thong-ke/ai/", TongQuanViewSet.as_view({"get": "ai"}), name="thong-ke-ai"),
+    path("thong-ke/cai-dat/", TongQuanViewSet.as_view({"get": "restaurant_settings", "put": "restaurant_settings"}), name="thong-ke-cai-dat"),
 
-    # Explicit VNPay dual endpoints
-    path("payments/vnpay/create/", PaymentViewSet.as_view({"post": "vnpay_create"}), name="vnpay-create-en"),
-    path("thanh-toan/vnpay/create/", PaymentViewSet.as_view({"post": "vnpay_create"}), name="vnpay-create-vn"),
-    path("payments/vnpay/tao-phien/", PaymentViewSet.as_view({"post": "vnpay_tao_phien"}), name="vnpay-tao-phien-en"),
-    path("thanh-toan/vnpay/tao-phien/", PaymentViewSet.as_view({"post": "vnpay_tao_phien"}), name="vnpay-tao-phien-vn"),
-    path("payments/vnpay/return/", PaymentViewSet.as_view({"get": "vnpay_return"}), name="vnpay-return-en"),
-    path("thanh-toan/vnpay/return/", PaymentViewSet.as_view({"get": "vnpay_return"}), name="vnpay-return-vn"),
-    path("payments/vnpay/ipn/", PaymentViewSet.as_view({"get": "vnpay_ipn"}), name="vnpay-ipn-en"),
-    path("thanh-toan/vnpay/ipn/", PaymentViewSet.as_view({"get": "vnpay_ipn"}), name="vnpay-ipn-vn"),
+    # PayOS
+    path("thanh-toan/payos/tao-phien/", ThanhToanViewSet.as_view({"post": "payos_tao_phien"}), name="payos-tao-phien-vn"),
+    path("thanh-toan/payos/return/", ThanhToanViewSet.as_view({"get": "payos_return"}), name="payos-return-vn"),
+    path("thanh-toan/payos/webhook/", ThanhToanViewSet.as_view({"post": "payos_webhook"}), name="payos-webhook-vn"),
 
     # Explicit Recommendation dual endpoints
-    path("recommendations/tuong-tac/", InteractionViewSet.as_view({"get": "list", "post": "create"}), name="recommendation-tuong-tac"),
-    path("recommendations/interactions/", InteractionViewSet.as_view({"get": "list", "post": "create"}), name="recommendation-interactions"),
-    path("goi-y/tuong-tac/", InteractionViewSet.as_view({"get": "list", "post": "create"}), name="goi-y-tuong-tac"),
-    path("recommendations/lam-moi/", RecommendationViewSet.as_view({"get": "refresh", "post": "refresh"}), name="recommendations-lam-moi-explicit"),
-    path("goi-y/lam-moi/", RecommendationViewSet.as_view({"get": "refresh", "post": "refresh"}), name="goi-y-lam-moi-explicit"),
+    path("recommendations/tuong-tac/", TuongTacMonAnViewSet.as_view({"get": "list", "post": "create"}), name="recommendation-tuong-tac"),
+    path("recommendations/interactions/", TuongTacMonAnViewSet.as_view({"get": "list", "post": "create"}), name="recommendation-interactions"),
+    path("goi-y/tuong-tac/", TuongTacMonAnViewSet.as_view({"get": "list", "post": "create"}), name="goi-y-tuong-tac"),
+    path("recommendations/lam-moi/", GoiYMonAnViewSet.as_view({"get": "refresh", "post": "refresh"}), name="recommendations-lam-moi-explicit"),
+    path("goi-y/lam-moi/", GoiYMonAnViewSet.as_view({"get": "refresh", "post": "refresh"}), name="goi-y-lam-moi-explicit"),
 
     path("", include(router.urls)),
 ]
-

@@ -1,0 +1,58 @@
+@startuml
+skinparam defaultFontName Arial
+skinparam shadowing false
+title Sơ đồ hoạt động tiếp nhận, phục vụ tại bàn và thanh toán
+|Nhân viên|
+start
+if (Khách đã đặt bàn trước?) then (có)
+  :Tìm đặt bàn đã xác nhận;
+  :Check-in khách\n(da_xac_nhan → khach_da_den);
+  :Chọn bàn trống đủ sức chứa;
+  |Hệ thống|
+  :Khóa đặt bàn và bàn (select_for_update);
+  :Tạo phiên phục vụ, bàn → "đang phục vụ";
+  :Chuyển món gọi trước thành dòng hóa đơn;
+else (walk-in)
+  |Nhân viên|
+  :Chọn bàn trống, nhập số khách;
+  |Hệ thống|
+  :Khóa bàn, kiểm tra bàn trống và sức chứa;
+  :Tạo phiên phục vụ (chưa tạo hóa đơn);
+endif
+|Nhân viên|
+repeat
+  :Gọi thêm / sửa món;
+  |Hệ thống|
+  :Tạo hóa đơn khi có món đầu tiên,\ntính lại tổng tiền ở máy chủ;
+  |Nhân viên|
+  if (Gửi bếp?) then (có)
+    |Hệ thống|
+    if (Đủ nguyên liệu theo định mức?) then (đủ)
+      :Đơn → "đã xác nhận",\ntrừ kho nguyên liệu;
+      :Phát sự kiện WebSocket tới bếp/nhân viên;
+    else (thiếu)
+      :Báo lỗi, hoàn tác giao dịch;
+    endif
+  endif
+  |Nhân viên|
+repeat while (Khách gọi thêm?) is (có)
+-> không;
+if (Khách hủy bàn?) then (có)
+  |Hệ thống|
+  if (Đơn đã gửi bếp?) then (chưa)
+    :Xóa hóa đơn nháp;
+  else (rồi)
+    :Chỉ quản lý được hủy;\nđơn → "đã hủy", hoàn kho;
+  endif
+  :Đóng phiên, bàn → "trống";
+else (không)
+  |Nhân viên|
+  :Checkout, chọn tiền mặt / chuyển khoản;
+  |Hệ thống|
+  :Đưa đơn qua các trạng thái tới "hoàn tất";
+  :Số tiền cần thu = tổng hóa đơn − tiền cọc đã trả;
+  :Ghi thanh toán thành công;
+  :Đóng phiên, bàn → "trống",\nđặt bàn → "hoàn tất";
+endif
+stop
+@enduml

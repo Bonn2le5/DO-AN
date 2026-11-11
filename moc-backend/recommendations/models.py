@@ -69,10 +69,3 @@ class SuKienGoiY(MoHinhThoiGian):
         db_table = "su_kien_goi_y"
         indexes = [models.Index(fields=["loai_su_kien", "tao_luc"])]
         verbose_name = "Sự kiện gợi ý"
-
-
-# Backward-compatible model aliases
-FoodInteraction = TuongTacMonAn
-Recommendation = GoiYMonAn
-TuongTacMonAn.Type = TuongTacMonAn.LoaiTuongTac
-FoodInteraction.Type = TuongTacMonAn.LoaiTuongTac

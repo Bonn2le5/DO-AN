@@ -84,6 +84,8 @@ class MonAnSerializer(serializers.ModelSerializer):
     )
     hinh_anh = HinhAnhMonAnSerializer(many=True, read_only=True)
     don_gia_hien_tai = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    # Tên nguyên liệu chính lấy từ định mức (DinhMucNguyenLieu); sửa ở trang Nguyên liệu & kho.
+    nguyen_lieu = serializers.SlugRelatedField(many=True, read_only=True, slug_field="ten")
 
     def _save_primary_image(self, instance, image_data):
         if not image_data or not image_data.startswith("data:image/"):
@@ -180,12 +182,3 @@ class DinhMucNguyenLieuSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("Định mức phải lớn hơn 0.")
         return value
-
-
-# Backward-compatible serializer aliases
-CategorySerializer = DanhMucSerializer
-TagSerializer = TheMonAnSerializer
-IngredientSerializer = NguyenLieuSerializer
-FoodSerializer = MonAnSerializer
-FoodImageSerializer = HinhAnhMonAnSerializer
-InventoryHistorySerializer = LichSuKhoSerializer

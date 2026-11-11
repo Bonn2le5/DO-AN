@@ -233,6 +233,9 @@ export default function TablesPage() {
       if (seating.status === "confirmed") await checkInReservation(seating.id, seating.version);
       const session = await startReservationSession(seating.id, seatTarget.id);
       push(`Đã check-in ${seating.customer || "khách"} và xếp vào ${seatTarget.number}.`);
+      if (session.missingItems.length) {
+        push(`Món đặt trước đã hết, chưa thêm vào hoá đơn: ${session.missingItems.join(", ")}. Hãy báo khách đổi món.`, "err");
+      }
       setSeatTarget(null);
       setSeating(null);
       setOpenSession(session);

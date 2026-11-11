@@ -112,7 +112,3 @@ class DonHangViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["patch"], permission_classes=[IsAuthenticated])
     def status(self, request, pk=None):
         return self.trang_thai(request, pk=pk)
-
-
-# Backward-compatible viewset aliases
-OrderViewSet = DonHangViewSet

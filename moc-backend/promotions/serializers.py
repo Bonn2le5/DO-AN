@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import KhuyenMai, MaKhuyenMai, LichSuDungKhuyenMai, Promotion, PromotionCode, PromotionUsage
+from .models import KhuyenMai, MaKhuyenMai, LichSuDungKhuyenMai
 
 
 class MaKhuyenMaiSerializer(serializers.ModelSerializer):
@@ -24,8 +24,3 @@ class LichSuDungKhuyenMaiSerializer(serializers.ModelSerializer):
         model = LichSuDungKhuyenMai
         fields = "__all__"
         read_only_fields = ("nguoi_dung", "don_hang", "so_tien_giam")
-
-
-PromotionSerializer = KhuyenMaiSerializer
-PromotionCodeSerializer = MaKhuyenMaiSerializer
-PromotionUsageSerializer = LichSuDungKhuyenMaiSerializer

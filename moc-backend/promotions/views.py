@@ -1,11 +1,8 @@
 from django.utils import timezone
 from rest_framework import viewsets
-from api.permissions import LaNhanVienHoacChiDoc, LaNhanVienNhaHang, IsStaffOrReadOnly, IsRestaurantStaff
-from .models import KhuyenMai, MaKhuyenMai, LichSuDungKhuyenMai, Promotion, PromotionCode, PromotionUsage
-from .serializers import (
-    KhuyenMaiSerializer, MaKhuyenMaiSerializer, LichSuDungKhuyenMaiSerializer,
-    PromotionSerializer, PromotionCodeSerializer, PromotionUsageSerializer
-)
+from api.permissions import LaNhanVienHoacChiDoc, LaNhanVienNhaHang
+from .models import KhuyenMai, MaKhuyenMai, LichSuDungKhuyenMai
+from .serializers import KhuyenMaiSerializer, MaKhuyenMaiSerializer, LichSuDungKhuyenMaiSerializer
 
 
 class KhuyenMaiViewSet(viewsets.ModelViewSet):
@@ -30,8 +27,3 @@ class LichSuDungKhuyenMaiViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = LichSuDungKhuyenMaiSerializer
     permission_classes = [LaNhanVienNhaHang]
     queryset = LichSuDungKhuyenMai.objects.select_related("khuyen_mai", "nguoi_dung", "don_hang")
-
-
-PromotionViewSet = KhuyenMaiViewSet
-PromotionCodeViewSet = MaKhuyenMaiViewSet
-PromotionUsageViewSet = LichSuDungKhuyenMaiViewSet

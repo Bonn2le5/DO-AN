@@ -2,7 +2,7 @@ import { apiClient } from "./client";
 import type { ChiNhanh, ThongTinTuyenDuong } from "@/types";
 
 export async function getBranches(): Promise<ChiNhanh[]> {
-  const { data } = await apiClient.get("/branches/");
+  const { data } = await apiClient.get("/chi-nhanh/");
   return (Array.isArray(data) ? data : data.results).map((branch: any): ChiNhanh => ({
     id: String(branch.id), tenChiNhanh: branch.ten, diaChi: branch.dia_chi, soDienThoai: branch.so_dien_thoai,
     viDo: Number(branch.vi_do), kinhDo: Number(branch.kinh_do), gioMoCua: branch.opening_hours,

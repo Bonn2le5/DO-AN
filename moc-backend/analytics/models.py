@@ -22,11 +22,7 @@ class ThongBao(MoHinhThoiGian):
         indexes = [models.Index(fields=["nguoi_dung", "da_doc", "-tao_luc"])]
 
 
-# Backward-compatible model aliases
-Notification = ThongBao
-
-
-class AdminSetting(models.Model):
+class CaiDatQuanTri(models.Model):
     key = models.CharField(max_length=40, unique=True, default="restaurant")
     value = models.JSONField(default=dict, blank=True)
     updated_at = models.DateTimeField(auto_now=True)

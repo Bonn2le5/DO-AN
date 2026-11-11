@@ -34,9 +34,3 @@ class DonHangSerializer(serializers.ModelSerializer):
             "khach_hang", "ma_don_hang", "trang_thai", "phien_phuc_vu",
             "tien_hang", "tien_giam", "tong_tien", "khuyen_mai"
         )
-
-
-# Backward-compatible serializer aliases
-OrderSerializer = DonHangSerializer
-OrderItemSerializer = ChiTietDonHangSerializer
-OrderStatusHistorySerializer = LichSuTrangThaiDonSerializer

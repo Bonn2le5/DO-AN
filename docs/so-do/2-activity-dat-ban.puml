@@ -1,0 +1,78 @@
+@startuml
+title Sơ đồ hoạt động — Đặt bàn trực tuyến (1 form, 2 trường hợp)
+skinparam activity {
+  BackgroundColor #FDF8F0
+  BorderColor #8A6A3B
+}
+
+|Khách hàng|
+start
+if (Đã đăng nhập?) then (chưa)
+  :Đăng nhập;
+else (rồi)
+endif
+
+:Bước 1 — Chọn chi nhánh, ngày, giờ, số người;
+|Hệ thống|
+:Tải khung giờ còn trống\n(GET /reservations/khung-gio-trong/);
+
+|Khách hàng|
+:Bước 2 — Gọi món trước?;
+if (Chọn món?) then (có)
+  :Thêm món, chỉnh số lượng;
+  |Hệ thống|
+  :Tính lại tổng tiền và cọc dự kiến;
+  |Khách hàng|
+  :Bấm "Tiếp tục";
+else (không)
+  :Bấm "Bỏ qua";
+endif
+
+repeat
+  :Bước 3 — Nhập họ tên, SĐT, ghi chú;
+  :Bấm xác nhận;
+  backward :Báo lỗi dưới ô nhập\n(giữ nguyên dữ liệu);
+repeat while (Họ tên, SĐT hợp lệ?) is (không) not (có)
+
+|Hệ thống|
+:Kiểm tra sức chứa còn lại\ncủa chi nhánh trong khung giờ;
+if (Còn đủ chỗ?) then (không)
+  :Báo "Khung giờ chỉ còn N chỗ";
+  stop
+else (có)
+endif
+
+:Tạo đặt bàn\ntrạng thái "Chờ xác nhận";
+
+if (Giỏ có món?) then (không — chỉ giữ chỗ)
+  :Thông báo "Đã gửi yêu cầu đặt chỗ";
+else (có — cần cọc)
+  :Tính tiền cọc theo chính sách (% tiền món);
+  :Tạo phiên thanh toán VNPay;
+  |Cổng VNPay|
+  :Khách thanh toán tiền cọc;
+  if (Thanh toán thành công?) then (có)
+    |Hệ thống|
+    :Cập nhật cọc = "Thành công";
+    :Thông báo "Đã nhận cọc và đặt chỗ";
+  else (không)
+    |Hệ thống|
+    :Cập nhật cọc = "Thất bại";
+    :Cho phép thanh toán lại hoặc hủy;
+    stop
+  endif
+endif
+
+|Nhân viên|
+:Gọi điện xác nhận với khách;
+if (Khách xác nhận?) then (có)
+  :Chuyển trạng thái "Đã xác nhận";
+else (không)
+  :Hủy đặt bàn\n(ghi nhận hoàn cọc nếu có);
+  stop
+endif
+
+:Khách đến — Check-in;
+:Xếp bàn, mở phiên phục vụ;
+stop
+@enduml

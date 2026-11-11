@@ -141,14 +141,6 @@ class NguoiDungVaiTro(models.Model):
         unique_together = ("nguoi_dung", "vai_tro")
 
 
-# Backward-compatible model aliases
-User = NguoiDung
-Role = VaiTro
-Permission = QuyenHan
-RolePermission = VaiTroQuyenHan
-UserRole = NguoiDungVaiTro
-
-
 class XacThucEmail(models.Model):
     """Model lưu OTP xác thực email cho người dùng mới đăng ký."""
     nguoi_dung = models.OneToOneField(

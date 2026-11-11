@@ -47,7 +47,7 @@ export function refreshAccessToken(): Promise<string | null> {
   }
 
   refreshInFlight ??= axios
-    .post(`${apiClient.defaults.baseURL}/auth/refresh/`, { refresh: refreshToken })
+    .post(`${apiClient.defaults.baseURL}/xac-thuc/lam-moi/`, { refresh: refreshToken })
     .then(({ data }) => {
       const access = data.access as string;
       setAccessToken(access);
@@ -90,8 +90,8 @@ apiClient.interceptors.response.use(
       error.response?.status !== 401 ||
       !request ||
       request._retriedAfterRefresh ||
-      requestUrl.includes("/auth/login/") ||
-      requestUrl.includes("/auth/refresh/")
+      requestUrl.includes("/xac-thuc/dang-nhap/") ||
+      requestUrl.includes("/xac-thuc/lam-moi/")
     ) {
       return Promise.reject(error);
     }

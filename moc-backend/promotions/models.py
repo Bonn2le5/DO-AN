@@ -72,12 +72,3 @@ class LichSuDungKhuyenMai(MoHinhThoiGian):
     class Meta:
         db_table = "lich_su_dung_khuyen_mai"
         unique_together = ("don_hang", "khuyen_mai")
-
-
-# Backward-compatible model aliases
-Promotion = KhuyenMai
-PromotionCode = MaKhuyenMai
-PromotionUsage = LichSuDungKhuyenMai
-DiscountType = KhuyenMai.KieuGiam
-KhuyenMai.DiscountType = KhuyenMai.KieuGiam
-Promotion.DiscountType = KhuyenMai.KieuGiam

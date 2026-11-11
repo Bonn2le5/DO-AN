@@ -260,15 +260,16 @@ CACHES = {
 }
 
 # ==============================================================================
-# VNPay Sandbox Payment Gateway Settings (Version 2.1.0)
+# PayOS Payment Gateway (https://my.payos.vn → Kênh thanh toán)
 # ==============================================================================
-VNPAY_TMN_CODE = env("VNPAY_TMN_CODE", default="")
-VNPAY_HASH_SECRET = env("VNPAY_HASH_SECRET", default="")
-VNPAY_URL = env("VNPAY_URL", default="https://sandbox.vnpayment.vn/paymentv2/vpcpay.html")
-VNPAY_SANDBOX_URL = VNPAY_URL
-VNPAY_RETURN_URL = env(
-    "VNPAY_RETURN_URL", default="http://127.0.0.1:8000/api/payments/vnpay/return/"
+PAYOS_CLIENT_ID = env("PAYOS_CLIENT_ID", default="")
+PAYOS_API_KEY = env("PAYOS_API_KEY", default="")
+PAYOS_CHECKSUM_KEY = env("PAYOS_CHECKSUM_KEY", default="")
+PAYOS_API_URL = env("PAYOS_API_URL", default="https://api-merchant.payos.vn")
+PAYOS_RETURN_URL = env(
+    "PAYOS_RETURN_URL", default="http://127.0.0.1:8000/api/thanh-toan/payos/return/"
 )
+PAYOS_CANCEL_URL = env("PAYOS_CANCEL_URL", default=PAYOS_RETURN_URL)
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
 
 # ==============================================================================

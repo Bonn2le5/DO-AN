@@ -8,11 +8,11 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from api.permissions import LaNhanVienNhaHang, IsRestaurantStaff
-from .models import ThongBao, Notification, AdminSetting
-from .serializers import ThongBaoSerializer, NotificationSerializer
-from orders.models import DonHang, Order
-from reservations.models import DatBan, Reservation
+from api.permissions import LaNhanVienNhaHang
+from .models import ThongBao, CaiDatQuanTri
+from .serializers import ThongBaoSerializer
+from orders.models import DonHang
+from reservations.models import DatBan
 
 VN = ZoneInfo("Asia/Ho_Chi_Minh")
 BRANCH_OF_ORDER = Coalesce("chi_nhanh_id", "phien_phuc_vu__chi_nhanh_id")
@@ -41,7 +41,7 @@ class ThongBaoViewSet(viewsets.ModelViewSet):
         return self.da_doc(request, pk=pk)
 
 
-class DashboardViewSet(viewsets.ViewSet):
+class TongQuanViewSet(viewsets.ViewSet):
     permission_classes = [LaNhanVienNhaHang]
 
     def list(self, request):
@@ -185,15 +185,22 @@ class DashboardViewSet(viewsets.ViewSet):
 
         unassigned = None
         leaks = None
-        if is_admin:
-            # Khoản hụt: những chỗ tiền lẽ ra vào túi nhưng không vào, chỉ chủ nhà hàng cần nhìn tổng.
+        if is_admin or branch_ids:
+            # Khoản hụt: những chỗ tiền lẽ ra vào túi nhưng không vào.
+            # Admin xem toàn chuỗi (kể cả đơn không gắn chi nhánh), quản lý chỉ xem chi nhánh mình.
             from reviews.models import DanhGia
             per_branch = lambda qs, key: {r["k"]: r for r in qs.values(k=F(key)).annotate(n=Count("id"), v=Sum("_v"))}
             orders = DonHang.objects.annotate(cn=BRANCH_OF_ORDER).filter(tao_luc__gte=start)
+            if not is_admin:
+                orders = orders.filter(cn__in=branch_ids)
             discount = orders.filter(trang_thai=DonHang.TrangThai.HOAN_TAT, tien_giam__gt=0).annotate(_v=F("tien_giam"))
             cancelled = orders.filter(trang_thai=DonHang.TrangThai.DA_HUY).annotate(_v=F("tong_tien"))
             no_show = DatBan.objects.filter(trang_thai=DatBan.TrangThai.KHACH_KHONG_DEN, ngay_dat__gte=start.date(), ngay_dat__lte=today_vn).annotate(_v=F("so_luong_khach"))
+            if not is_admin:
+                no_show = no_show.filter(chi_nhanh_id__in=branch_ids)
             low = DanhGia.objects.filter(tao_luc__gte=start, diem_danh_gia__lte=2).annotate(cn=Coalesce("don_hang__chi_nhanh_id", "don_hang__phien_phuc_vu__chi_nhanh_id"), _v=F("diem_danh_gia"))
+            if not is_admin:
+                low = low.filter(cn__in=branch_ids)
             names = {b.id: b.ten for b in branches}
 
             def pack(qs, key):
@@ -267,11 +274,8 @@ class DashboardViewSet(viewsets.ViewSet):
         })
 
     def restaurant_settings(self, request):
-        entry, _ = AdminSetting.objects.get_or_create(key="restaurant", defaults={"value": {"name": "MỘC Kitchen", "email": "hello@moc-kitchen.vn", "weekday": "10:00 – 22:00", "weekend": "09:00 – 23:00"}})
+        entry, _ = CaiDatQuanTri.objects.get_or_create(key="restaurant", defaults={"value": {"name": "MỘC Kitchen", "email": "hello@moc-kitchen.vn", "weekday": "10:00 – 22:00", "weekend": "09:00 – 23:00"}})
         if request.method == "PUT":
             entry.value = {key: str(request.data.get(key, "")) for key in ("name", "email", "weekday", "weekend")}
             entry.save(update_fields=["value", "updated_at"])
         return Response(entry.value)
-
-
-NotificationViewSet = ThongBaoViewSet

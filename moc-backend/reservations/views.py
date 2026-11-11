@@ -17,7 +17,7 @@ from .serializers import (
     PhienPhucVuSerializer, WalkInSerializer, XepBanSerializer,
     DanhSachMonPhienSerializer, CheckOutPhienSerializer,
 )
-from .services import DichVuDatBan, DichVuPhienPhucVu, tinh_suc_chua_con_lai
+from .services import DichVuDatBan, DichVuPhienPhucVu, huy_giu_cho_qua_han_coc, tinh_suc_chua_con_lai
 
 
 class BanAnViewSet(viewsets.ModelViewSet):
@@ -147,6 +147,8 @@ class DatBanViewSet(viewsets.ModelViewSet):
     serializer_class = DatBanSerializer
 
     def get_queryset(self):
+        if self.action == "list":
+            huy_giu_cho_qua_han_coc()
         danh_sach = DatBan.objects.select_related(
             "ban_an", "chi_nhanh", "nguoi_dung", "phien_phuc_vu__don_hang"
         ).prefetch_related("danh_sach_mon__mon_an").order_by("-tao_luc")
@@ -259,12 +261,12 @@ class DatBanViewSet(viewsets.ModelViewSet):
                 status=400
             )
 
-        from payments.services import RefundService
+        from payments.services import DichVuHoanTien
         ly_do = request.data.get("ly_do") or "Khách hàng yêu cầu hủy"
         is_staff = getattr(request.user, "la_nhan_vien_nha_hang", False) or getattr(request.user, "is_staff", False)
         is_no_show = bool(request.data.get("is_no_show", False)) and is_staff
 
-        result = RefundService.process_cancellation_and_refund(
+        result = DichVuHoanTien.process_cancellation_and_refund(
             dat_ban=dat_ban,
             user=request.user,
             ly_do=ly_do,
@@ -314,6 +316,10 @@ class DatBanViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="seat", permission_classes=[LaNhanVienNhaHang])
     def seat(self, request, pk=None):
+        return self.xep_ban(request, pk=pk)
+
+    @action(detail=True, methods=["post"], url_path="xep-ban", permission_classes=[LaNhanVienNhaHang])
+    def xep_ban(self, request, pk=None):
         dat_ban = self.get_object()
         serializer = XepBanSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -322,10 +328,16 @@ class DatBanViewSet(viewsets.ModelViewSet):
             dat_ban_id=dat_ban.id,
             ban_an_id=serializer.validated_data["ban_an"].id,
         )
-        return Response(PhienPhucVuSerializer(phien, context={"request": request}).data, status=201)
+        data = dict(PhienPhucVuSerializer(phien, context={"request": request}).data)
+        data["mon_khong_du"] = phien.mon_khong_du
+        return Response(data, status=201)
 
     @action(detail=True, methods=["post"], url_path="record-refund", permission_classes=[LaNhanVienNhaHang])
     def record_refund(self, request, pk=None):
+        return self.ghi_nhan_hoan_tien(request, pk=pk)
+
+    @action(detail=True, methods=["post"], url_path="ghi-nhan-hoan-tien", permission_classes=[LaNhanVienNhaHang])
+    def ghi_nhan_hoan_tien(self, request, pk=None):
         dat_ban = self.get_object()
         if dat_ban.trang_thai not in {DatBan.TrangThai.DA_HUY, DatBan.TrangThai.KHACH_KHONG_DEN}:
             raise ValidationError({"detail": "Chỉ ghi nhận hoàn cọc cho đặt bàn đã huỷ hoặc khách không đến."})
@@ -389,6 +401,8 @@ class DatBanViewSet(viewsets.ModelViewSet):
         ngay = parse_date(ngay_str)
         if not ngay:
             return Response({"detail": "Ngày không hợp lệ. Dùng định dạng YYYY-MM-DD."}, status=400)
+
+        huy_giu_cho_qua_han_coc(chi_nhanh.id)
 
         # Build slot grid 10:00-22:00 step 15 phút
         slots = []
@@ -474,6 +488,10 @@ class PhienPhucVuViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="from-reservation")
     def from_reservation(self, request):
+        return self.tu_dat_ban(request)
+
+    @action(detail=False, methods=["post"], url_path="tu-dat-ban")
+    def tu_dat_ban(self, request):
         reservation_id = request.data.get("dat_ban")
         if not reservation_id:
             raise ValidationError({"dat_ban": "Cần chọn đặt bàn đã check-in."})
@@ -486,10 +504,16 @@ class PhienPhucVuViewSet(viewsets.ReadOnlyModelViewSet):
         phien = DichVuPhienPhucVu.xep_ban_va_bat_dau(
             nguoi_dung=request.user, dat_ban_id=dat_ban.id, ban_an_id=serializer.validated_data["ban_an"].id
         )
-        return Response(self.get_serializer(phien).data, status=201)
+        data = dict(self.get_serializer(phien).data)
+        data["mon_khong_du"] = phien.mon_khong_du
+        return Response(data, status=201)
 
     @action(detail=True, methods=["post", "put"], url_path="items")
     def items(self, request, pk=None):
+        return self.danh_sach_mon(request, pk=pk)
+
+    @action(detail=True, methods=["post", "put"], url_path="mon")
+    def danh_sach_mon(self, request, pk=None):
         phien = self.get_object()
         serializer = DanhSachMonPhienSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -515,6 +539,10 @@ class PhienPhucVuViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel(self, request, pk=None):
+        return self.huy_phien(request, pk=pk)
+
+    @action(detail=True, methods=["post"], url_path="huy")
+    def huy_phien(self, request, pk=None):
         """Huỷ bàn: nhân viên khi chưa gửi bếp, quản lý khi đã gửi bếp."""
         phien = self.get_object()
         self._assert_branch_access(phien.chi_nhanh_id)
@@ -534,6 +562,10 @@ class PhienPhucVuViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="move-table")
     def move_table(self, request, pk=None):
+        return self.chuyen_ban(request, pk=pk)
+
+    @action(detail=True, methods=["post"], url_path="chuyen-ban")
+    def chuyen_ban(self, request, pk=None):
         phien = self.get_object()
         serializer = XepBanSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -557,13 +589,10 @@ class PhienPhucVuViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="confirm-cleaned")
     def confirm_cleaned(self, request, pk=None):
+        return self.xac_nhan_da_don(request, pk=pk)
+
+    @action(detail=True, methods=["post"], url_path="xac-nhan-da-don")
+    def xac_nhan_da_don(self, request, pk=None):
         phien = self.get_object()
         phien = DichVuPhienPhucVu.xac_nhan_da_don(nguoi_dung=request.user, phien_id=phien.id)
         return Response(self.get_serializer(phien).data)
-
-
-# Backward-compatible viewset aliases
-TableViewSet = BanAnViewSet
-ReservationViewSet = DatBanViewSet
-DiningSessionViewSet = PhienPhucVuViewSet
-

@@ -223,6 +223,10 @@ class NguoiDungViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="admin_create")
     def admin_create(self, request):
+        return self.quan_tri_tao(request)
+
+    @action(detail=False, methods=["post"], url_path="quan-tri-tao")
+    def quan_tri_tao(self, request):
         self._require_admin_or_manager()
         email = str(request.data.get("email", "")).strip().lower()
         password = str(request.data.get("password", ""))
@@ -278,6 +282,10 @@ class NguoiDungViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["patch"], url_path="admin_update")
     def admin_update(self, request, pk=None):
+        return self.quan_tri_cap_nhat(request, pk=pk)
+
+    @action(detail=True, methods=["patch"], url_path="quan-tri-cap-nhat")
+    def quan_tri_cap_nhat(self, request, pk=None):
         self._require_admin_or_manager()
         user = self.get_object()
         manager_branch = self._managed_branch_id()
@@ -340,6 +348,10 @@ class VaiTroViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get", "put"], url_path="permissions")
     def permissions(self, request, pk=None):
+        return self.quyen_han(request, pk=pk)
+
+    @action(detail=True, methods=["get", "put"], url_path="quyen-han")
+    def quyen_han(self, request, pk=None):
         if not (request.user.is_superuser or getattr(request.user, "la_quan_tri_vien", False)):
             raise PermissionDenied("Chỉ quản trị viên mới được thay đổi phân quyền.")
         role = self.get_object()
@@ -375,10 +387,3 @@ class QuyenHanViewSet(viewsets.ModelViewSet):
     queryset = QuyenHan.objects.all()
     serializer_class = QuyenHanSerializer
     permission_classes = [LaNhanVienNhaHang]
-
-
-# Backward-compatible viewset aliases
-UserViewSet = NguoiDungViewSet
-RoleViewSet = VaiTroViewSet
-PermissionViewSet = QuyenHanViewSet
-AuthViewSet = XacThucViewSet

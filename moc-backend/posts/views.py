@@ -1,7 +1,7 @@
 from rest_framework import viewsets
-from api.permissions import LaNhanVienHoacChiDoc, IsStaffOrReadOnly
-from .models import DanhMucBaiViet, BaiViet, PostCategory, Post
-from .serializers import DanhMucBaiVietSerializer, BaiVietSerializer, PostCategorySerializer, PostSerializer
+from api.permissions import LaNhanVienHoacChiDoc
+from .models import DanhMucBaiViet, BaiViet
+from .serializers import DanhMucBaiVietSerializer, BaiVietSerializer
 
 
 class DanhMucBaiVietViewSet(viewsets.ModelViewSet):
@@ -28,7 +28,3 @@ class BaiVietViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(tac_gia=self.request.user)
-
-
-PostCategoryViewSet = DanhMucBaiVietViewSet
-PostViewSet = BaiVietViewSet

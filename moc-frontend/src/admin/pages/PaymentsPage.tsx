@@ -14,7 +14,7 @@ import { fmtDateTime } from "../lib";
 import type { AdminPayment } from "../types";
 
 const STATUS = { pending: { label: "Chờ xử lý", tone: "warn" }, success: { label: "Thành công", tone: "ok" }, failed: { label: "Thất bại", tone: "danger" }, refunded: { label: "Đã hoàn", tone: "info" } } as const;
-const METHOD = { cod: "Tiền mặt", bank: "Chuyển khoản", vnpay: "VNPay" };
+const METHOD = { cod: "Tiền mặt", bank: "Chuyển khoản", payos: "PayOS" };
 const BUCKET = { ">24h": "Huỷ >24h", "6-24h": "Huỷ 6–24h", "<6h": "Huỷ <6h", no_show: "Không đến" };
 
 export default function PaymentsPage() {
@@ -51,7 +51,7 @@ export default function PaymentsPage() {
             { header: "Giờ hẹn", cell: (r) => `${r.time} · ${r.date.split("-").reverse().join("/")}` },
             { header: "Mốc huỷ", cell: (r) => <StatusBadge tone="warn">{BUCKET[refundBucket(r)]}</StatusBadge> },
             { header: "Tiền cọc", cell: (r) => <b>{formatCurrency(r.depositAmount)}</b> },
-            { header: "", className: "text-right", cell: (r) => <Link to={`/admin/reservations?open=${r.id}`} className="btn btn-outline py-2! px-4! text-[13px]!">Xử lý hoàn cọc</Link> },
+            { header: "", className: "text-right", cell: (r) => <Link to={`/admin/dat-ban?open=${r.id}`} className="btn btn-outline py-2! px-4! text-[13px]!">Xử lý hoàn cọc</Link> },
           ]}
         />
       ) : (

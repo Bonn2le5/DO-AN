@@ -199,6 +199,11 @@ class MonAnViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"], url_path="import-file")
     @parser_classes([MultiPartParser, FormParser])
     def import_file(self, request):
+        return self.nhap_file(request)
+
+    @action(detail=False, methods=["post"], url_path="nhap-file")
+    @parser_classes([MultiPartParser, FormParser])
+    def nhap_file(self, request):
         upload = request.FILES.get("file")
         if not upload:
             raise ValidationError({"file": "Vui lòng chọn file CSV, Excel (.xlsx) hoặc ZIP chứa bảng và ảnh."})
@@ -469,11 +474,3 @@ class MonAnViewSet(viewsets.ModelViewSet):
             danh_muc=mon_hien_tai.danh_muc
         ).exclude(pk=mon_hien_tai.pk)[:int(request.query_params.get("gioi_han", 3))]
         return Response(MonAnSerializer(danh_sach, many=True, context={"request": request}).data)
-
-
-# Backward-compatible viewset aliases
-CategoryViewSet = DanhMucViewSet
-TagViewSet = TheMonAnViewSet
-IngredientViewSet = NguyenLieuViewSet
-FoodViewSet = MonAnViewSet
-InventoryHistoryViewSet = LichSuKhoViewSet

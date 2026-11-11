@@ -4,6 +4,7 @@ import { Search, Heart, User, Menu, X } from "lucide-react";
 import { useFavoriteStore } from "@/store/favoriteStore";
 import { useAuthStore } from "@/store/authStore";
 import { cn } from "@/lib/utils";
+import logoBieuTuong from "@/assets/logo-bieu-tuong.webp";
 
 const NAV_LINKS = [
   { to: "/", label: "Trang chủ" },
@@ -42,11 +43,19 @@ export default function Header() {
         >
           <Link
             to="/"
-            className="font-serif text-[28px] font-semibold flex items-baseline gap-2 text-white"
+            className="flex items-center gap-2.5 text-white"
+            aria-label="Mộc Kitchen – Trang chủ"
           >
-            MỘC
-            <span className="font-body text-[9.5px] font-bold tracking-[0.18em] text-white/60 uppercase">
-              Kitchen
+            <img
+              src={logoBieuTuong}
+              alt=""
+              className={cn("w-auto transition-all duration-300", scrolled ? "h-11" : "h-13")}
+            />
+            <span className="font-serif text-[28px] font-semibold flex items-baseline gap-2">
+              MỘC
+              <span className="font-body text-[9.5px] font-bold tracking-[0.18em] text-white/60 uppercase">
+                Kitchen
+              </span>
             </span>
           </Link>
 

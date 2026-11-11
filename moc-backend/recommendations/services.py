@@ -50,6 +50,15 @@ MODEL_VERSION_ITEM_ITEM = "item_tfidf_v1"
 LY_DO_COLD_START = "Phổ biến hôm nay"
 
 
+# Loại tương tác client được phép tự gửi; dat_mon / danh_gia do server ghi.
+LOAI_TUONG_TAC_TU_CLIENT = ("xem", "yeu_thich")
+
+
+def trong_so_danh_gia(so_sao: int) -> float:
+    """5★ → +5, 4★ → +2.5, 3★ → 0, 2★ → −2.5, 1★ → −5 (đánh giá thấp kéo khẩu vị ra xa)."""
+    return (int(so_sao) - 3) * 2.5
+
+
 def lay_trong_so_tuong_tac(loai: str) -> int:
     """Lấy trọng số số nguyên tương ứng cho loại tương tác."""
     k = str(loai).lower().strip()
@@ -228,18 +237,22 @@ class DichVuGoiY:
         for tt in ds_tuong_tac:
             if not tt.mon_an_id or tt.mon_an is None:
                 continue
-            w = float(tt.trong_so) if tt.trong_so else lay_trong_so_tuong_tac(tt.loai_tuong_tac)
+            # trong_so có thể âm (đánh giá 1–2★) hoặc 0 (3★): không được coi 0 là "chưa có"
+            w = float(tt.trong_so) if tt.trong_so is not None else lay_trong_so_tuong_tac(tt.loai_tuong_tac)
             trong_so_theo_mon[tt.mon_an_id] += w
             mon_theo_id[tt.mon_an_id] = tt.mon_an
-            if w > loai_manh_nhat.get(tt.mon_an_id, (0.0, ""))[0]:
+            if tt.mon_an_id not in loai_manh_nhat or w > loai_manh_nhat[tt.mon_an_id][0]:
                 loai_manh_nhat[tt.mon_an_id] = (w, tt.loai_tuong_tac)
 
-        if not trong_so_theo_mon:
+        # Chỉ món có tổng trọng số dương mới được dùng làm "lý do" giải thích
+        mon_duong = {mid for mid, w in trong_so_theo_mon.items() if w > 0}
+        if not mon_duong:
             return []
 
         vector_mon_da_tuong_tac = {mid: mo_hinh.vector_cua(m) for mid, m in mon_theo_id.items()}
 
-        # Vector khẩu vị người dùng (User Preference Profile)
+        # Vector khẩu vị người dùng (User Preference Profile, kiểu Rocchio:
+        # món thích cộng vào, món chê trừ ra)
         vector_khau_vi: Dict[str, float] = Counter()
         for mid, w in trong_so_theo_mon.items():
             for tu, val in vector_mon_da_tuong_tac[mid].items():
@@ -250,12 +263,14 @@ class DichVuGoiY:
         for mon, vec in zip(danh_sach_mon, mo_hinh.vectors):
             score = round(cosine(vector_khau_vi, vec), 4)
             if mon.id in trong_so_theo_mon:
+                if mon.id not in mon_duong:
+                    continue  # khách đã chê món này → không gợi ý lại
                 ly_do = tao_ly_do_goi_y(mon, mon, loai_manh_nhat[mon.id][1])
                 mon_cu.append((mon, score, ly_do, False))
                 continue
             # Giải thích: món đã tương tác đóng góp nhiều nhất (cosine × trọng số)
             mid_lien_quan = max(
-                vector_mon_da_tuong_tac,
+                mon_duong,
                 key=lambda mid: cosine(vector_mon_da_tuong_tac[mid], vec) * trong_so_theo_mon[mid],
             )
             ly_do = tao_ly_do_goi_y(mon, mon_theo_id[mid_lien_quan], loai_manh_nhat[mid_lien_quan][1])
@@ -374,10 +389,36 @@ def ghi_nhan_dat_mon(nguoi_dung, mon_an_ids: Iterable[int]) -> int:
     return len(ids)
 
 
+def dong_bo_tuong_tac_danh_gia(nguoi_dung_id: int, mon_an_id: int) -> None:
+    """
+    Đồng bộ tương tác 'danh_gia' của khách với một món theo các đánh giá hiện có
+    (gọi sau khi tạo / sửa / xoá đánh giá). Trọng số tính theo số sao, 3★ bỏ qua.
+    """
+    from reviews.models import DanhGia
+
+    TuongTacMonAn.objects.filter(
+        nguoi_dung_id=nguoi_dung_id, mon_an_id=mon_an_id,
+        loai_tuong_tac=TuongTacMonAn.LoaiTuongTac.DANH_GIA,
+    ).delete()
+    so_sao = DanhGia.objects.filter(
+        nguoi_dung_id=nguoi_dung_id, mon_an_id=mon_an_id
+    ).values_list("diem_danh_gia", flat=True)
+    TuongTacMonAn.objects.bulk_create([
+        TuongTacMonAn(
+            nguoi_dung_id=nguoi_dung_id,
+            mon_an_id=mon_an_id,
+            loai_tuong_tac=TuongTacMonAn.LoaiTuongTac.DANH_GIA,
+            trong_so=Decimal(str(trong_so_danh_gia(sao))),
+        )
+        for sao in so_sao
+        if trong_so_danh_gia(sao) != 0
+    ])
+    GoiYMonAn.objects.filter(nguoi_dung_id=nguoi_dung_id).delete()
+
+
 # Backward-compatible adapter method and aliases
 def _refresh_for(cls, user, limit=6):
     return cls.cap_nhat_goi_y(user, gioi_han=limit)
 
 
 DichVuGoiY.refresh_for = classmethod(_refresh_for)
-RecommendationService = DichVuGoiY

@@ -73,7 +73,7 @@ export default function AdminChatPage() {
     let cancelRenewal: (() => void) | undefined;
 
     const connect = async () => {
-      const ws = await openAuthenticatedWebSocket(`/ws/chat/${activeRoom.id}/`);
+      const ws = await openAuthenticatedWebSocket(`/ws/hoi-thoai/${activeRoom.id}/`);
       if (!ws) return;
       if (closing) {
         ws.close();

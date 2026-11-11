@@ -2,12 +2,12 @@ import { ShieldCheck } from "lucide-react";
 import HoldCountdown from "./HoldCountdown";
 import ReservationTicket from "./ReservationTicket";
 import { formatCurrency } from "@/lib/utils";
-import type { PhienThanhToanVNPay, ThongTinDatBan } from "@/types";
+import type { PhienThanhToanPayOS, ThongTinDatBan } from "@/types";
 
 interface PaymentStepProps {
   reservation: ThongTinDatBan;
   branchName: string;
-  paymentSession: PhienThanhToanVNPay | null;
+  paymentSession: PhienThanhToanPayOS | null;
   error: string;
   retrying: boolean;
   onRetry: () => void;
@@ -64,11 +64,11 @@ export default function PaymentStep({
         {paymentSession ? (
           <>
             <button type="button" onClick={handleProceedPayment} className="btn btn-primary w-full">
-              Thanh toán {formatCurrency(deposit)} qua VNPay
+              Thanh toán {formatCurrency(deposit)} qua PayOS
             </button>
             <p className="flex gap-2 text-sm text-muted">
               <ShieldCheck size={18} className="shrink-0" />
-              Bạn sẽ được chuyển sang cổng VNPay (môi trường thử nghiệm) để chọn ngân hàng, thẻ hoặc quét QR.
+              Bạn sẽ được chuyển sang trang PayOS để quét mã VietQR bằng app ngân hàng.
             </p>
           </>
         ) : (

@@ -26,9 +26,9 @@ class ThanhToan(MoHinhThoiGian):
         null=True, blank=True, on_delete=models.CASCADE
     )
     loai_thanh_toan = models.CharField(max_length=15, choices=LoaiThanhToan.choices)
-    phuong_thuc = models.CharField(max_length=30)   # 'tien_mat','chuyen_khoan','vnpay',...
+    phuong_thuc = models.CharField(max_length=30)   # 'tien_mat','chuyen_khoan','payos',...
     so_tien = models.DecimalField(max_digits=12, decimal_places=2)
-    ma_giao_dich = models.CharField(max_length=100, blank=True)   # vnp_TxnRef hoặc mã ngân hàng
+    ma_giao_dich = models.CharField(max_length=100, blank=True)   # orderCode PayOS hoặc mã ngân hàng
     trang_thai = models.CharField(max_length=15, choices=TrangThai.choices, default=TrangThai.CHO_XU_LY)
     thanh_toan_luc = models.DateTimeField(null=True, blank=True)
     hoan_tien_luc = models.DateTimeField(null=True, blank=True)
@@ -46,16 +46,6 @@ class ThanhToan(MoHinhThoiGian):
                 name="kiem_tra_muc_tieu_thanh_toan",
             )
         ]
-
-
-# Backward-compatible model aliases
-Payment = ThanhToan
-PaymentType = ThanhToan.LoaiThanhToan
-PaymentStatus = ThanhToan.TrangThai
-ThanhToan.PaymentType = ThanhToan.LoaiThanhToan
-ThanhToan.Status = ThanhToan.TrangThai
-Payment.PaymentType = ThanhToan.LoaiThanhToan
-Payment.Status = ThanhToan.TrangThai
 
 
 class PhieuHoanTien(MoHinhThoiGian):
@@ -85,7 +75,7 @@ class PhieuHoanTien(MoHinhThoiGian):
     so_gio_truoc_gio_hen = models.DecimalField(max_digits=7, decimal_places=2)
     ly_do_huy = models.TextField(blank=True)
     trang_thai = models.CharField(max_length=20, choices=TrangThai.choices)
-    phuong_thuc_hoan = models.CharField(max_length=30, default="vnpay_refund")
+    phuong_thuc_hoan = models.CharField(max_length=30, default="chuyen_khoan")
     du_lieu_chi_tiet = models.JSONField(default=dict, blank=True)
 
 
@@ -95,12 +85,3 @@ class PhieuHoanTien(MoHinhThoiGian):
 
     def __str__(self):
         return f"{self.ma_phieu_hoan} ({self.dat_ban.ma_dat_ban if self.dat_ban else ''})"
-
-
-# Backward-compatible model aliases for refund receipts
-RefundReceipt = PhieuHoanTien
-PhieuHoanTien.Status = PhieuHoanTien.TrangThai
-PhieuHoanTien.Milestone = PhieuHoanTien.MocThoiGian
-RefundReceipt.Status = PhieuHoanTien.TrangThai
-RefundReceipt.Milestone = PhieuHoanTien.MocThoiGian
-

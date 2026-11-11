@@ -26,8 +26,8 @@ interface ContactStepProps {
   depositPercentage: number;
   policy: ChinhSachDatCoc | null;
   initialValues: ThongTinLienHe;
-  paymentMethod: "vnpay";
-  onPaymentMethodChange: (method: "vnpay") => void;
+  paymentMethod: "payos";
+  onPaymentMethodChange: (method: "payos") => void;
   onValuesChange: (values: Partial<ThongTinLienHe>) => void;
   submitting: boolean;
   onSubmit: (data: FormData) => Promise<void>;
@@ -56,7 +56,7 @@ export default function ContactStep({
   const dishCount = foodItems.reduce((total, item) => total + item.soLuong, 0);
   const submitLabel = submitting ? "Đang gửi đặt chỗ…" : needsDeposit ? `Đặt chỗ và cọc ${formatCurrency(depositAmount)}` : "Xác nhận đặt chỗ";
   const afterSubmit = needsDeposit
-    ? `Bạn có ${expiryMinutes} phút để thanh toán cọc qua VNPay. Nhà hàng sẽ gọi điện xác nhận.`
+    ? `Bạn có ${expiryMinutes} phút để thanh toán cọc qua PayOS. Nhà hàng sẽ gọi điện xác nhận.`
     : "Nhà hàng sẽ gọi điện xác nhận. Bạn gọi món tại bàn khi đến.";
 
   return (
@@ -142,13 +142,13 @@ export default function ContactStep({
                     <span className="text-xl lg:text-2xl font-bold tracking-[-0.02em] text-primary tabular-nums">{formatCurrency(depositAmount)}</span>
                   </div>
                   <p className="hidden lg:block text-xs text-muted mt-1">{depositPercentage}% tiền món, trừ vào hoá đơn khi bạn dùng bữa.</p>
-                  <p className="lg:hidden text-xs text-muted mt-0.5">Trả qua VNPay trong {expiryMinutes} phút, trừ vào hoá đơn.</p>
+                  <p className="lg:hidden text-xs text-muted mt-0.5">Trả qua PayOS trong {expiryMinutes} phút, trừ vào hoá đơn.</p>
                 </div>
                 <label className="hidden lg:flex gap-3 items-start rounded-xl border border-primary/40 bg-primary/[0.03] p-3 cursor-pointer">
-                  <input type="radio" name="reservation-payment" checked={paymentMethod === "vnpay"} onChange={() => onPaymentMethodChange("vnpay")} className="mt-1 accent-primary" />
+                  <input type="radio" name="reservation-payment" checked={paymentMethod === "payos"} onChange={() => onPaymentMethodChange("payos")} className="mt-1 accent-primary" />
                   <span className="flex-1 text-sm">
-                    <strong className="block">VNPay</strong>
-                    <span className="text-muted">Thẻ ngân hàng hoặc quét QR</span>
+                    <strong className="block">PayOS</strong>
+                    <span className="text-muted">Quét mã VietQR bằng app ngân hàng</span>
                   </span>
                   <ShieldCheck size={18} className="text-muted shrink-0 mt-0.5" />
                 </label>

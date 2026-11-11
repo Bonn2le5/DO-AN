@@ -4,7 +4,7 @@ import { ChevronRight, RefreshCw } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import { formatCurrency } from "@/lib/utils";
 import { getDashboard, type DashboardBranch, type DashboardData, type LiveTableState, type Range } from "../api/admin.api";
-import { useCan } from "../permissions";
+import { useCan, useRole } from "../permissions";
 import { PageHeader } from "../components/primitives";
 
 const CELL: Record<LiveTableState, { cls: string; label: string }> = {
@@ -22,7 +22,8 @@ const compact = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toLocaleStrin
 
 export default function DashboardPage() {
   const can = useCan();
-  const isAdmin = can("users", "view");
+  // Quản lý cũng có quyền xem trang Nhân viên, nên phân biệt admin theo vai trò chứ không theo quyền.
+  const isAdmin = useRole() === "admin";
   const [range, setRange] = useState<Range>(7);
   const { data, loading, refetch } = useAsync(() => getDashboard(range), [range]);
 
@@ -47,7 +48,8 @@ export default function DashboardPage() {
         <aside className="space-y-6">
           <TasksSection data={data} can={can} />
           <UpcomingSection data={data} multiBranch={!single} />
-          {isAdmin ? <LeaksSection data={data} range={range} /> : <TopFoods data={data} range={range} />}
+          <LeaksSection data={data} range={range} can={can} />
+          {!isAdmin && <TopFoods data={data} range={range} />}
         </aside>
       </div>
     </div>
@@ -64,7 +66,7 @@ function NowSection({ data, single }: { data?: DashboardData; single: DashboardB
     <section aria-labelledby="now-title" className="rounded-2xl bg-[#F5F0E6] p-5 ring-1 ring-[#3a2a1f]/10 text-[#3a2a1f] sm:p-6">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="now-title" className="font-display text-xl font-semibold">Lúc này ở nhà hàng</h2>
-        <Link to="/admin/tables" className="text-sm text-[#3a2a1f]/70 hover:text-[#3a2a1f] hover:underline">Mở sơ đồ bàn</Link>
+        <Link to="/admin/ban-an" className="text-sm text-[#3a2a1f]/70 hover:text-[#3a2a1f] hover:underline">Mở sơ đồ bàn</Link>
       </div>
       {!data ? <div className="h-24 animate-pulse rounded-xl bg-[#3a2a1f]/10" /> : (
         <>
@@ -199,11 +201,11 @@ function RevenueSection({ data, range, setRange, isAdmin }: { data?: DashboardDa
 
 function TasksSection({ data, can }: { data?: DashboardData; can: ReturnType<typeof useCan> }) {
   const tasks = data ? [
-    { n: data.tasks.pendingConfirm, label: "lượt đặt bàn cần gọi xác nhận", to: "/admin/reservations?status=pending_confirmation", ok: can("reservations") },
-    { n: data.tasks.pendingDeposits, label: "lượt đặt bàn chờ khách cọc", to: "/admin/reservations?status=needs_deposit", ok: can("reservations") },
-    { n: data.tasks.refundQueue, label: "khoản cọc cần hoàn", to: "/admin/reservations?status=refund", ok: can("reservations") },
-    { n: data.tasks.lowStock, label: "nguyên liệu dưới mức tối thiểu", to: "/admin/ingredients", ok: can("ingredients") },
-    { n: data.tasks.unreadChats, label: "tin nhắn khách chưa đọc", to: "/admin/chat", ok: can("chat") },
+    { n: data.tasks.pendingConfirm, label: "lượt đặt bàn cần gọi xác nhận", to: "/admin/dat-ban?status=pending_confirmation", ok: can("reservations") },
+    { n: data.tasks.pendingDeposits, label: "lượt đặt bàn chờ khách cọc", to: "/admin/dat-ban?status=needs_deposit", ok: can("reservations") },
+    { n: data.tasks.refundQueue, label: "khoản cọc cần hoàn", to: "/admin/dat-ban?status=refund", ok: can("reservations") },
+    { n: data.tasks.lowStock, label: "nguyên liệu dưới mức tối thiểu", to: "/admin/nguyen-lieu", ok: can("ingredients") },
+    { n: data.tasks.unreadChats, label: "tin nhắn khách chưa đọc", to: "/admin/hoi-thoai", ok: can("chat") },
   ].filter((t) => t.ok && t.n > 0) : null;
   return (
     <section aria-labelledby="tasks-title">
@@ -232,7 +234,7 @@ function UpcomingSection({ data, multiBranch }: { data?: DashboardData; multiBra
     <section aria-labelledby="up-title">
       <div className="mb-3 flex items-baseline justify-between">
         <h2 id="up-title" className="font-display text-lg font-semibold">Khách sắp đến hôm nay</h2>
-        <Link to="/admin/reservations" className="text-sm text-primary hover:underline">Sổ đặt bàn</Link>
+        <Link to="/admin/dat-ban" className="text-sm text-primary hover:underline">Sổ đặt bàn</Link>
       </div>
       {!data ? <div className="h-28 animate-pulse rounded-2xl bg-black/[0.04]" /> : data.upcoming.length === 0 ? (
         <p className="rounded-2xl bg-white px-4 py-5 text-sm text-muted ring-1 ring-black/[0.06]">Không còn lượt đặt bàn nào hôm nay.</p>
@@ -240,7 +242,7 @@ function UpcomingSection({ data, multiBranch }: { data?: DashboardData; multiBra
         <ul className="divide-y divide-black/[0.06] rounded-2xl bg-white ring-1 ring-black/[0.06]">
           {data.upcoming.map((r) => (
             <li key={r.id}>
-              <Link to={`/admin/reservations?open=${r.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-black/[0.02]">
+              <Link to={`/admin/dat-ban?open=${r.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-black/[0.02]">
                 <span className="w-11 font-display font-semibold tabular-nums">{r.time}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{r.customer || "Khách"} <span className="font-normal text-muted">{r.party} khách</span></span>
@@ -277,14 +279,15 @@ function TopFoods({ data, range }: { data?: DashboardData; range: Range }) {
   );
 }
 
-/** Cho chủ nhà hàng: những khoản lẽ ra thành doanh thu nhưng đã hụt, kèm chi nhánh hụt nhiều nhất. */
-function LeaksSection({ data, range }: { data?: DashboardData; range: Range }) {
+/** Những khoản lẽ ra thành doanh thu nhưng đã hụt. Admin thấy toàn chuỗi kèm chi nhánh hụt nhiều nhất,
+ *  quản lý thấy chi nhánh mình. */
+function LeaksSection({ data, range, can }: { data?: DashboardData; range: Range; can: ReturnType<typeof useCan> }) {
   const l = data?.leaks;
   const items = l ? [
-    { key: "discount", big: formatCurrency(l.discount.value), text: `đã giảm giá trên ${l.discount.count} hoá đơn`, to: "/admin/promotions", w: l.discount.worstBranch, show: l.discount.count > 0 },
-    { key: "cancelled", big: formatCurrency(l.cancelled.value), text: `nằm trong ${l.cancelled.count} hoá đơn bị huỷ`, to: "/admin/orders", w: l.cancelled.worstBranch, show: l.cancelled.count > 0 },
-    { key: "noShow", big: `${l.noShow.count} lượt`, text: `đặt bàn rồi không đến, giữ chỗ cho ${l.noShow.value} khách`, to: "/admin/reservations", w: l.noShow.worstBranch, show: l.noShow.count > 0 },
-    { key: "lowReviews", big: `${l.lowReviews.count} đánh giá`, text: "chỉ 1–2 sao, nên đọc để biết món hay khâu nào có vấn đề", to: "/admin/reviews", w: l.lowReviews.worstBranch, show: l.lowReviews.count > 0 },
+    { key: "discount", big: formatCurrency(l.discount.value), text: `đã giảm giá trên ${l.discount.count} hoá đơn`, to: "/admin/khuyen-mai", module: "promotions" as const, w: l.discount.worstBranch, show: l.discount.count > 0 },
+    { key: "cancelled", big: formatCurrency(l.cancelled.value), text: `nằm trong ${l.cancelled.count} hoá đơn bị huỷ`, to: "/admin/don-hang", module: "orders" as const, w: l.cancelled.worstBranch, show: l.cancelled.count > 0 },
+    { key: "noShow", big: `${l.noShow.count} lượt`, text: `đặt bàn rồi không đến, giữ chỗ cho ${l.noShow.value} khách`, to: "/admin/dat-ban", module: "reservations" as const, w: l.noShow.worstBranch, show: l.noShow.count > 0 },
+    { key: "lowReviews", big: `${l.lowReviews.count} đánh giá`, text: "chỉ 1–2 sao, nên đọc để biết món hay khâu nào có vấn đề", to: "/admin/danh-gia", module: "reviews" as const, w: l.lowReviews.worstBranch, show: l.lowReviews.count > 0 },
   ].filter((i) => i.show) : null;
   const lost = l ? l.discount.value + l.cancelled.value : 0;
   return (
@@ -297,14 +300,19 @@ function LeaksSection({ data, range }: { data?: DashboardData; range: Range }) {
         <ul className="divide-y divide-black/[0.06] overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.06]">
           {items.map((i) => (
             <li key={i.key}>
-              <Link to={i.to} className="flex items-start gap-3 px-4 py-3 hover:bg-black/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
-                <span className="min-w-0 flex-1">
+              {(() => {
+                const body = <span className="min-w-0 flex-1">
                   <span className="block font-display text-lg font-semibold tabular-nums leading-tight">{i.big}</span>
                   <span className="block text-sm">{i.text}</span>
                   {i.w && <span className="mt-0.5 block truncate text-xs text-muted">Nhiều nhất ở {shortName(i.w)}</span>}
-                </span>
-                <ChevronRight size={16} className="mt-1.5 text-muted" />
-              </Link>
+                </span>;
+                // Quản lý không vào được trang khuyến mãi/đánh giá: hiện số liệu, không gắn liên kết.
+                return can(i.module) ? (
+                  <Link to={i.to} className="flex items-start gap-3 px-4 py-3 hover:bg-black/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+                    {body}<ChevronRight size={16} className="mt-1.5 text-muted" />
+                  </Link>
+                ) : <div className="flex items-start gap-3 px-4 py-3">{body}</div>;
+              })()}
             </li>
           ))}
         </ul>

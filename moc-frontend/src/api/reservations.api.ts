@@ -4,7 +4,7 @@ import type {
   BanAn,
   ChinhSachDatCoc,
   ThongTinDatBan,
-  PhienThanhToanVNPay,
+  PhienThanhToanPayOS,
   HinhThucDatBan,
   MonAnDatBan,
   ChiNhanh,
@@ -14,7 +14,7 @@ import type {
 export async function layDanhSachBan(chiNhanhId?: string): Promise<BanAn[]> {
   try {
     const params = chiNhanhId ? { chi_nhanh: chiNhanhId } : {};
-    const { data } = await apiClient.get("/tables/", { params });
+    const { data } = await apiClient.get("/ban-an/", { params });
     const list = Array.isArray(data) ? data : data.results ?? [];
     return list.map(mapBanAn);
   } catch {
@@ -24,7 +24,7 @@ export async function layDanhSachBan(chiNhanhId?: string): Promise<BanAn[]> {
 
 export async function layDanhSachChiNhanh(): Promise<ChiNhanh[]> {
   try {
-    const { data } = await apiClient.get("/branches/");
+    const { data } = await apiClient.get("/chi-nhanh/");
     const list = Array.isArray(data) ? data : data.results ?? [];
     return list.map((b: any): ChiNhanh => ({
       id: String(b.id),
@@ -46,7 +46,7 @@ export async function layKhungGioTrong(params: {
   soKhach: number;
 }): Promise<{ khungGio: string; conTrong: boolean; soChoConLai: number }[]> {
   try {
-    const { data } = await apiClient.get("/reservations/khung-gio-trong/", {
+    const { data } = await apiClient.get("/dat-ban/khung-gio-trong/", {
       params: { chi_nhanh_id: params.chiNhanhId, ngay: params.ngay, so_khach: params.soKhach },
     });
     return (data.slots ?? []).map((s: any) => ({
@@ -62,7 +62,7 @@ export async function layKhungGioTrong(params: {
 
 export async function layChinhSachDatCoc(chiNhanhId?: string): Promise<ChinhSachDatCoc> {
   try {
-    const { data } = await apiClient.get("/reservations/chinh_sach_coc/", {
+    const { data } = await apiClient.get("/dat-ban/chinh_sach_coc/", {
       params: chiNhanhId ? { branch: chiNhanhId } : {},
     });
     if (data) {
@@ -125,24 +125,24 @@ export async function taoDatBan(params: {
   };
   if (params.chiNhanhId) payload.chi_nhanh = Number(params.chiNhanhId);
 
-  const { data } = await apiClient.post("/reservations/", payload);
+  const { data } = await apiClient.post("/dat-ban/", payload);
   return mapThongTinDatBan(data);
 }
 
 export async function layDatBanTheoId(id: string): Promise<ThongTinDatBan> {
-  const { data } = await apiClient.get(`/reservations/${id}/`);
+  const { data } = await apiClient.get(`/dat-ban/${id}/`);
   return mapThongTinDatBan(data);
 }
 
 export async function layDatBanCuaToi(): Promise<ThongTinDatBan[]> {
-  const { data } = await apiClient.get("/reservations/", { params: { mine: 1 } });
+  const { data } = await apiClient.get("/dat-ban/", { params: { mine: 1 } });
   return (Array.isArray(data) ? data : data.results).map(mapThongTinDatBan);
 }
 
-export async function taoPhienThanhToanVNPay(
+export async function taoPhienThanhToanPayOS(
   idDatBan: string
-): Promise<PhienThanhToanVNPay> {
-  const { data } = await apiClient.post("/payments/vnpay/create/", {
+): Promise<PhienThanhToanPayOS> {
+  const { data } = await apiClient.post("/thanh-toan/payos/tao-phien/", {
     loai_thanh_toan: "tien_coc",
     dat_ban_id: Number(idDatBan),
   });

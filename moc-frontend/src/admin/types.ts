@@ -28,7 +28,7 @@ export interface AdminOrder {
   subtotal: number;
   discount: number;
   total: number;
-  payment: "cod" | "bank" | "vnpay";
+  payment: "cod" | "bank" | "payos";
   status: OrderStatus;
   createdAt: string;
   history: { to: OrderStatus; at: string; by: string; note?: string }[];
@@ -128,7 +128,7 @@ export interface AdminPayment {
   code: string;
   kind: "order" | "deposit";
   ref: string;
-  method: "cod" | "bank" | "vnpay";
+  method: "cod" | "bank" | "payos";
   amount: number;
   status: "pending" | "success" | "failed" | "refunded";
   createdAt: string;

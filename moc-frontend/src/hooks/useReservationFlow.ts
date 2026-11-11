@@ -2,13 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import {
   layChinhSachDatCoc,
   taoDatBan,
-  taoPhienThanhToanVNPay,
+  taoPhienThanhToanPayOS,
 } from "@/api/reservations.api";
 import type {
   MonAnDatBan,
   ChinhSachDatCoc,
   ThongTinDatBan,
-  PhienThanhToanVNPay,
+  PhienThanhToanPayOS,
   MonAn,
 } from "@/types";
 import { localDateInputValue } from "@/lib/utils";
@@ -36,10 +36,10 @@ export function useReservationFlow() {
   const [danhSachMonDat, setFoodItems] = useState<MonAnDatBan[]>([]);
   const [danhMucDangLoc, setDanhMucDangLoc] = useState("all");
   const [thongTinLienHe, setContact] = useState<ThongTinLienHe>({ tenKhachHang: "", soDienThoai: "", ghiChu: "" });
-  const [phuongThucThanhToan, setPhuongThucThanhToan] = useState<"vnpay">("vnpay");
+  const [phuongThucThanhToan, setPhuongThucThanhToan] = useState<"payos">("payos");
 
   const [thongTinDatBan, setReservation] = useState<ThongTinDatBan | null>(null);
-  const [phienThanhToan, setPaymentSession] = useState<PhienThanhToanVNPay | null>(null);
+  const [phienThanhToan, setPaymentSession] = useState<PhienThanhToanPayOS | null>(null);
   const [loiThanhToan, setPaymentError] = useState("");
   const [dangThuLaiThanhToan, setRetryingPayment] = useState(false);
   const [dangGuiDon, setSubmitting] = useState(false);
@@ -128,7 +128,7 @@ export function useReservationFlow() {
 
       if (res.soTienCoc > 0) {
         try {
-          const session = await taoPhienThanhToanVNPay(res.id);
+          const session = await taoPhienThanhToanPayOS(res.id);
           setPaymentSession(session);
         } catch (err: any) {
           setPaymentError(err.response?.data?.detail ?? "Đặt bàn đã được ghi nhận nhưng chưa tạo được phiên thanh toán.");
@@ -148,7 +148,7 @@ export function useReservationFlow() {
     setRetryingPayment(true);
     setPaymentError("");
     try {
-      const session = await taoPhienThanhToanVNPay(thongTinDatBan.id);
+      const session = await taoPhienThanhToanPayOS(thongTinDatBan.id);
       setPaymentSession(session);
     } catch (err: any) {
       setPaymentError(err.response?.data?.detail ?? "Chưa tạo được phiên thanh toán. Vui lòng thử lại.");
@@ -164,7 +164,7 @@ export function useReservationFlow() {
     setFoodItems([]);
     setDanhMucDangLoc("all");
     setContact({ tenKhachHang: "", soDienThoai: "", ghiChu: "" });
-    setPhuongThucThanhToan("vnpay");
+    setPhuongThucThanhToan("payos");
     setReservation(null);
     setPaymentSession(null);
     setPaymentError("");

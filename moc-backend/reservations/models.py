@@ -239,9 +239,6 @@ class PhienPhucVu(MoHinhThoiGian):
         return f"{self.ma_phien} · {self.ban_an}"
 
 
-DiningSession = PhienPhucVu
-
-
 class MonAnTrongDatBan(MoHinhThoiGian):
     dat_ban = models.ForeignKey(DatBan, related_name="danh_sach_mon", on_delete=models.CASCADE)
     mon_an = models.ForeignKey(MonAn, on_delete=models.PROTECT)
@@ -252,25 +249,3 @@ class MonAnTrongDatBan(MoHinhThoiGian):
     class Meta:
         db_table = "mon_an_trong_dat_ban"
         unique_together = ("dat_ban", "mon_an")
-
-
-# Backward-compatible model aliases
-Table = BanAn
-DepositPolicy = ChinhSachDatCoc
-DepositRefundRule = QuyTacHuyDatCoc
-Reservation = DatBan
-ReservationItem = MonAnTrongDatBan
-ReservationFoodItem = MonAnTrongDatBan
-
-# Enum aliases (Challenger 1 requirement)
-BanAn.Status = BanAn.TrangThai
-BanAn.TrangThaiBan = BanAn.TrangThai
-Table.Status = BanAn.TrangThai
-Table.TrangThaiBan = BanAn.TrangThai
-
-DatBan.Status = DatBan.TrangThai
-DatBan.DepositStatus = DatBan.TrangThaiCoc
-DatBan.Type = DatBan.HinhThuc
-Reservation.Status = DatBan.TrangThai
-Reservation.DepositStatus = DatBan.TrangThaiCoc
-Reservation.Type = DatBan.HinhThuc

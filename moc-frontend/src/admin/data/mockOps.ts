@@ -43,12 +43,12 @@ export const reservationsSeed: AdminReservation[] = [
 ];
 
 export const paymentsSeed: AdminPayment[] = [
-  { id: "p1", code: "VNP4410023", kind: "deposit", ref: "RS1013", method: "vnpay", amount: 233000, status: "success", createdAt: ago(60 * 5) },
-  { id: "p2", code: "VNP4410031", kind: "order", ref: "MC482914", method: "vnpay", amount: 340200, status: "success", createdAt: ago(40) },
+  { id: "p1", code: "4410023", kind: "deposit", ref: "RS1013", method: "payos", amount: 233000, status: "success", createdAt: ago(60 * 5) },
+  { id: "p2", code: "4410031", kind: "order", ref: "MC482914", method: "payos", amount: 340200, status: "success", createdAt: ago(40) },
   { id: "p3", code: "BANK-7781", kind: "order", ref: "MC482921", method: "bank", amount: 357000, status: "pending", createdAt: ago(28) },
-  { id: "p4", code: "VNP4409877", kind: "deposit", ref: "RS1039", method: "vnpay", amount: 756000, status: "pending", createdAt: ago(9) },
-  { id: "p5", code: "VNP4409102", kind: "deposit", ref: "RS1104", method: "vnpay", amount: 63200, status: "refunded", createdAt: ago(60 * 24 * 5) },
-  { id: "p6", code: "VNP4408890", kind: "order", ref: "MC482872", method: "vnpay", amount: 120000, status: "failed", createdAt: ago(60 * 26) },
+  { id: "p4", code: "4409877", kind: "deposit", ref: "RS1039", method: "payos", amount: 756000, status: "pending", createdAt: ago(9) },
+  { id: "p5", code: "4409102", kind: "deposit", ref: "RS1104", method: "payos", amount: 63200, status: "refunded", createdAt: ago(60 * 24 * 5) },
+  { id: "p6", code: "4408890", kind: "order", ref: "MC482872", method: "payos", amount: 120000, status: "failed", createdAt: ago(60 * 26) },
 ];
 
 export const depositPolicySeed: DepositPolicyData[] = [

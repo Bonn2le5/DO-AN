@@ -31,7 +31,7 @@ export default function RegisterPage() {
     try {
       const result = await registerApi(data);
       // Backend requires email verification before login
-      navigate(`/auth/verify-email?email=${encodeURIComponent(result.email)}`);
+      navigate(`/xac-thuc-email?email=${encodeURIComponent(result.email)}`);
     } catch (e: any) {
       const body = e.response?.data;
       const message = body && typeof body === "object" ? Object.values(body).flat()[0] : null;

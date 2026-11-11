@@ -11,7 +11,7 @@ from .models import HoiThoai, TinNhan
 from .services import STAFF_GROUP, is_staff_user, save_message
 
 
-class ChatConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
+class HoiThoaiConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
     """
     Handles live chat WebSocket connections for customer-staff messaging.
     Guarantees DB persistence into PostgreSQL before broadcasting to the channel group.
@@ -216,7 +216,7 @@ class ChatConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
         qs.update(da_doc=True, doc_luc=now)
 
 
-class InboxConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
+class HopThuConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
     """Staff receive all new messages; customers receive updates for their room."""
 
     async def connect(self):

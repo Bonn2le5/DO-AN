@@ -10,7 +10,7 @@ import { fmtDateTime } from "../lib";
 import { formatCurrency } from "@/lib/utils";
 import type { AdminOrder } from "../types";
 
-const PAYMENT = { cod: "Thanh toán khi nhận", bank: "Chuyển khoản", vnpay: "VNPay" };
+const PAYMENT = { cod: "Thanh toán khi nhận", bank: "Chuyển khoản", payos: "PayOS" };
 
 export default function OrderDrawer({ order, onClose, onChanged }: { order: AdminOrder | null; onClose: () => void; onChanged: () => void }) {
   const can = useCan();

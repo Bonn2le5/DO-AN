@@ -192,11 +192,120 @@ class KiemThuHeThongGoiYMonAn(TestCase):
         self.client.force_authenticate(user=self.user)
         resp = self.client.post(
             "/api/recommendations/tuong-tac/",
-            {"mon_an": self.mon_lau_thai.id, "loai_tuong_tac": "dat_mon"},
+            {"mon_an": self.mon_lau_thai.id, "loai_tuong_tac": "yeu_thich"},
             format="json",
         )
         self.assertEqual(resp.status_code, 201)
-        self.assertEqual(resp.data["trong_so"], "4.00")
+        self.assertEqual(resp.data["trong_so"], "2.00")
+
+    # ------------------------------------------------------------------
+    # Lỗi A: tín hiệu tương tác phải phản ánh đúng hành vi thật của khách
+    # ------------------------------------------------------------------
+
+    def test_client_khong_tu_dat_trong_so_hay_loai_server(self):
+        self.client.force_authenticate(user=self.user)
+        r = self.client.post(
+            "/api/tuong-tac/",
+            {"mon_an": self.mon_chay.id, "loai_tuong_tac": "xem", "trong_so": 999},
+            format="json",
+        )
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(r.data["trong_so"], "1.00")
+        for loai in ("dat_mon", "danh_gia", "order", "rating"):
+            r = self.client.post("/api/tuong-tac/", {"mon_an": self.mon_chay.id, "loai_tuong_tac": loai}, format="json")
+            self.assertEqual(r.status_code, 400, loai)
+
+    def test_yeu_thich_khong_trung_va_bo_yeu_thich(self):
+        self.client.force_authenticate(user=self.user)
+        body = {"mon_an": self.mon_lau_thai.id, "loai_tuong_tac": "yeu_thich"}
+        self.client.post("/api/tuong-tac/", body, format="json")
+        self.client.post("/api/tuong-tac/", body, format="json")
+        qs = TuongTacMonAn.objects.filter(nguoi_dung=self.user, loai_tuong_tac="yeu_thich")
+        self.assertEqual(qs.count(), 1)
+
+        DichVuGoiY.cap_nhat_goi_y(self.user, gioi_han=3)
+        r = self.client.post("/api/tuong-tac/bo-yeu-thich/", {"mon_an": self.mon_lau_thai.id}, format="json")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(qs.count(), 0)
+        self.assertFalse(GoiYMonAn.objects.filter(nguoi_dung=self.user).exists())
+        # Không còn tương tác → quay về cold-start
+        self.assertEqual(DichVuGoiY.cap_nhat_goi_y(self.user, gioi_han=3)[0].phien_ban_model, MODEL_VERSION_COLD_START)
+
+    def _tao_don_da_dung(self, *mon_ds):
+        from orders.models import DonHang, ChiTietDonHang
+        don = DonHang.objects.create(
+            khach_hang=self.user, ten_khach="K", sdt_khach="0900000000",
+            trang_thai=DonHang.TrangThai.HOAN_TAT,
+        )
+        for mon in mon_ds:
+            ChiTietDonHang.objects.create(
+                don_hang=don, mon_an=mon, so_luong=1,
+                don_gia_luc_dat=mon.don_gia, thanh_tien=mon.don_gia,
+            )
+
+    def _trong_so_danh_gia(self, mon):
+        return [
+            float(w) for w in TuongTacMonAn.objects.filter(
+                nguoi_dung=self.user, mon_an=mon, loai_tuong_tac="danh_gia"
+            ).values_list("trong_so", flat=True)
+        ]
+
+    def test_danh_gia_trong_so_theo_so_sao_va_dong_bo_khi_sua_xoa(self):
+        self._tao_don_da_dung(self.mon_lau_thai)
+        self.client.force_authenticate(user=self.user)
+        r = self.client.post("/api/reviews/", {"mon_an": self.mon_lau_thai.id, "diem_danh_gia": 1, "nhan_xet": "Dở"}, format="json")
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(self._trong_so_danh_gia(self.mon_lau_thai), [-5.0])
+
+        self.client.patch(f"/api/reviews/{r.data['id']}/", {"diem_danh_gia": 5}, format="json")
+        self.assertEqual(self._trong_so_danh_gia(self.mon_lau_thai), [5.0])
+
+        self.client.patch(f"/api/reviews/{r.data['id']}/", {"diem_danh_gia": 3}, format="json")
+        self.assertEqual(self._trong_so_danh_gia(self.mon_lau_thai), [])  # 3★ trung tính
+
+        self.client.delete(f"/api/reviews/{r.data['id']}/")
+        self.assertEqual(self._trong_so_danh_gia(self.mon_lau_thai), [])
+
+    def test_mon_bi_che_khong_duoc_goi_y_va_keo_khau_vi_ra_xa(self):
+        """Thích món chay, chê Lẩu Thái (1★) → Lẩu Thái không xuất hiện, Bò nướng cay bị đẩy xuống."""
+        self._tao_don_da_dung(self.mon_lau_thai)
+        TuongTacMonAn.objects.create(nguoi_dung=self.user, mon_an=self.mon_chay, loai_tuong_tac="yeu_thich", trong_so=2)
+        self.client.force_authenticate(user=self.user)
+        r = self.client.post("/api/reviews/", {"mon_an": self.mon_lau_thai.id, "diem_danh_gia": 1}, format="json")
+        self.assertEqual(r.status_code, 201)
+
+        recs = DichVuGoiY.cap_nhat_goi_y(self.user, gioi_han=6)
+        ds_id = [x.mon_an.id for x in recs]
+        self.assertNotIn(self.mon_lau_thai.id, ds_id)
+        self.assertIn(self.mon_bo_nuong.id, ds_id)
+        bo = next(x for x in recs if x.mon_an.id == self.mon_bo_nuong.id)
+        self.assertEqual(float(bo.diem_tuong_dong), 0.0)  # cay/sa tế giờ ngược khẩu vị
+        self.assertNotIn("Lẩu Thái", bo.ly_do_goi_y)       # không lấy món bị chê làm lý do
+
+    def test_chi_che_mon_thi_quay_ve_cold_start(self):
+        self._tao_don_da_dung(self.mon_chay)
+        self.client.force_authenticate(user=self.user)
+        self.client.post("/api/reviews/", {"mon_an": self.mon_chay.id, "diem_danh_gia": 2}, format="json")
+        recs = DichVuGoiY.cap_nhat_goi_y(self.user, gioi_han=3)
+        self.assertEqual(recs[0].phien_ban_model, MODEL_VERSION_COLD_START)
+
+    def test_cache_bo_mon_het_hang_va_tinh_lai_khi_thieu(self):
+        self.client.force_authenticate(user=self.user)
+        self.client.get("/api/recommendations/?limit=3")
+        self.assertEqual(GoiYMonAn.objects.filter(nguoi_dung=self.user).count(), 3)
+
+        MonAn.objects.filter(id=self.mon_lau_thai.id).update(con_hang=False)
+        r = self.client.get("/api/recommendations/?limit=3")
+        ids = [x["mon_an"] for x in r.data]
+        self.assertNotIn(self.mon_lau_thai.id, ids)
+        self.assertEqual(len(ids), 2)  # chỉ còn 2 món đang bán
+
+    def test_limit_bi_kep(self):
+        self.client.force_authenticate(user=self.user)
+        for q in ("-5", "0", "100000", "abc"):
+            r = self.client.get(f"/api/recommendations/?limit={q}")
+            self.assertEqual(r.status_code, 200, q)
+            self.assertGreaterEqual(len(r.data), 1, q)
 
     def test_mon_tuong_tu_item_to_item(self):
         """Món tương tự: Lẩu Thái gần Bò nướng sa tế hơn món chay, kèm đặc trưng chung."""

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import DanhMucBaiViet, BaiViet, PostCategory, Post
+from .models import DanhMucBaiViet, BaiViet
 
 
 class DanhMucBaiVietSerializer(serializers.ModelSerializer):
@@ -28,7 +28,3 @@ class BaiVietSerializer(serializers.ModelSerializer):
 
     def get_ten_tac_gia(self, obj):
         return obj.tac_gia.get_full_name() or obj.tac_gia.username if obj.tac_gia else "Nhà hàng"
-
-
-PostCategorySerializer = DanhMucBaiVietSerializer
-PostSerializer = BaiVietSerializer

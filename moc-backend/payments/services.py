@@ -1,187 +1,170 @@
 import hashlib
 import hmac
-import urllib.parse
-from datetime import datetime, timedelta
+import json
+import time
+import urllib.error
+import urllib.request
+from datetime import datetime
 from decimal import Decimal
 from typing import Dict, Any, Tuple, Optional
 from django.conf import settings
 from django.utils import timezone
 from django.db import transaction
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, ValidationError
 from .models import ThanhToan, PhieuHoanTien
 from reservations.models import DatBan
 from orders.models import DonHang
 
 
-class VNPayService:
-    class NotConfigured(APIException):
+class DichVuPayOS:
+    """Cổng thanh toán PayOS (QR chuyển khoản). Tài liệu: https://payos.vn/docs/api/"""
+
+    class ChuaCauHinh(APIException):
         status_code = 503
-        default_detail = "VNPay sandbox chưa được cấu hình: cần VNPAY_TMN_CODE và VNPAY_HASH_SECRET."
-        default_code = "vnpay_not_configured"
+        default_detail = "PayOS chưa được cấu hình: cần PAYOS_CLIENT_ID, PAYOS_API_KEY và PAYOS_CHECKSUM_KEY."
+        default_code = "payos_not_configured"
+
+    class LoiCong(APIException):
+        status_code = 502
+        default_detail = "Không kết nối được PayOS, vui lòng thử lại."
+        default_code = "payos_error"
 
     @staticmethod
-    def get_client_ip(request) -> str:
-        if not request:
-            return "127.0.0.1"
-        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-        if x_forwarded_for:
-            return x_forwarded_for.split(",")[0].strip()
-        return request.META.get("REMOTE_ADDR", "127.0.0.1")
+    def _khoa_checksum() -> str:
+        khoa = getattr(settings, "PAYOS_CHECKSUM_KEY", "")
+        if not khoa:
+            raise DichVuPayOS.ChuaCauHinh()
+        return khoa
 
     @staticmethod
-    def calculate_hmac_sha512(params: Dict[str, Any], hash_secret: str) -> str:
-        clean_params = {}
-        for k, v in params.items():
-            if k in ("vnp_SecureHash", "vnp_SecureHashType"):
-                continue
-            if v is not None and str(v) != "":
-                clean_params[k] = str(v)
+    def ky(du_lieu: Dict[str, Any], khoa: str) -> str:
+        """HMAC-SHA256 trên chuỗi key=value nối bằng & theo thứ tự key a→z."""
+        def gia_tri(v):
+            if v is None or v in ("null", "undefined"):
+                return ""
+            if isinstance(v, bool):
+                return "true" if v else "false"
+            if isinstance(v, (list, dict)):
+                return json.dumps(v, separators=(",", ":"), ensure_ascii=False, sort_keys=True)
+            return str(v)
 
-        sorted_items = sorted(clean_params.items())
-        hash_data = "&".join(
-            f"{k}={urllib.parse.quote_plus(str(v))}" for k, v in sorted_items
-        )
-        return hmac.new(
-            hash_secret.encode("utf-8"),
-            hash_data.encode("utf-8"),
-            hashlib.sha512
-        ).hexdigest()
-
-    @staticmethod
-    def verify_signature(params: Dict[str, Any], secure_hash: str, hash_secret: str) -> bool:
-        if not secure_hash:
-            return False
-        expected_hash = VNPayService.calculate_hmac_sha512(params, hash_secret)
-        return hmac.compare_digest(expected_hash.lower(), secure_hash.lower())
+        chuoi = "&".join(f"{k}={gia_tri(v)}" for k, v in sorted(du_lieu.items()))
+        return hmac.new(khoa.encode("utf-8"), chuoi.encode("utf-8"), hashlib.sha256).hexdigest()
 
     @classmethod
-    def create_payment_url(
-        cls,
-        *,
-        thanh_toan: ThanhToan,
-        ip_addr: str = "127.0.0.1",
-        order_info: Optional[str] = None,
-        locale: str = "vn",
-        create_date: Optional[str] = None,
-    ) -> Tuple[str, Dict[str, Any]]:
-        tmn_code = getattr(settings, "VNPAY_TMN_CODE", "")
-        hash_secret = getattr(settings, "VNPAY_HASH_SECRET", "")
-        if not tmn_code or not hash_secret:
-            raise cls.NotConfigured()
-        base_url = getattr(settings, "VNPAY_URL", getattr(settings, "VNPAY_SANDBOX_URL", "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"))
-        return_url = getattr(settings, "VNPAY_RETURN_URL", "http://127.0.0.1:8000/api/payments/vnpay/return/")
-
-        now = timezone.now()
-        if not create_date:
-            create_date = now.strftime("%Y%m%d%H%M%S")
-        amount_vnd = int(Decimal(str(thanh_toan.so_tien)) * 100)
-
-        if not thanh_toan.ma_giao_dich:
-            thanh_toan.ma_giao_dich = f"TT{thanh_toan.id}_{int(now.timestamp())}"
-            thanh_toan.save(update_fields=["ma_giao_dich", "cap_nhat_luc"])
-
-        if not order_info:
-            if thanh_toan.loai_thanh_toan == ThanhToan.LoaiThanhToan.TIEN_COC and thanh_toan.dat_ban:
-                order_info = f"Thanh toan dat coc ban {thanh_toan.dat_ban.ma_dat_ban}"
-            elif thanh_toan.loai_thanh_toan == ThanhToan.LoaiThanhToan.DON_HANG and thanh_toan.don_hang:
-                order_info = f"Thanh toan don hang {thanh_toan.don_hang.ma_don_hang}"
-            else:
-                order_info = f"Thanh toan giao dich {thanh_toan.ma_giao_dich}"
-
-        params: Dict[str, Any] = {
-            "vnp_Version": "2.1.0",
-            "vnp_Command": "pay",
-            "vnp_TmnCode": tmn_code,
-            "vnp_Amount": str(amount_vnd),
-            "vnp_CreateDate": create_date,
-            "vnp_CurrCode": "VND",
-            "vnp_IpAddr": ip_addr,
-            "vnp_Locale": locale,
-            "vnp_OrderInfo": order_info,
-            "vnp_OrderType": "billpayment",
-            "vnp_ReturnUrl": return_url,
-            "vnp_TxnRef": thanh_toan.ma_giao_dich,
-        }
-
-        checksum = cls.calculate_hmac_sha512(params, hash_secret)
-        params["vnp_SecureHash"] = checksum
-
-        sorted_items = sorted(params.items())
-        query_string = "&".join(
-            f"{k}={urllib.parse.quote_plus(str(v))}" for k, v in sorted_items
+    def _goi_api(cls, method: str, path: str, body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        client_id = getattr(settings, "PAYOS_CLIENT_ID", "")
+        api_key = getattr(settings, "PAYOS_API_KEY", "")
+        if not client_id or not api_key:
+            raise cls.ChuaCauHinh()
+        req = urllib.request.Request(
+            f"{settings.PAYOS_API_URL.rstrip('/')}{path}",
+            method=method,
+            data=json.dumps(body).encode("utf-8") if body is not None else None,
+            headers={"x-client-id": client_id, "x-api-key": api_key, "Content-Type": "application/json"},
         )
-        payment_url = f"{base_url}?{query_string}"
-        return payment_url, params
-
-    @classmethod
-    def process_ipn(cls, query_params: Any) -> Tuple[str, str]:
-        hash_secret = getattr(settings, "VNPAY_HASH_SECRET", "")
-        if not hash_secret:
-            return "99", "VNPay is not configured"
-        
-        # Robust scalar parameter extraction from Django QueryDict or standard dict
-        if hasattr(query_params, "dict"):
-            raw_dict = query_params.dict()
-        else:
-            raw_dict = dict(query_params)
-        params = {
-            k: (v[0] if isinstance(v, list) and len(v) > 0 else v)
-            for k, v in raw_dict.items()
-        }
-
-        vnp_secure_hash = params.pop("vnp_SecureHash", None)
-        params.pop("vnp_SecureHashType", None)
-
-        # 1. Verify Checksum (fail-fast without touching database)
-        if not vnp_secure_hash or not cls.verify_signature(params, str(vnp_secure_hash), hash_secret):
-            return "97", "Invalid Checksum"
-
-        txn_ref = params.get("vnp_TxnRef")
-        raw_amount = params.get("vnp_Amount", 0)
         try:
-            amount = int(raw_amount)
-        except (ValueError, TypeError):
-            return "04", "Invalid amount"
+            with urllib.request.urlopen(req, timeout=15) as res:
+                ket_qua = json.loads(res.read().decode("utf-8"))
+        except (urllib.error.URLError, ValueError) as exc:
+            raise cls.LoiCong() from exc
+        if ket_qua.get("code") != "00":
+            raise cls.LoiCong(f"PayOS: {ket_qua.get('desc') or 'lỗi không xác định'}")
+        return ket_qua.get("data") or {}
 
-        response_code = params.get("vnp_ResponseCode")
+    @classmethod
+    def tao_link(cls, *, thanh_toan: ThanhToan, het_han_luc: datetime) -> str:
+        """Tạo link thanh toán mới, trả về checkoutUrl. Link cũ đang chờ (nếu có) bị huỷ để khách không trả nhầm."""
+        khoa = cls._khoa_checksum()
+        if thanh_toan.ma_giao_dich:
+            trang_thai = cls.doi_soat(thanh_toan.ma_giao_dich)
+            if trang_thai == "PAID":
+                raise ValidationError({"detail": "Giao dịch này đã được thanh toán."})
+            if trang_thai == "PENDING":
+                try:
+                    cls._goi_api("POST", f"/v2/payment-requests/{thanh_toan.ma_giao_dich}/cancel",
+                                 {"cancellationReason": "Tạo link thanh toán mới"})
+                except cls.LoiCong:
+                    pass
 
-        # Stages 2 through 5 are enclosed within a single atomic transaction
-        # to ensure select_for_update() pessimistic row lock persists across idempotency checks & mutations
+        if thanh_toan.dat_ban:
+            mo_ta = thanh_toan.dat_ban.ma_dat_ban
+        elif thanh_toan.don_hang:
+            mo_ta = thanh_toan.don_hang.ma_don_hang
+        else:
+            mo_ta = f"TT{thanh_toan.id}"
+
+        # orderCode phải là số nguyên duy nhất và không được dùng lại sau khi huỷ.
+        ma_don = int(time.time() * 1000)
+        du_lieu = {
+            "orderCode": ma_don,
+            "amount": int(Decimal(str(thanh_toan.so_tien))),
+            "description": mo_ta[:25],
+            "returnUrl": settings.PAYOS_RETURN_URL,
+            "cancelUrl": settings.PAYOS_CANCEL_URL,
+        }
+        du_lieu["signature"] = cls.ky(du_lieu, khoa)
+        du_lieu["expiredAt"] = int(het_han_luc.timestamp())
+
+        ket_qua = cls._goi_api("POST", "/v2/payment-requests", du_lieu)
+        thanh_toan.ma_giao_dich = str(ma_don)
+        thanh_toan.save(update_fields=["ma_giao_dich", "cap_nhat_luc"])
+        return ket_qua["checkoutUrl"]
+
+    @classmethod
+    def xu_ly_webhook(cls, body: Dict[str, Any]) -> bool:
+        """PayOS chỉ gửi webhook khi tiền đã vào tài khoản. Trả False nếu chữ ký sai."""
+        du_lieu = body.get("data") or {}
+        chu_ky = str(body.get("signature") or "")
+        if not chu_ky or not hmac.compare_digest(cls.ky(du_lieu, cls._khoa_checksum()), chu_ky.lower()):
+            return False
+        if du_lieu.get("code") == "00":
+            cls.xac_nhan(str(du_lieu.get("orderCode")), int(du_lieu.get("amount") or 0), thanh_cong=True)
+        return True
+
+    @classmethod
+    def doi_soat(cls, ma_giao_dich: str) -> Optional[str]:
+        """Hỏi PayOS trạng thái thật của giao dịch (returnUrl/cancelUrl không có chữ ký nên không tin được)."""
+        try:
+            info = cls._goi_api("GET", f"/v2/payment-requests/{ma_giao_dich}")
+        except cls.LoiCong:
+            return None
+        trang_thai = info.get("status")
+        if trang_thai == "PAID":
+            cls.xac_nhan(ma_giao_dich, int(info.get("amount") or 0), thanh_cong=True)
+        elif trang_thai in {"CANCELLED", "EXPIRED"}:
+            cls.xac_nhan(ma_giao_dich, int(info.get("amount") or 0), thanh_cong=False)
+        return trang_thai
+
+    @classmethod
+    def xac_nhan(cls, ma_giao_dich: str, so_tien: int, *, thanh_cong: bool) -> str:
+        """Cập nhật thanh toán và đặt bàn/đơn hàng liên quan. Gọi lặp lại nhiều lần vẫn an toàn."""
         with transaction.atomic():
-            # 2. Check Order Existence
-            try:
-                # Lock only the payment row. Locking select_related() here also
-                # tries to FOR UPDATE the nullable dat_ban/don_hang joins, which
-                # PostgreSQL rejects for payments that have either relation NULL.
-                thanh_toan = ThanhToan.objects.select_for_update().get(ma_giao_dich=txn_ref)
-            except ThanhToan.DoesNotExist:
-                return "01", "Order not found"
+            # Chỉ khoá dòng thanh toán: FOR UPDATE qua join nullable dat_ban/don_hang bị PostgreSQL từ chối.
+            thanh_toan = ThanhToan.objects.select_for_update().filter(ma_giao_dich=ma_giao_dich).first()
+            if not thanh_toan:
+                return "khong_tim_thay"
+            if so_tien != int(Decimal(str(thanh_toan.so_tien))):
+                return "sai_so_tien"
+            if thanh_toan.trang_thai != ThanhToan.TrangThai.CHO_XU_LY:
+                return "da_xu_ly"
 
-            # 3. Check Amount (VNPay amount * 100)
-            expected_amount = int(Decimal(str(thanh_toan.so_tien)) * 100)
-            if amount != expected_amount:
-                return "04", "Invalid amount"
-
-            # 4. Idempotency Check
-            if thanh_toan.trang_thai in (ThanhToan.TrangThai.THANH_CONG, ThanhToan.TrangThai.DA_HOAN_TIEN):
-                return "02", "Order already confirmed"
-
-            # 5. Process Confirmation or Failure
             now = timezone.now()
-            if response_code == "00":
+            if thanh_cong:
                 thanh_toan.trang_thai = ThanhToan.TrangThai.THANH_CONG
                 thanh_toan.thanh_toan_luc = now
                 thanh_toan.save(update_fields=["trang_thai", "thanh_toan_luc", "cap_nhat_luc"])
 
-                # Link DatBan
                 if thanh_toan.loai_thanh_toan == ThanhToan.LoaiThanhToan.TIEN_COC and thanh_toan.dat_ban:
                     db = thanh_toan.dat_ban
                     db.trang_thai_coc = DatBan.TrangThaiCoc.THANH_CONG
                     db.thanh_toan_coc_luc = now
+                    # Phiếu đã bị huỷ vì quá hạn thì giữ nguyên "Đã huỷ" để nhân viên hoàn cọc.
+                    if db.trang_thai == DatBan.TrangThai.CHO_THANH_TOAN:
+                        db.trang_thai = DatBan.TrangThai.CHO_XAC_NHAN
                     db.phien_ban += 1
-                    db.save(update_fields=["trang_thai_coc", "thanh_toan_coc_luc", "phien_ban", "cap_nhat_luc"])
+                    db.save(update_fields=["trang_thai", "trang_thai_coc", "thanh_toan_coc_luc", "phien_ban", "cap_nhat_luc"])
 
-                # Link DonHang
                 elif thanh_toan.loai_thanh_toan == ThanhToan.LoaiThanhToan.DON_HANG and thanh_toan.don_hang:
                     dh = thanh_toan.don_hang
                     dh.trang_thai = DonHang.TrangThai.DA_XAC_NHAN
@@ -192,7 +175,7 @@ class VNPayService:
                         tu_trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
                         sang_trang_thai=DonHang.TrangThai.DA_XAC_NHAN,
                         doi_boi=thanh_toan.nguoi_dung,
-                        ghi_chu="VNPay IPN confirmed payment"
+                        ghi_chu="PayOS xác nhận thanh toán"
                     )
                     try:
                         from foods.services import DichVuKho
@@ -203,23 +186,21 @@ class VNPayService:
                         )
                     except Exception:
                         pass
+                return "thanh_cong"
 
-                return "00", "Confirm Success"
-            else:
-                thanh_toan.trang_thai = ThanhToan.TrangThai.THAT_BAI
-                thanh_toan.save(update_fields=["trang_thai", "cap_nhat_luc"])
-
-                if thanh_toan.loai_thanh_toan == ThanhToan.LoaiThanhToan.TIEN_COC and thanh_toan.dat_ban:
-                    db = thanh_toan.dat_ban
+            thanh_toan.trang_thai = ThanhToan.TrangThai.THAT_BAI
+            thanh_toan.save(update_fields=["trang_thai", "cap_nhat_luc"])
+            if thanh_toan.loai_thanh_toan == ThanhToan.LoaiThanhToan.TIEN_COC and thanh_toan.dat_ban:
+                db = thanh_toan.dat_ban
+                if db.trang_thai == DatBan.TrangThai.CHO_THANH_TOAN:
                     db.trang_thai = DatBan.TrangThai.DA_HUY
-                    db.trang_thai_coc = DatBan.TrangThaiCoc.THAT_BAI
-                    db.phien_ban += 1
-                    db.save(update_fields=["trang_thai", "trang_thai_coc", "phien_ban", "cap_nhat_luc"])
+                db.trang_thai_coc = DatBan.TrangThaiCoc.THAT_BAI
+                db.phien_ban += 1
+                db.save(update_fields=["trang_thai", "trang_thai_coc", "phien_ban", "cap_nhat_luc"])
+            return "that_bai"
 
-                return "00", "Confirm Failure"
 
-
-class RefundService:
+class DichVuHoanTien:
     POLICY_THRESHOLDS = {
         "TRUOC_24H": ("truoc_24h", 100.0, "da_hoan_tien"),
         "TU_6_DEN_24H": ("tu_6_den_24h", 50.0, "hoan_tien_mot_phan"),
@@ -300,7 +281,7 @@ class RefundService:
                 "so_tien_khau_tru_phat": float(so_tien_phat),
             },
             "ly_do_huy": ly_do_huy,
-            "phuong_thuc_hoan": "vnpay_refund",
+            "phuong_thuc_hoan": "chuyen_khoan",
             "trang_thai": status,
             "tao_luc": thoi_gian_huy.isoformat(),
         }
@@ -380,7 +361,7 @@ class RefundService:
             so_gio_truoc_gio_hen=Decimal(str(round(delta_hours, 2))),
             ly_do_huy=ly_do,
             trang_thai=status_coc,
-            phuong_thuc_hoan="vnpay_refund",
+            phuong_thuc_hoan="chuyen_khoan",
             du_lieu_chi_tiet=receipt_dict,
         )
 

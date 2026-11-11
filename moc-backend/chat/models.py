@@ -43,12 +43,3 @@ class TinNhan(MoHinhThoiGian):
     class Meta:
         db_table = "tin_nhan"
         verbose_name = "Tin nhắn"
-
-
-# Backward-compatible model aliases
-ChatRoom = HoiThoai
-ChatMessage = TinNhan
-HoiThoai.Status = HoiThoai.TrangThai
-TinNhan.Type = TinNhan.LoaiTinNhan
-ChatRoom.Status = HoiThoai.TrangThai
-ChatMessage.Type = TinNhan.LoaiTinNhan

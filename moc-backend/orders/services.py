@@ -95,7 +95,8 @@ class DichVuDonHang:
             if mon_an.ton_kho_cache is not None and not mon_an.quan_ly_kho and mon_an.ton_kho_cache < so_luong:
                 raise ValidationError({"items": f"Món {mon_an.ten} không đủ số lượng trong kho."})
 
-            don_gia = mon_an.don_gia_hien_tai
+            # Món khách đặt trước giữ đơn giá đã chốt lúc đặt (tiền cọc tính theo giá đó).
+            don_gia = item["don_gia"] if item.get("don_gia") is not None else mon_an.don_gia_hien_tai
             ChiTietDonHang.objects.create(
                 don_hang=don_hang,
                 mon_an=mon_an,

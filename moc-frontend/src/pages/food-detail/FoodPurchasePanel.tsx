@@ -56,12 +56,14 @@ export default function FoodPurchasePanel({ food }: { food: MonAn }) {
         ))}
       </div>
 
-      <div className="mb-6">
-        <h3 className="text-sm font-bold uppercase tracking-wide text-muted mb-2.5">
-          Nguyên liệu chính
-        </h3>
-        <p className="text-sm text-text">{food.nguyenLieu.join(", ")}</p>
-      </div>
+      {food.nguyenLieu.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-sm font-bold uppercase tracking-wide text-muted mb-2.5">
+            Nguyên liệu chính
+          </h3>
+          <p className="text-sm text-text">{food.nguyenLieu.join(", ")}</p>
+        </div>
+      )}
 
       <div className="border-t border-black/8 pt-6">
         <div className="flex items-baseline justify-between mb-5">

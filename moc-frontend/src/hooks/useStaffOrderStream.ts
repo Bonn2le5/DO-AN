@@ -1,6 +1,6 @@
 /**
  * React Hook for Restaurant Staff / Kitchen Realtime Order Monitoring.
- * Connects to /ws/orders/staff/.
+ * Connects to /ws/don-hang/nhan-vien/.
  * Path: moc-frontend/src/hooks/useStaffOrderStream.ts
  */
 
@@ -45,7 +45,7 @@ export function useStaffOrderStream(options?: {
     async function connect() {
       if (isClosing) return;
       try {
-        const ws = await openAuthenticatedWebSocket("/ws/orders/staff/");
+        const ws = await openAuthenticatedWebSocket("/ws/don-hang/nhan-vien/");
         if (!ws) return;
         if (isClosing) {
           ws.close();

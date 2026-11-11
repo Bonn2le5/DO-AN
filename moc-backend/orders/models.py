@@ -89,13 +89,3 @@ class LichSuTrangThaiDon(MoHinhThoiGian):
 
     class Meta:
         db_table = "lich_su_trang_thai_don"
-
-
-# Backward-compatible model aliases
-Order = DonHang
-OrderItem = ChiTietDonHang
-OrderStatusHistory = LichSuTrangThaiDon
-DonHang.Status = DonHang.TrangThai
-DonHang.Type = DonHang.HinhThuc
-Order.Status = DonHang.TrangThai
-Order.Type = DonHang.HinhThuc

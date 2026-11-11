@@ -1,6 +1,6 @@
 /**
  * Production-ready Real-time Customer Support Chat Widget.
- * Connects to Django Channels WebSocket at /ws/chat/<conversation_id>/?token=<access_token>.
+ * Connects to Django Channels WebSocket at /ws/hoi-thoai/<conversation_id>/?token=<access_token>.
  * Path: moc-frontend/src/components/chat/ChatWidget.tsx
  */
 

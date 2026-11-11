@@ -18,8 +18,8 @@ const mappedStore = <T extends { id: string }>(path: string, from: (r: Raw) => T
   const keys = new Map<string, string>();
   return {
     async list() { const rows = await list(path); keys.clear(); return rows.map((r) => { const item = from(r); keys.set(item.id, keyOf(r)); return item; }); },
-    async create(draft) { const payload = to(draft as Partial<T>); if (path === "/tables/" && !payload.chi_nhanh) payload.chi_nhanh = (await list("/branches/"))[0]?.id; const { data: raw } = path === "/users/" ? await apiClient.post("/users/admin_create/", payload) : await apiClient.post(path, payload); const item = from(raw); keys.set(item.id, keyOf(raw)); return item; },
-    async update(id, patch) { const payload = to(patch); const { data: raw } = path === "/users/" ? await apiClient.patch(`/users/${keys.get(id) ?? id}/admin_update/`, payload) : path === "/payments/" ? await apiClient.post(`/payments/${id}/mark_success/`) : path === "/chat/rooms/" && "unread" in patch ? await apiClient.post(`/chat/rooms/${id}/mark_read/`) : await apiClient.patch(`${path}${keys.get(id) ?? id}/`, payload); const item = from(raw); keys.set(item.id, keyOf(raw)); return item; },
+    async create(draft) { const payload = to(draft as Partial<T>); if (path === "/ban-an/" && !payload.chi_nhanh) payload.chi_nhanh = (await list("/chi-nhanh/"))[0]?.id; const { data: raw } = path === "/nguoi-dung/" ? await apiClient.post("/nguoi-dung/quan-tri-tao/", payload) : await apiClient.post(path, payload); const item = from(raw); keys.set(item.id, keyOf(raw)); return item; },
+    async update(id, patch) { const payload = to(patch); const { data: raw } = path === "/nguoi-dung/" ? await apiClient.patch(`/nguoi-dung/${keys.get(id) ?? id}/quan-tri-cap-nhat/`, payload) : path === "/thanh-toan/" ? await apiClient.post(`/thanh-toan/${id}/xac_nhan_thanh_cong/`) : path === "/hoi-thoai/" && "unread" in patch ? await apiClient.post(`/hoi-thoai/${id}/da-doc/`) : await apiClient.patch(`${path}${keys.get(id) ?? id}/`, payload); const item = from(raw); keys.set(item.id, keyOf(raw)); return item; },
     async remove(id) { await remove(path, keys.get(id) ?? id); keys.delete(id); },
   };
 };
@@ -45,7 +45,7 @@ const mapDiningSession = (r: Raw): AdminDiningSession => ({
   startedAt: text(val(r, "started_at", "bat_dau_luc", "tao_luc")), checkedOutAt: text(val(r, "checked_out_at", "check_out_luc")) || undefined,
 });
 
-export const ordersStore = mappedStore<AdminOrder>("/orders/", (r) => ({
+export const ordersStore = mappedStore<AdminOrder>("/don-hang/", (r) => ({
   id: text(r.id), code: text(val(r, "code", "ma_don_hang")), customer: text(val(r, "customer_name", "ten_khach", "name")), phone: text(val(r, "customer_phone", "sdt_khach", "phone")),
   branchId: text(val(r, "branch_id", "chi_nhanh_id", "chi_nhanh")) || undefined,
   sessionId: text(val(r, "session_id", "phien_phuc_vu_id", "phien_phuc_vu")) || undefined,
@@ -56,67 +56,69 @@ export const ordersStore = mappedStore<AdminOrder>("/orders/", (r) => ({
   createdAt: text(val(r, "created_at", "tao_luc")), history: (val(r, "lich_su_trang_thai", "status_history") ?? []).map((h: Raw) => ({ to: stateMap(val(h, "to_status", "sang_trang_thai"), orderState) as OrderStatus, at: text(val(h, "created_at", "tao_luc")), by: text(val(h, "by", "doi_boi_name")), note: text(val(h, "note", "ghi_chu")) })),
 }), (v) => ({ customer_name: v.customer, customer_phone: v.phone, note: v.note, items: v.items?.map((i) => ({ name: i.name, qty: i.qty, price: i.price })), status: statusToBackend[text(v.status)] ?? v.status }));
 
-export const reservationsStore = mappedStore<AdminReservation>("/reservations/", (r) => {
+export const reservationsStore = mappedStore<AdminReservation>("/dat-ban/", (r) => {
   const table = val(r, "ban_an", "table") ?? {};
   const items = val(r, "food_items", "danh_sach_mon") ?? [];
   const branch = val(r, "branch", "chi_nhanh");
   return { id: text(r.id), code: text(val(r, "code", "ma_dat_ban")), customer: text(val(r, "customer_name", "ten_khach")), phone: text(val(r, "customer_phone", "sdt_khach")), tableId: text(val(r, "table_id", "ban_an_id") ?? table.id), tableLabel: text(val(r, "so_ban", "ten_ban") ?? val(table, "so_ban", "number")), branchId: text(val(r, "branch_id", "chi_nhanh_id") ?? (typeof branch === "object" ? branch.id : branch)), date: text(val(r, "date", "ngay_dat")), time: text(val(r, "time", "gio_bat_dau")).slice(0, 5), partySize: num(val(r, "guest_count", "so_luong_khach")), option: stateMap(val(r, "type", "hinh_thuc"), { chi_giu_cho: "table_only", dat_ban_va_goi_mon: "table_and_food", dat_ban_goi_mon_chinh_sua: "table_and_food_editable" }) as AdminReservation["option"], status: stateMap(val(r, "status", "trang_thai"), reservationState) as ReservationStatus, depositAmount: num(val(r, "deposit_amount", "so_tien_coc")), depositStatus: stateMap(val(r, "deposit_status", "trang_thai_coc"), depositState) as AdminReservation["depositStatus"], foodItems: lineItems(items.map((i: Raw) => ({ ...i, name: val(i.mon_an, "ten", "name") }))), note: text(val(r, "note", "ghi_chu")), version: num(val(r, "version", "phien_ban")), cancelledAt: text(val(r, "cancelled_at", "huy_luc")), cancelReason: text(val(r, "cancel_reason", "ly_do_huy")), refund: val(r, "refund", "refund_record"), checkedInAt: text(val(r, "checked_in_at", "check_in_luc")) || undefined, sessionId: text(val(r, "session_id", "phien_phuc_vu_id")) || undefined, orderId: text(val(r, "order_id", "don_hang_id")) || undefined, orderCode: text(val(r, "order_code", "ma_don_hang")) || undefined };
 }, (v) => ({ ban_an: v.tableId, ngay_dat: v.date, gio_bat_dau: v.time, so_luong_khach: v.partySize, hinh_thuc: v.option === "table_only" ? "chi_giu_cho" : v.option === "table_and_food" ? "dat_ban_va_goi_mon" : "dat_ban_goi_mon_chinh_sua", ten_khach: v.customer, sdt_khach: v.phone, ghi_chu: v.note, status: statusToBackend[text(v.status)] ?? v.status }));
 
-export const tablesStore = mappedStore<AdminTable>("/tables/", (r) => ({ id: text(r.id), branchId: text(val(r, "branch_id", "chi_nhanh_id", "branch")), number: text(val(r, "number", "so_ban")), zone: (text(val(r, "zone", "khu_vuc")) || "Trong nhà") as AdminTable["zone"], capacity: num(val(r, "capacity", "suc_chua")), status: stateMap(val(r, "status", "trang_thai"), tableState) as TableStatus, activeSession: r.phien_phuc_vu_hien_tai ? mapDiningSession(r.phien_phuc_vu_hien_tai) : undefined }), (v) => ({ so_ban: v.number, khu_vuc: v.zone, suc_chua: v.capacity, trang_thai: statusToBackend[text(v.status)] ?? v.status } as Raw));
+export const tablesStore = mappedStore<AdminTable>("/ban-an/", (r) => ({ id: text(r.id), branchId: text(val(r, "branch_id", "chi_nhanh_id", "chi_nhanh")), number: text(val(r, "number", "so_ban")), zone: (text(val(r, "zone", "khu_vuc")) || "Trong nhà") as AdminTable["zone"], capacity: num(val(r, "capacity", "suc_chua")), status: stateMap(val(r, "status", "trang_thai"), tableState) as TableStatus, activeSession: r.phien_phuc_vu_hien_tai ? mapDiningSession(r.phien_phuc_vu_hien_tai) : undefined }), (v) => ({ so_ban: v.number, khu_vuc: v.zone, suc_chua: v.capacity, trang_thai: statusToBackend[text(v.status)] ?? v.status } as Raw));
 
 const unwrapList = (data: any): Raw[] => Array.isArray(data) ? data : data?.results ?? data?.data ?? [];
 export async function getTableManagementBranches(): Promise<AdminBranch[]> {
-  const { data } = await apiClient.get("/branches/");
+  const { data } = await apiClient.get("/chi-nhanh/");
   return unwrapList(data).map((r) => ({ id: text(r.id), name: text(val(r, "name", "ten")), address: text(val(r, "address", "dia_chi")), phone: text(val(r, "phone", "so_dien_thoai")), lat: num(val(r, "lat", "vi_do")), lng: num(val(r, "lng", "kinh_do")), active: bool(val(r, "active", "con_hoat_dong")) }));
 }
 export async function getTableManagementTables(branchId?: string, includeArchived = false): Promise<AdminTable[]> {
-  const { data } = await apiClient.get("/tables/", { params: { ...(branchId ? { chi_nhanh: branchId } : {}), ...(includeArchived ? { include_archived: "true" } : {}) } });
+  const { data } = await apiClient.get("/ban-an/", { params: { ...(branchId ? { chi_nhanh: branchId } : {}), ...(includeArchived ? { include_archived: "true" } : {}) } });
   return unwrapList(data).map((r) => ({ id: text(r.id), branchId: text(val(r, "chi_nhanh", "branch")), number: text(val(r, "so_ban", "number")), zone: text(val(r, "khu_vuc", "area")) || "Chưa phân khu", roomId: val(r, "phong_rieng") ? text(val(r, "phong_rieng")) : undefined, capacity: num(val(r, "suc_chua", "capacity")), status: stateMap(val(r, "trang_thai", "status"), tableState) as TableStatus, archived: bool(r.da_luu_tru), activeSession: r.phien_phuc_vu_hien_tai ? { ...mapDiningSession(r.phien_phuc_vu_hien_tai), tableId: text(r.id), tableLabel: text(val(r, "so_ban", "number")), branchId: text(val(r, "chi_nhanh", "branch")) } : undefined }));
 }
 export async function getTableManagementRooms(branchId?: string, includeInactive = false): Promise<AdminPrivateRoom[]> {
-  const { data } = await apiClient.get("/rooms/", { params: { ...(branchId ? { chi_nhanh: branchId } : {}), ...(includeInactive ? { include_inactive: "true" } : {}) } });
+  const { data } = await apiClient.get("/phong-rieng/", { params: { ...(branchId ? { chi_nhanh: branchId } : {}), ...(includeInactive ? { include_inactive: "true" } : {}) } });
   return unwrapList(data).map((r) => ({ id: text(r.id), branchId: text(r.chi_nhanh), name: text(r.ten_phong), floor: text(r.tang), capacity: num(r.suc_chua), active: bool(r.con_hoat_dong) }));
 }
 export async function createTableManagementRoom(room: Omit<AdminPrivateRoom, "id" | "active">): Promise<void> {
-  await apiClient.post("/rooms/", { chi_nhanh: Number(room.branchId), ten_phong: room.name, tang: room.floor, suc_chua: room.capacity, con_hoat_dong: true });
+  await apiClient.post("/phong-rieng/", { chi_nhanh: Number(room.branchId), ten_phong: room.name, tang: room.floor, suc_chua: room.capacity, con_hoat_dong: true });
 }
 export async function updateTableManagementRoom(room: AdminPrivateRoom): Promise<void> {
-  await apiClient.patch(`/rooms/${room.id}/`, { ten_phong: room.name, tang: room.floor, suc_chua: room.capacity, con_hoat_dong: room.active });
+  await apiClient.patch(`/phong-rieng/${room.id}/`, { ten_phong: room.name, tang: room.floor, suc_chua: room.capacity, con_hoat_dong: room.active });
 }
-export async function archiveTableManagementRoom(id: string): Promise<void> { await apiClient.delete(`/rooms/${id}/`); }
+export async function archiveTableManagementRoom(id: string): Promise<void> { await apiClient.delete(`/phong-rieng/${id}/`); }
 export async function createTableManagementTable(table: Omit<AdminTable, "id">): Promise<void> {
-  await apiClient.post("/tables/", { chi_nhanh: Number(table.branchId), so_ban: table.number, khu_vuc: table.zone, suc_chua: table.capacity, trang_thai: statusToBackend[table.status], phong_rieng: table.roomId ? Number(table.roomId) : null });
+  await apiClient.post("/ban-an/", { chi_nhanh: Number(table.branchId), so_ban: table.number, khu_vuc: table.zone, suc_chua: table.capacity, trang_thai: statusToBackend[table.status], phong_rieng: table.roomId ? Number(table.roomId) : null });
 }
 export async function updateTableManagementTable(table: AdminTable): Promise<void> {
-  await apiClient.patch(`/tables/${table.id}/`, { chi_nhanh: Number(table.branchId), so_ban: table.number, khu_vuc: table.zone, suc_chua: table.capacity, trang_thai: statusToBackend[table.status], phong_rieng: table.roomId ? Number(table.roomId) : null });
+  await apiClient.patch(`/ban-an/${table.id}/`, { chi_nhanh: Number(table.branchId), so_ban: table.number, khu_vuc: table.zone, suc_chua: table.capacity, trang_thai: statusToBackend[table.status], phong_rieng: table.roomId ? Number(table.roomId) : null });
 }
-export async function archiveTableManagementTable(id: string): Promise<void> { await apiClient.delete(`/tables/${id}/`); }
-export async function restoreTableManagementTable(id: string): Promise<void> { await apiClient.patch(`/tables/${id}/`, { da_luu_tru: false }); }
+export async function archiveTableManagementTable(id: string): Promise<void> { await apiClient.delete(`/ban-an/${id}/`); }
+export async function restoreTableManagementTable(id: string): Promise<void> { await apiClient.patch(`/ban-an/${id}/`, { da_luu_tru: false }); }
 export async function listDiningSessions(branchId?: string): Promise<AdminDiningSession[]> {
-  const { data } = await apiClient.get("/dining-sessions/", { params: branchId ? { chi_nhanh: branchId } : undefined });
+  const { data } = await apiClient.get("/phien-phuc-vu/", { params: branchId ? { chi_nhanh: branchId } : undefined });
   return unwrapList(data).map(mapDiningSession);
 }
 export async function getDiningSession(id: string): Promise<AdminDiningSession> {
-  const { data } = await apiClient.get(`/dining-sessions/${id}/`);
+  const { data } = await apiClient.get(`/phien-phuc-vu/${id}/`);
   return mapDiningSession(data);
 }
 export async function startWalkIn(input: { tableId: string; guestCount: number; customer?: string; phone?: string; note?: string }): Promise<AdminDiningSession> {
-  const { data } = await apiClient.post("/dining-sessions/walk-in/", { ban_an: Number(input.tableId), so_luong_khach: input.guestCount, ten_khach: input.customer ?? "", sdt_khach: input.phone ?? "", ghi_chu: input.note ?? "" });
+  const { data } = await apiClient.post("/phien-phuc-vu/walk-in/", { ban_an: Number(input.tableId), so_luong_khach: input.guestCount, ten_khach: input.customer ?? "", sdt_khach: input.phone ?? "", ghi_chu: input.note ?? "" });
   return mapDiningSession(data);
 }
 export async function checkInReservation(id: string, version: number): Promise<AdminReservation> {
-  await apiClient.post(`/reservations/${id}/check-in/`, { version });
+  await apiClient.post(`/dat-ban/${id}/check-in/`, { version });
   const reservation = (await reservationsStore.list()).find((item) => item.id === id);
   if (!reservation) throw new Error("Không tìm thấy đặt bàn vừa check-in.");
   return reservation;
 }
-export async function startReservationSession(reservationId: string, tableId: string): Promise<AdminDiningSession> {
-  const { data } = await apiClient.post(`/reservations/${reservationId}/seat/`, { ban_an: Number(tableId) });
-  return mapDiningSession(data);
+/** Xếp bàn cho khách đặt trước. `missingItems`: món đặt trước đã hết nên chưa vào hoá đơn. */
+export async function startReservationSession(reservationId: string, tableId: string): Promise<AdminDiningSession & { missingItems: string[] }> {
+  const { data } = await apiClient.post(`/dat-ban/${reservationId}/xep-ban/`, { ban_an: Number(tableId) });
+  const missing: { ten: string; so_luong: number }[] = data.mon_khong_du ?? [];
+  return { ...mapDiningSession(data), missingItems: missing.map((m) => `${m.so_luong} × ${m.ten}`) };
 }
 export async function addDiningSessionItems(sessionId: string, items: { foodId: string; quantity: number; note?: string }[]): Promise<AdminDiningSession> {
-  const { data } = await apiClient.post(`/dining-sessions/${sessionId}/items/`, { danh_sach_mon: items.map((item) => ({ mon_an_id: Number(item.foodId), so_luong: item.quantity, ghi_chu: item.note ?? "" })) });
+  const { data } = await apiClient.post(`/phien-phuc-vu/${sessionId}/mon/`, { danh_sach_mon: items.map((item) => ({ mon_an_id: Number(item.foodId), so_luong: item.quantity, ghi_chu: item.note ?? "" })) });
   return mapDiningSession(data);
 }
 export interface LowStockWarning { id: string; name: string; unit: string; stock: number; minStock: number; foods: string[] }
@@ -128,56 +130,56 @@ export function lowStockMessage(rows: LowStockWarning[]) {
   return `Sắp hết nguyên liệu: ${parts.join("; ")}`;
 }
 export async function replaceDiningSessionItems(sessionId: string, items: { foodId: string; quantity: number; note?: string }[]): Promise<AdminDiningSession & { lowStock: LowStockWarning[] }> {
-  const { data } = await apiClient.put(`/dining-sessions/${sessionId}/items/`, { danh_sach_mon: items.map((item) => ({ mon_an_id: Number(item.foodId), so_luong: item.quantity, ghi_chu: item.note ?? "" })) });
+  const { data } = await apiClient.put(`/phien-phuc-vu/${sessionId}/mon/`, { danh_sach_mon: items.map((item) => ({ mon_an_id: Number(item.foodId), so_luong: item.quantity, ghi_chu: item.note ?? "" })) });
   return { ...mapDiningSession(data), lowStock: mapLowStock(data.canh_bao_kho) };
 }
 export async function moveDiningSession(sessionId: string, tableId: string): Promise<AdminDiningSession> {
-  const { data } = await apiClient.post(`/dining-sessions/${sessionId}/move-table/`, { ban_an: Number(tableId) });
+  const { data } = await apiClient.post(`/phien-phuc-vu/${sessionId}/chuyen-ban/`, { ban_an: Number(tableId) });
   return mapDiningSession(data);
 }
-export async function checkoutDiningSession(sessionId: string, paymentMethod: "cod" | "bank" | "vnpay", reference?: string): Promise<AdminDiningSession> {
-  const { data } = await apiClient.post(`/dining-sessions/${sessionId}/checkout/`, { phuong_thuc: paymentMethod === "cod" ? "tien_mat" : paymentMethod === "bank" ? "chuyen_khoan" : "vnpay", ma_tham_chieu: reference ?? "" });
+export async function checkoutDiningSession(sessionId: string, paymentMethod: "cod" | "bank" | "payos", reference?: string): Promise<AdminDiningSession> {
+  const { data } = await apiClient.post(`/phien-phuc-vu/${sessionId}/checkout/`, { phuong_thuc: paymentMethod === "cod" ? "tien_mat" : paymentMethod === "bank" ? "chuyen_khoan" : "payos", ma_tham_chieu: reference ?? "" });
   return mapDiningSession(data);
 }
 /** Huỷ bàn: nhân viên khi chưa gửi bếp, quản lý khi đã gửi bếp (hoá đơn chuyển "Đã huỷ"). */
 export async function cancelDiningSession(sessionId: string, reason = ""): Promise<AdminDiningSession> {
-  const { data } = await apiClient.post(`/dining-sessions/${sessionId}/cancel/`, { ly_do: reason });
+  const { data } = await apiClient.post(`/phien-phuc-vu/${sessionId}/huy/`, { ly_do: reason });
   return mapDiningSession(data);
 }
 /** Nguyên liệu đang thiếu và các món bị ảnh hưởng, để đánh dấu trên thực đơn. */
 export async function getStockAlerts(): Promise<LowStockWarning[]> {
-  const { data } = await apiClient.get("/dining-sessions/canh-bao-kho/");
+  const { data } = await apiClient.get("/phien-phuc-vu/canh-bao-kho/");
   return mapLowStock(data);
 }
 export async function confirmDiningSessionCleaned(sessionId: string): Promise<AdminDiningSession> {
-  const { data } = await apiClient.post(`/dining-sessions/${sessionId}/confirm-cleaned/`);
+  const { data } = await apiClient.post(`/phien-phuc-vu/${sessionId}/xac-nhan-da-don/`);
   return mapDiningSession(data);
 }
 
-export const foodsStore = mappedStore<AdminFood>("/foods/", (r) => ({ id: text(r.id), name: text(val(r, "name", "ten")), category: text(val(r, "category_name", "ten_danh_muc") ?? val(r.chi_tiet_danh_muc, "ten", "name") ?? r.danh_muc), price: num(val(r, "price", "don_gia_hien_tai", "don_gia")), stock: num(val(r, "stock", "ton_kho_cache")), available: bool(val(r, "available", "con_hang")), spicy: num(val(r, "spicy_level", "do_cay")), vegetarian: bool(val(r, "is_vegetarian", "la_mon_chay")), trackInventory: bool(val(r, "track_inventory", "quan_ly_kho")), description: text(val(r, "description", "mo_ta_ngan", "mo_ta_chi_tiet")), image: text(val(r, "image", "anh_dai_dien") ?? val((r.hinh_anh ?? [])[0], "image", "anh")), tone: 1, rating: num(val(r, "rating", "diem_danh_gia")) }), (v) => ({ ten: v.name, danh_muc: v.category, don_gia: v.price, mo_ta_ngan: v.description, mo_ta_chi_tiet: v.description, image: v.image, do_cay: v.spicy, la_mon_chay: v.vegetarian, con_hang: v.available, ton_kho_cache: v.stock, quan_ly_kho: v.trackInventory }), (r) => text(val(r, "slug", "duong_dan", "id")));
+export const foodsStore = mappedStore<AdminFood>("/mon-an/", (r) => ({ id: text(r.id), name: text(val(r, "name", "ten")), category: text(val(r, "category_name", "ten_danh_muc") ?? val(r.chi_tiet_danh_muc, "ten", "name") ?? r.danh_muc), price: num(val(r, "price", "don_gia_hien_tai", "don_gia")), stock: num(val(r, "stock", "ton_kho_cache")), available: bool(val(r, "available", "con_hang")), spicy: num(val(r, "spicy_level", "do_cay")), vegetarian: bool(val(r, "is_vegetarian", "la_mon_chay")), trackInventory: bool(val(r, "track_inventory", "quan_ly_kho")), description: text(val(r, "description", "mo_ta_ngan", "mo_ta_chi_tiet")), image: text(val(r, "image", "anh_dai_dien") ?? val((r.hinh_anh ?? [])[0], "image", "anh")), tone: 1, rating: num(val(r, "rating", "diem_danh_gia")) }), (v) => ({ ten: v.name, danh_muc: v.category, don_gia: v.price, mo_ta_ngan: v.description, mo_ta_chi_tiet: v.description, image: v.image, do_cay: v.spicy, la_mon_chay: v.vegetarian, con_hang: v.available, ton_kho_cache: v.stock, quan_ly_kho: v.trackInventory }), (r) => text(val(r, "slug", "duong_dan", "id")));
 export async function importFoodsFile(file: File): Promise<{ created: number; message: string }> {
   const form = new FormData();
   form.append("file", file);
-  const { data } = await apiClient.post("/foods/import-file/", form, { headers: { "Content-Type": "multipart/form-data" } });
+  const { data } = await apiClient.post("/mon-an/nhap-file/", form, { headers: { "Content-Type": "multipart/form-data" } });
   return data;
 }
-export const categoriesStore = mappedStore<AdminCategory>("/categories/", (r) => ({ id: text(r.id), name: text(val(r, "name", "ten")), description: text(val(r, "description", "mo_ta")), active: bool(val(r, "active", "con_hoat_dong")) }), (v) => ({ ten: v.name, mo_ta: v.description, con_hoat_dong: v.active }), (r) => text(val(r, "slug", "duong_dan", "id")));
-export const tagsStore = mappedStore<AdminTag>("/tags/", (r) => ({ id: text(r.id), name: text(val(r, "name", "ten")) }), (v) => ({ ten: v.name }));
-export const ingredientsStore = mappedStore<AdminIngredient>("/ingredients/", (r) => ({ id: text(r.id), name: text(val(r, "name", "ten")), unit: text(val(r, "unit", "don_vi")), currentStock: num(val(r, "current_stock", "ton_kho_hien_tai")), minimumStock: num(val(r, "min_stock", "ton_kho_toi_thieu")), active: bool(val(r, "is_active", "con_hoat_dong")), recipeCount: num(r.so_mon_dinh_muc), updatedAt: text(r.cap_nhat_luc) }), (v) => ({ ten: v.name, don_vi: v.unit, ton_kho_hien_tai: v.currentStock, ton_kho_toi_thieu: v.minimumStock, con_hoat_dong: v.active }));
-export const promotionsStore = mappedStore<AdminPromotion>("/promotions/", (r) => ({ id: text(r.id), code: text(val(r, "code", "ma_giam_gia")), name: text(val(r, "name", "ten")), discountType: stateMap(val(r, "discount_type", "kieu_giam"), { phan_tram: "percent", so_tien_co_dinh: "fixed" }) as AdminPromotion["discountType"], discountValue: num(val(r, "discount_value", "gia_tri_giam")), minOrder: num(val(r, "min_order_value", "don_hang_toi_thieu")), maxDiscount: num(val(r, "max_discount", "giam_toi_da")), startAt: text(val(r, "start_at", "bat_dau_luc")), endAt: text(val(r, "end_at", "ket_thuc_luc")), usageLimit: num(val(r, "usage_limit", "gioi_han_su_dung")), usedCount: num(val(r, "used_count", "so_lan_da_dung")), active: bool(val(r, "is_active", "con_hoat_dong")) }), (v) => ({ ma_giam_gia: v.code, ten: v.name, kieu_giam: v.discountType === "percent" ? "phan_tram" : "so_tien_co_dinh", gia_tri_giam: v.discountValue, don_hang_toi_thieu: v.minOrder, giam_toi_da: v.maxDiscount || null, bat_dau_luc: v.startAt, ket_thuc_luc: v.endAt, gioi_han_su_dung: v.usageLimit || null, con_hoat_dong: v.active }));
-export const postsStore = mappedStore<AdminPost>("/posts/", (r) => ({ id: text(r.id), title: text(val(r, "title", "tieu_de")), category: text(val(r, "category_name", "ten_danh_muc") ?? val(r.danh_muc, "ten", "name") ?? "Ẩm thực"), status: stateMap(val(r, "status", "trang_thai"), { nhap: "draft", da_dang: "published", luu_tru: "archived" }) as AdminPost["status"], content: text(val(r, "content", "noi_dung")), image: text(val(r, "image", "anh_dai_dien")), createdAt: text(val(r, "created_at", "tao_luc")) }), (v) => ({ tieu_de: v.title, danh_muc: v.category, trang_thai: stateMap(v.status, { draft: "nhap", published: "da_dang", archived: "luu_tru" }), noi_dung: v.content, anh_dai_dien: v.image } as Raw), (r) => text(val(r, "slug", "duong_dan", "id")));
-export const reviewsStore = mappedStore<AdminReview>("/reviews/", (r) => ({ id: text(r.id), food: text(val(r, "food_name", "ten_mon_an") ?? val(r.mon_an, "ten", "name") ?? r.mon_an), customer: text(val(r, "user_name", "ten_nguoi_dung")), rating: num(val(r, "rating", "diem_danh_gia")), comment: text(val(r, "comment", "nhan_xet")), visible: bool(val(r, "is_visible", "visible", "hien_thi")), createdAt: text(val(r, "created_at", "tao_luc")) }), (v) => ({ nhan_xet: v.comment, hien_thi: v.visible }));
-export const usersStore = mappedStore<AdminUser>("/users/", (r) => {
+export const categoriesStore = mappedStore<AdminCategory>("/danh-muc/", (r) => ({ id: text(r.id), name: text(val(r, "name", "ten")), description: text(val(r, "description", "mo_ta")), active: bool(val(r, "active", "con_hoat_dong")) }), (v) => ({ ten: v.name, mo_ta: v.description, con_hoat_dong: v.active }), (r) => text(val(r, "slug", "duong_dan", "id")));
+export const tagsStore = mappedStore<AdminTag>("/the-mon-an/", (r) => ({ id: text(r.id), name: text(val(r, "name", "ten")) }), (v) => ({ ten: v.name }));
+export const ingredientsStore = mappedStore<AdminIngredient>("/nguyen-lieu/", (r) => ({ id: text(r.id), name: text(val(r, "name", "ten")), unit: text(val(r, "unit", "don_vi")), currentStock: num(val(r, "current_stock", "ton_kho_hien_tai")), minimumStock: num(val(r, "min_stock", "ton_kho_toi_thieu")), active: bool(val(r, "is_active", "con_hoat_dong")), recipeCount: num(r.so_mon_dinh_muc), updatedAt: text(r.cap_nhat_luc) }), (v) => ({ ten: v.name, don_vi: v.unit, ton_kho_hien_tai: v.currentStock, ton_kho_toi_thieu: v.minimumStock, con_hoat_dong: v.active }));
+export const promotionsStore = mappedStore<AdminPromotion>("/khuyen-mai/", (r) => ({ id: text(r.id), code: text(val(r, "code", "ma_giam_gia")), name: text(val(r, "name", "ten")), discountType: stateMap(val(r, "discount_type", "kieu_giam"), { phan_tram: "percent", so_tien_co_dinh: "fixed" }) as AdminPromotion["discountType"], discountValue: num(val(r, "discount_value", "gia_tri_giam")), minOrder: num(val(r, "min_order_value", "don_hang_toi_thieu")), maxDiscount: num(val(r, "max_discount", "giam_toi_da")), startAt: text(val(r, "start_at", "bat_dau_luc")), endAt: text(val(r, "end_at", "ket_thuc_luc")), usageLimit: num(val(r, "usage_limit", "gioi_han_su_dung")), usedCount: num(val(r, "used_count", "so_lan_da_dung")), active: bool(val(r, "is_active", "con_hoat_dong")) }), (v) => ({ ma_giam_gia: v.code, ten: v.name, kieu_giam: v.discountType === "percent" ? "phan_tram" : "so_tien_co_dinh", gia_tri_giam: v.discountValue, don_hang_toi_thieu: v.minOrder, giam_toi_da: v.maxDiscount || null, bat_dau_luc: v.startAt, ket_thuc_luc: v.endAt, gioi_han_su_dung: v.usageLimit || null, con_hoat_dong: v.active }));
+export const postsStore = mappedStore<AdminPost>("/bai-viet/", (r) => ({ id: text(r.id), title: text(val(r, "title", "tieu_de")), category: text(val(r, "category_name", "ten_danh_muc") ?? val(r.danh_muc, "ten", "name") ?? "Ẩm thực"), status: stateMap(val(r, "status", "trang_thai"), { nhap: "draft", da_dang: "published", luu_tru: "archived" }) as AdminPost["status"], content: text(val(r, "content", "noi_dung")), image: text(val(r, "image", "anh_dai_dien")), createdAt: text(val(r, "created_at", "tao_luc")) }), (v) => ({ tieu_de: v.title, danh_muc: v.category, trang_thai: stateMap(v.status, { draft: "nhap", published: "da_dang", archived: "luu_tru" }), noi_dung: v.content, anh_dai_dien: v.image } as Raw), (r) => text(val(r, "slug", "duong_dan", "id")));
+export const reviewsStore = mappedStore<AdminReview>("/danh-gia/", (r) => ({ id: text(r.id), food: text(val(r, "food_name", "ten_mon_an") ?? val(r.mon_an, "ten", "name") ?? r.mon_an), customer: text(val(r, "user_name", "ten_nguoi_dung")), rating: num(val(r, "rating", "diem_danh_gia")), comment: text(val(r, "comment", "nhan_xet")), visible: bool(val(r, "is_visible", "visible", "hien_thi")), createdAt: text(val(r, "created_at", "tao_luc")) }), (v) => ({ nhan_xet: v.comment, hien_thi: v.visible }));
+export const usersStore = mappedStore<AdminUser>("/nguoi-dung/", (r) => {
   const branchId = text(val(r, "chi_nhanh_quan_ly")) || undefined;
   const roleName = text((val(r, "roles", "danh_sach_vai_tro") ?? [])[0]);
   const role: AdminUser["role"] = ({ admin: "admin", quan_tri_vien: "admin", branch_manager: "branch_manager", quan_ly_chi_nhanh: "branch_manager", staff: "staff", employee: "staff", nhan_vien_ban_hang: "staff", nhan_vien: branchId ? "branch_manager" : "staff", customer: "customer", khach_hang: "customer" } as Record<string, AdminUser["role"]>)[roleName] ?? "customer";
   return { id: text(r.id), name: text(val(r, "name", "ho_ten")), email: text(val(r, "email", "thu_dien_tu")), phone: text(val(r, "phone", "so_dien_thoai")), role, active: bool(val(r, "is_active", "con_hoat_dong")), createdAt: text(val(r, "date_joined", "tao_luc")), branchId };
 }, (v) => ({ name: v.name, email: v.email, phone: v.phone, role: v.role, active: v.active, password: v.password, branch_id: v.branchId }));
-export const branchesStore = mappedStore<AdminBranch>("/branches/", (r) => ({ id: text(r.id), name: text(val(r, "name", "ten")), address: text(val(r, "address", "dia_chi")), phone: text(val(r, "phone", "so_dien_thoai")), lat: num(val(r, "lat", "vi_do")), lng: num(val(r, "lng", "kinh_do")), active: bool(val(r, "is_active", "con_hoat_dong")) }), (v) => ({ ten: v.name, dia_chi: v.address, so_dien_thoai: v.phone, vi_do: v.lat, kinh_do: v.lng, con_hoat_dong: v.active }));
+export const branchesStore = mappedStore<AdminBranch>("/chi-nhanh/", (r) => ({ id: text(r.id), name: text(val(r, "name", "ten")), address: text(val(r, "address", "dia_chi")), phone: text(val(r, "phone", "so_dien_thoai")), lat: num(val(r, "lat", "vi_do")), lng: num(val(r, "lng", "kinh_do")), active: bool(val(r, "is_active", "con_hoat_dong")) }), (v) => ({ ten: v.name, dia_chi: v.address, so_dien_thoai: v.phone, vi_do: v.lat, kinh_do: v.lng, con_hoat_dong: v.active }));
 
-export const paymentsStore = mappedStore<AdminPayment>("/payments/", (r) => ({ id: text(r.id), code: text(val(r, "transaction_id", "ma_giao_dich")), kind: val(r, "payment_type", "loai_thanh_toan") === "tien_coc" ? "deposit" : "order", ref: text(val(r, "reservation_code", "order_code") ?? val(r, "dat_ban", "don_hang")), method: stateMap(val(r, "method", "phuong_thuc"), { tien_mat: "cod", chuyen_khoan: "bank" }) as AdminPayment["method"], amount: num(val(r, "amount", "so_tien")), status: stateMap(val(r, "status", "trang_thai"), { cho_xu_ly: "pending", thanh_cong: "success", that_bai: "failed", da_hoan_tien: "refunded" }) as AdminPayment["status"], createdAt: text(val(r, "created_at", "tao_luc")) }), (v) => ({ status: v.status }));
+export const paymentsStore = mappedStore<AdminPayment>("/thanh-toan/", (r) => ({ id: text(r.id), code: text(val(r, "transaction_id", "ma_giao_dich")), kind: val(r, "payment_type", "loai_thanh_toan") === "tien_coc" ? "deposit" : "order", ref: text(val(r, "reservation_code", "order_code") ?? val(r, "dat_ban", "don_hang")), method: stateMap(val(r, "method", "phuong_thuc"), { tien_mat: "cod", chuyen_khoan: "bank" }) as AdminPayment["method"], amount: num(val(r, "amount", "so_tien")), status: stateMap(val(r, "status", "trang_thai"), { cho_xu_ly: "pending", thanh_cong: "success", that_bai: "failed", da_hoan_tien: "refunded" }) as AdminPayment["status"], createdAt: text(val(r, "created_at", "tao_luc")) }), (v) => ({ status: v.status }));
 export async function createInvoice(input: { targetType: "order" | "deposit"; targetId: string; method: "tien_mat" | "chuyen_khoan"; amount: number }) {
-  const { data } = await apiClient.post("/payments/", {
+  const { data } = await apiClient.post("/thanh-toan/", {
     loai_thanh_toan: input.targetType === "order" ? "don_hang" : "tien_coc",
     don_hang: input.targetType === "order" ? Number(input.targetId) : null,
     dat_ban: input.targetType === "deposit" ? Number(input.targetId) : null,
@@ -187,29 +189,29 @@ export async function createInvoice(input: { targetType: "order" | "deposit"; ta
   return data;
 }
 
-const policyPath = "/reservations/chinh_sach_coc/";
+const policyPath = "/dat-ban/chinh_sach_coc/";
 export async function getDepositPolicy(): Promise<DepositPolicyData> { const { data } = await apiClient.get(policyPath); return normalizePolicy(data); }
 const normalizePolicy = (r: Raw): DepositPolicyData => ({ id: text(r.id), depositPercentage: num(val(r, "deposit_percentage", "phan_tram_coc")), holdMinutes: num(val(r, "hold_time_minutes", "thoi_gian_giu_cho_phut")), paymentDeadlineMinutes: num(val(r, "payment_limit_minutes", "han_thanh_toan_phut")), hotline: text(val(r, "hotline", "so_dien_thoai_lien_he")), guideText: text(val(r, "guide_text", "noi_dung_huong_dan")), rules: (val(r, "quy_tac_huy", "rules") ?? []).map((x: Raw) => ({ bucket: stateMap(val(x, "time_milestone", "moc_thoi_gian"), { truoc_24h: ">24h", tu_6_den_24h: "6-24h", trong_6h: "<6h", khach_khong_den: "no_show" }) as CancellationBucket, refundPercentage: num(val(x, "refund_percentage", "phan_tram_hoan_tien")) })) });
 export async function saveDepositPolicy(policy: DepositPolicyData) { const { data } = await apiClient.put(policyPath, { phan_tram_coc: policy.depositPercentage, thoi_gian_giu_cho_phut: policy.holdMinutes, han_thanh_toan_phut: policy.paymentDeadlineMinutes, so_dien_thoai_lien_he: policy.hotline, noi_dung_huong_dan: policy.guideText, quy_tac_huy: policy.rules.map((r) => ({ moc_thoi_gian: ({ ">24h": "truoc_24h", "6-24h": "tu_6_den_24h", "<6h": "trong_6h", no_show: "khach_khong_den" } as Record<string, string>)[r.bucket], phan_tram_hoan_tien: r.refundPercentage })) }); return normalizePolicy(data); }
 
 export async function setOrderStatus(order: AdminOrder, to: OrderStatus, note?: string) {
-  const { data } = await apiClient.patch(`/orders/${order.id}/status/`, { status: statusToBackend[text(to)] ?? to, note });
+  const { data } = await apiClient.patch(`/don-hang/${order.id}/trang_thai/`, { status: statusToBackend[text(to)] ?? to, note });
   const updated = (await ordersStore.list()).find((r) => r.id === order.id)!;
   return Object.assign(updated, { lowStock: mapLowStock(data?.canh_bao_kho) });
 }
-export async function setReservationStatus(id: string, to: ReservationStatus, version: number, reason?: string) { await apiClient.patch(`/reservations/${id}/trang_thai/`, { status: statusToBackend[text(to)] ?? to, version, ghi_chu: reason }); return (await reservationsStore.list()).find((r) => r.id === id)!; }
+export async function setReservationStatus(id: string, to: ReservationStatus, version: number, reason?: string) { await apiClient.patch(`/dat-ban/${id}/trang_thai/`, { status: statusToBackend[text(to)] ?? to, version, ghi_chu: reason }); return (await reservationsStore.list()).find((r) => r.id === id)!; }
 export async function assignReservationTable(id: string, tableId: string | null) {
-  await apiClient.patch(`/reservations/${id}/`, { ban_an: tableId ? Number(tableId) : null });
+  await apiClient.patch(`/dat-ban/${id}/`, { ban_an: tableId ? Number(tableId) : null });
 }
-export async function recordRefund(res: AdminReservation, refund: Omit<RefundRecord, "at" | "by">) { await apiClient.post(`/reservations/${res.id}/record-refund/`, { percent: refund.percent, amount: refund.amount, reference: refund.reference, note: refund.note, bucket: refundBucket(res) }); return (await reservationsStore.list()).find((r) => r.id === res.id)!; }
+export async function recordRefund(res: AdminReservation, refund: Omit<RefundRecord, "at" | "by">) { await apiClient.post(`/dat-ban/${res.id}/ghi-nhan-hoan-tien/`, { percent: refund.percent, amount: refund.amount, reference: refund.reference, note: refund.note, bucket: refundBucket(res) }); return (await reservationsStore.list()).find((r) => r.id === res.id)!; }
 export function refundBucket(res: AdminReservation): CancellationBucket { if (res.status === "no_show") return "no_show"; const slot = new Date(`${res.date}T${res.time}:00`).getTime(); const at = res.cancelledAt ? new Date(res.cancelledAt).getTime() : Date.now(); const hours = (slot - at) / 36e5; return hours > 24 ? ">24h" : hours >= 6 ? "6-24h" : "<6h"; }
 export const needsRefund = (r: AdminReservation) => (r.status === "cancelled" || r.status === "no_show") && r.depositStatus === "success" && !r.refund;
 export type StockMoveType = "nhap" | "xuat" | "dieu_chinh";
 export interface StockMove { id: string; ingredientId: string; ingredientName: string; unit: string; type: StockMoveType; qty: number; before: number; after: number; refType: string; refId?: string; note: string; by: string; at: string }
 const mapStockMove = (r: Raw): StockMove => ({ id: text(r.id), ingredientId: text(r.nguyen_lieu), ingredientName: text(r.ten_nguyen_lieu), unit: text(r.don_vi), type: text(r.loai_giao_dich) as StockMoveType, qty: num(r.so_luong), before: num(r.ton_kho_truoc), after: num(r.ton_kho_sau), refType: text(r.loai_tham_chieu), refId: r.id_tham_chieu != null ? text(r.id_tham_chieu) : undefined, note: text(r.ghi_chu), by: text(r.ten_nguoi_tao), at: text(r.tao_luc) });
-export async function listStockMoves(ingredientId?: string): Promise<StockMove[]> { return (await list(`/inventory-transactions/${ingredientId ? `?nguyen_lieu=${ingredientId}` : ""}`)).map(mapStockMove); }
+export async function listStockMoves(ingredientId?: string): Promise<StockMove[]> { return (await list(`/kho/${ingredientId ? `?nguyen_lieu=${ingredientId}` : ""}`)).map(mapStockMove); }
 export async function createStockMove(ingredientId: string, type: StockMoveType, qty: number, note: string): Promise<StockMove> {
-  const { data } = await apiClient.post("/inventory-transactions/", { nguyen_lieu: Number(ingredientId), loai_giao_dich: type, so_luong: qty, ghi_chu: note });
+  const { data } = await apiClient.post("/kho/", { nguyen_lieu: Number(ingredientId), loai_giao_dich: type, so_luong: qty, ghi_chu: note });
   return mapStockMove(data);
 }
 export interface IngredientRecipe { id: string; foodId: string; foodName: string; ingredientId: string; ingredientName: string; unit: string; qty: number }
@@ -231,7 +233,7 @@ export interface DashboardData {
   today: { revenue: number; bills: number; lastWeekSameTime: number; reservations: number; upcomingCount: number };
   upcoming: { id: string; time: string; customer: string; party: number; status: string; branch: string; preorder: boolean }[];
 }
-export async function getDashboard(range: Range): Promise<DashboardData> { const { data } = await apiClient.get("/analytics/dashboard/", { params: { days: range } }); return { revenue: num(val(data, "revenue", "doanh_thu")), orderCount: num(val(data, "orders", "so_don_hang")), reservationsToday: num(val(data, "reservations_today", "so_dat_ban_hom_nay", "reservations")), newCustomers: num(val(data, "new_customers", "khach_hang_moi")), series: data.revenue_by_day ?? data.series ?? [], byStatus: (data.orders_by_status ?? []).map((x: Raw) => ({ status: stateMap(val(x, "status", "trang_thai"), orderState) as OrderStatus, value: num(val(x, "count", "value")) })), topFoods: data.top_foods ?? [], tasks: { pendingOrders: 0, pendingDeposits: 0, refundQueue: 0, lowStock: 0, unreadChats: 0, pendingConfirm: 0, ...(data.tasks ?? {}) },
+export async function getDashboard(range: Range): Promise<DashboardData> { const { data } = await apiClient.get("/thong-ke/tong-quan/", { params: { days: range } }); return { revenue: num(val(data, "revenue", "doanh_thu")), orderCount: num(val(data, "orders", "so_don_hang")), reservationsToday: num(val(data, "reservations_today", "so_dat_ban_hom_nay", "reservations")), newCustomers: num(val(data, "new_customers", "khach_hang_moi")), series: data.revenue_by_day ?? data.series ?? [], byStatus: (data.orders_by_status ?? []).map((x: Raw) => ({ status: stateMap(val(x, "status", "trang_thai"), orderState) as OrderStatus, value: num(val(x, "count", "value")) })), topFoods: data.top_foods ?? [], tasks: { pendingOrders: 0, pendingDeposits: 0, refundQueue: 0, lowStock: 0, unreadChats: 0, pendingConfirm: 0, ...(data.tasks ?? {}) },
     leaks: data.leaks ? Object.fromEntries((["discount", "cancelled", "no_show", "low_reviews"] as const).map((k) => [k.replace(/_(\w)/, (_, c: string) => c.toUpperCase()), { count: num(data.leaks[k]?.count), value: num(data.leaks[k]?.value), worstBranch: data.leaks[k]?.worst_branch ? text(data.leaks[k].worst_branch) : null }])) as DashboardData["leaks"] : null,
     now: text(data.now), unassigned: data.unassigned ? { revenue: num(data.unassigned.revenue), bills: num(data.unassigned.bills) } : null,
     live: (data.live ?? []).map((b: Raw) => ({ id: text(b.id), name: text(b.name), tables: b.tables ?? [], guests: num(b.guests), openTotal: num(b.open_total), todayRevenue: num(b.today_revenue), todayBills: num(b.today_bills), rangeRevenue: num(b.range_revenue), rangeBills: num(b.range_bills), rangeGuests: num(b.range_guests) })),
@@ -239,11 +241,11 @@ export async function getDashboard(range: Range): Promise<DashboardData> { const
     upcoming: (data.upcoming ?? []).map((r: Raw) => ({ id: text(r.id), time: text(r.time), customer: text(r.customer), party: num(r.party), status: text(r.status), branch: text(r.branch), preorder: bool(r.preorder) })),
   }; }
 export interface AiAnalyticsData { overview: { suggested: number; clicks?: number; ctr: number; conversion: number }; positions?: { key: string; label: string; shown: number; clicks: number; ctr: number }[]; top: Record<"recommended" | "viewed" | "ordered" | "favorited", [string, number][]>; recent: { user: string; food: string; score: number; reason: string }[] }
-export async function getAiAnalytics(): Promise<AiAnalyticsData> { const { data } = await apiClient.get("/analytics/ai/"); return data; }
-export async function changePassword(current: string, next: string) { await apiClient.post("/auth/change_password/", { mat_khau_cu: current, mat_khau_moi: next }); }
-export async function getRestaurantSettings() { const { data } = await apiClient.get("/analytics/settings/"); return data; }
-export async function saveRestaurantSettings(settings: Raw) { const { data } = await apiClient.put("/analytics/settings/", settings); return data; }
-const roleId = async (key: string) => { const roles = await list("/roles/"); const wanted = key === "admin" ? ["quan_tri_vien", "admin"] : key === "branch_manager" ? ["quan_ly_chi_nhanh", "nhan_vien"] : ["nhan_vien_ban_hang", "nhan_vien", "staff"]; const role = roles.find((r) => wanted.includes(text(val(r, "name", "ten")))); if (!role) throw new Error("Không tìm thấy vai trò trên máy chủ."); return text(role.id); };
-export async function getRolePermissions(key: string) { const id = await roleId(key); const { data } = await apiClient.get(`/roles/${id}/permissions/`); return data.permissions ?? {}; }
-export async function saveRolePermissions(key: string, permissions: Raw) { const id = await roleId(key); const { data } = await apiClient.put(`/roles/${id}/permissions/`, { permissions }); return data.permissions ?? {}; }
+export async function getAiAnalytics(): Promise<AiAnalyticsData> { const { data } = await apiClient.get("/thong-ke/ai/"); return data; }
+export async function changePassword(current: string, next: string) { await apiClient.post("/xac-thuc/doi-mat-khau/", { mat_khau_cu: current, mat_khau_moi: next }); }
+export async function getRestaurantSettings() { const { data } = await apiClient.get("/thong-ke/cai-dat/"); return data; }
+export async function saveRestaurantSettings(settings: Raw) { const { data } = await apiClient.put("/thong-ke/cai-dat/", settings); return data; }
+const roleId = async (key: string) => { const roles = await list("/vai-tro/"); const wanted = key === "admin" ? ["quan_tri_vien", "admin"] : key === "branch_manager" ? ["quan_ly_chi_nhanh", "nhan_vien"] : ["nhan_vien_ban_hang", "nhan_vien", "staff"]; const role = roles.find((r) => wanted.includes(text(val(r, "name", "ten")))); if (!role) throw new Error("Không tìm thấy vai trò trên máy chủ."); return text(role.id); };
+export async function getRolePermissions(key: string) { const id = await roleId(key); const { data } = await apiClient.get(`/vai-tro/${id}/quyen-han/`); return data.permissions ?? {}; }
+export async function saveRolePermissions(key: string, permissions: Raw) { const id = await roleId(key); const { data } = await apiClient.put(`/vai-tro/${id}/quyen-han/`, { permissions }); return data.permissions ?? {}; }
 

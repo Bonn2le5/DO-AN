@@ -73,7 +73,7 @@ export default function ChatPage() {
   const close = async () => {
     if (!active) return;
     try {
-      await apiClient.patch(`/chat/conversations/${active.id}/`, {
+      await apiClient.patch(`/hoi-thoai/${active.id}/`, {
         trang_thai: "dong",
       });
       setStatus(active.id, "closed");

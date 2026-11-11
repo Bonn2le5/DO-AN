@@ -4,26 +4,51 @@ from rest_framework.permissions import BasePermission, SAFE_METHODS
 class LaNhanVienNhaHang(BasePermission):
     """Role-based API allowlist for restaurant employees and branch managers."""
 
-    MODULES = (
-        ("orders", ("orders", "don-hang")),
-        ("reservations", ("reservations", "dat-ban")),
-        ("dining_sessions", ("dining-sessions", "phien-phuc-vu")),
-        ("tables", ("tables", "ban-an", "rooms")),
-        ("foods", ("foods", "mon-an")),
-        ("categories", ("categories", "danh-muc")),
-        ("ingredients", ("ingredients", "nguyen-lieu", "kho", "inventory-transactions")),
-        ("promotions", ("promotions", "khuyen-mai")),
-        ("posts", ("posts", "bai-viet")),
-        ("reviews", ("reviews", "danh-gia")),
-        ("payments", ("payments", "thanh-toan", "refund-receipts")),
-        ("chat", ("chat", "hoi-thoai")),
-        ("branches", ("branches", "chi-nhanh")),
-        ("users", ("users", "nguoi-dung")),
-        ("roles", ("roles", "vai-tro")),
-        ("dashboard", ("analytics/dashboard",)),
-        ("ai", ("analytics/ai",)),
-        ("settings", ("analytics/settings",)),
-    )
+    # Nhóm quyền theo đoạn đầu của đường dẫn sau /api/ (tên tiếng Anh cũ và tên tiếng Việt).
+    # Khớp nguyên đoạn thay vì tìm chuỗi con, để "chat/rooms" không bị hiểu là bàn
+    # và route mới quên khai báo sẽ bị chặn (test đối chiếu sẽ báo).
+    SEGMENTS = {
+        "orders": "orders", "don-hang": "orders",
+        "reservations": "reservations", "dat-ban": "reservations",
+        "dining-sessions": "dining_sessions", "phien-phuc-vu": "dining_sessions",
+        "tables": "tables", "ban-an": "tables", "rooms": "tables", "phong-rieng": "tables",
+        "foods": "foods", "mon-an": "foods", "tags": "foods", "the-mon-an": "foods",
+        "categories": "categories", "danh-muc": "categories",
+        "ingredients": "ingredients", "nguyen-lieu": "ingredients", "kho": "ingredients",
+        "inventory-transactions": "ingredients", "dinh-muc-nguyen-lieu": "ingredients",
+        "promotions": "promotions", "khuyen-mai": "promotions", "promotion-codes": "promotions",
+        "ma-khuyen-mai": "promotions", "promotion-usages": "promotions", "lich-su-khuyen-mai": "promotions",
+        "posts": "posts", "bai-viet": "posts", "post-categories": "posts", "danh-muc-bai-viet": "posts",
+        "reviews": "reviews", "danh-gia": "reviews",
+        "payments": "payments", "thanh-toan": "payments", "refund-receipts": "payments", "phieu-hoan-tien": "payments",
+        "chat": "chat", "hoi-thoai": "chat",
+        "branches": "branches", "chi-nhanh": "branches",
+        "users": "users", "nguoi-dung": "users",
+        "roles": "roles", "vai-tro": "roles", "permissions": "roles", "quyen-han": "roles",
+    }
+    # Hai đoạn đầu cho nhóm thống kê.
+    SUB_SEGMENTS = {
+        ("analytics", "dashboard"): "dashboard", ("thong-ke", "tong-quan"): "dashboard",
+        ("analytics", "ai"): "ai", ("thong-ke", "ai"): "ai",
+        ("analytics", "settings"): "settings", ("thong-ke", "cai-dat"): "settings",
+    }
+    REFUND_RECEIPTS = ("refund-receipts", "phieu-hoan-tien")
+    RECORD_REFUND = ("record-refund", "ghi-nhan-hoan-tien")
+
+    @classmethod
+    def module_for(cls, path):
+        parts = [p for p in path.lower().split("/") if p]
+        if parts and parts[0] == "api":
+            parts = parts[1:]
+        if not parts:
+            return None
+        if any(p in cls.RECORD_REFUND for p in parts):
+            return "payments"
+        if any(p in ("chinh_sach_coc", "chinh-sach-coc") for p in parts):
+            return "deposit"
+        if len(parts) > 1 and (parts[0], parts[1]) in cls.SUB_SEGMENTS:
+            return cls.SUB_SEGMENTS[(parts[0], parts[1])]
+        return cls.SEGMENTS.get(parts[0])
 
     def has_permission(self, request, view):
         user = request.user
@@ -33,17 +58,12 @@ class LaNhanVienNhaHang(BasePermission):
             return True
 
         path = request.path_info.lower()
-        if "record-refund" in path:
-            module = "payments"
-        elif "chinh_sach_coc" in path or "chinh-sach-coc" in path:
-            module = "deposit"
-        else:
-            module = next((name for name, fragments in self.MODULES if any(fragment in path for fragment in fragments)), None)
+        module = self.module_for(path)
         if not module:
             return False
 
         is_manager = bool(getattr(user, "la_quan_ly_chi_nhanh", False))
-        if "refund-receipts" in path and not is_manager:
+        if any(f in path for f in self.REFUND_RECEIPTS) and not is_manager:
             return False
         # foods/categories/promotions chỉ đọc: cần để gọi món trong phiên phục vụ.
         # ingredients chỉ đọc với nhân viên: để thấy cảnh báo nguyên liệu sắp hết.
@@ -62,7 +82,7 @@ class LaNhanVienNhaHang(BasePermission):
 
         if request.method in SAFE_METHODS:
             return True
-        if "record-refund" in path or path.rstrip("/").endswith(("/mark_success", "/xac_nhan_thanh_cong")):
+        if any(f in path for f in self.RECORD_REFUND) or path.rstrip("/").endswith(("/mark_success", "/xac_nhan_thanh_cong")):
             action = "update"
         elif request.method == "POST":
             action = "create"
@@ -85,8 +105,3 @@ class LaNhanVienHoacChiDoc(LaNhanVienNhaHang):
             if not (user and user.is_authenticated and getattr(user, "la_nhan_vien_nha_hang", False)):
                 return True
         return super().has_permission(request, view)
-
-
-# Backward-compatible permission aliases
-IsRestaurantStaff = LaNhanVienNhaHang
-IsStaffOrReadOnly = LaNhanVienHoacChiDoc

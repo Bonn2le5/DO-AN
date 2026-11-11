@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import logoDayDu from "@/assets/logo-day-du.webp";
 
 // lucide-react no longer ships brand/social glyphs, so these two are inlined.
 function InstagramIcon() {
@@ -24,7 +25,7 @@ export default function Footer() {
       <div className="max-w-310 mx-auto px-5 md:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 md:gap-12 pb-14 border-b border-white/10">
           <div>
-            <div className="font-serif text-[32px] font-semibold text-white mb-3.5">MỘC</div>
+            <img src={logoDayDu} alt="Mộc Kitchen" className="h-32 w-auto mb-4" />
             <p className="text-[13.5px] leading-relaxed max-w-[280px]">
               Ẩm thực Việt hiện đại giữa lòng thành phố — nơi mỗi món ăn là một câu chuyện.
             </p>

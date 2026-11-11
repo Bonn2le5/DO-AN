@@ -161,10 +161,3 @@ class DangNhapTokenSerializer(TokenObtainPairSerializer):
         if isinstance(data.get("thu_dien_tu"), str):
             data["thu_dien_tu"] = data["thu_dien_tu"].strip().lower()
         return super().to_internal_value(data)
-
-
-# Backward-compatible serializer aliases
-UserSerializer = NguoiDungSerializer
-RoleSerializer = VaiTroSerializer
-PermissionSerializer = QuyenHanSerializer
-LoginTokenSerializer = DangNhapTokenSerializer

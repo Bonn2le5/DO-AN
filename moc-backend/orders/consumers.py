@@ -12,7 +12,7 @@ from config.consumers import JWTExpiryConsumerMixin
 from .models import DonHang
 
 
-class OrderTrackingConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
+class TheoDoiDonHangConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
     """
     WebSocket consumer for tracking individual order lifecycle updates.
     Accepts numeric order ID or string code (ma_don_hang).
@@ -128,7 +128,7 @@ class OrderTrackingConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
         return True, order_info
 
 
-class StaffOrderConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
+class DonHangNhanVienConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
     """
     WebSocket consumer for restaurant staff global order monitoring and kitchen displays.
     Path: /ws/orders/staff/
@@ -185,8 +185,3 @@ class StaffOrderConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
         if not is_staff:
             return False, None
         return is_admin, getattr(user, "chi_nhanh_quan_ly_id", None)
-
-
-# Backward-compatible consumer aliases
-OrderConsumer = OrderTrackingConsumer
-StaffOrderStreamConsumer = StaffOrderConsumer

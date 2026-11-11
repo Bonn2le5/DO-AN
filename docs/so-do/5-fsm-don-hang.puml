@@ -1,0 +1,22 @@
+@startuml
+skinparam defaultFontName Arial
+skinparam shadowing false
+title Máy trạng thái hữu hạn của đơn hàng (DonHang)
+[*] --> ChoTiepNhan
+state "Chờ tiếp nhận\n(cho_tiep_nhan)" as ChoTiepNhan
+state "Đã xác nhận\n(da_xac_nhan)" as DaXacNhan : entry / trừ kho nguyên liệu theo BOM
+state "Đang chế biến\n(dang_che_bien)" as DangCheBien
+state "Sẵn sàng\n(san_sang)" as SanSang
+state "Hoàn tất\n(hoan_tat)" as HoanTat : entry / ghi tương tác, cho phép đánh giá
+state "Đã hủy\n(da_huy)" as DaHuy : entry / hoàn kho nếu đã trừ
+ChoTiepNhan --> DaXacNhan : nhân viên xác nhận
+DaXacNhan --> DangCheBien : bếp nhận
+DangCheBien --> SanSang : chế biến xong
+SanSang --> HoanTat : phục vụ / thanh toán
+ChoTiepNhan --> DaHuy : khách hoặc nhân viên hủy
+DaXacNhan --> DaHuy : nhân viên hủy
+DangCheBien --> DaHuy : nhân viên hủy
+SanSang --> DaHuy : nhân viên hủy
+HoanTat --> [*]
+DaHuy --> [*]
+@enduml

@@ -5,14 +5,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from api.permissions import LaNhanVienNhaHang
 from rest_framework.response import Response
-from .models import HoiThoai, TinNhan, ChatRoom, ChatMessage
-from .serializers import (
-    HoiThoaiSerializer,
-    HoiThoaiListSerializer,
-    TinNhanSerializer,
-    ChatRoomSerializer,
-    ChatMessageSerializer,
-)
+from .models import HoiThoai, TinNhan
+from .serializers import HoiThoaiSerializer, DanhSachHoiThoaiSerializer, TinNhanSerializer
 from .services import (
     broadcast_message, broadcast_read, save_message, serialize_message, is_staff_user,
 )
@@ -22,7 +16,7 @@ class HoiThoaiViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
-        return HoiThoaiListSerializer if self.action == "list" else HoiThoaiSerializer
+        return DanhSachHoiThoaiSerializer if self.action == "list" else HoiThoaiSerializer
 
     def get_permissions(self):
         if self.request.user.is_authenticated and getattr(self.request.user, "la_nhan_vien_nha_hang", False):
@@ -50,6 +44,10 @@ class HoiThoaiViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def active(self, request):
+        return self.dang_mo(request)
+
+    @action(detail=False, methods=["get"], url_path="dang-mo")
+    def dang_mo(self, request):
         """
         Retrieves the active open conversation for the requesting customer,
         or creates a new open conversation if none exists.
@@ -66,10 +64,14 @@ class HoiThoaiViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def gui_tin_nhan(self, request, pk=None):
-        return self.messages(request, pk=pk)
+        return self.tin_nhan(request, pk=pk)
 
     @action(detail=True, methods=["get", "post"])
     def messages(self, request, pk=None):
+        return self.tin_nhan(request, pk=pk)
+
+    @action(detail=True, methods=["get", "post"], url_path="tin-nhan")
+    def tin_nhan(self, request, pk=None):
         room = self.get_object()
         if request.method == "POST":
             ser = TinNhanSerializer(data=request.data)
@@ -97,10 +99,11 @@ class HoiThoaiViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="mark_read")
     def mark_read(self, request, pk=None):
+        return self.danh_dau_da_doc(request, pk=pk)
+
+    @action(detail=True, methods=["post"], url_path="da-doc")
+    def danh_dau_da_doc(self, request, pk=None):
         room = self.get_object()
         room.danh_sach_tin_nhan.filter(da_doc=False).exclude(nguoi_gui=request.user).update(da_doc=True, doc_luc=timezone.now())
         broadcast_read(room, request.user)
         return Response({"ok": True})
-
-
-ChatRoomViewSet = HoiThoaiViewSet

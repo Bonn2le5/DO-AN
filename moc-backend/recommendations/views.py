@@ -4,15 +4,9 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
 from foods.models import MonAn
-from .models import TuongTacMonAn, GoiYMonAn, SuKienGoiY, FoodInteraction, Recommendation
-from .serializers import (
-    TuongTacMonAnSerializer,
-    GoiYMonAnSerializer,
-    SuKienGoiYSerializer,
-    InteractionSerializer,
-    RecommendationSerializer,
-)
-from .services import DichVuGoiY, RecommendationService
+from .models import TuongTacMonAn, GoiYMonAn, SuKienGoiY
+from .serializers import TuongTacMonAnSerializer, GoiYMonAnSerializer, SuKienGoiYSerializer
+from .services import DichVuGoiY
 
 
 class TuongTacMonAnViewSet(viewsets.ModelViewSet):
@@ -27,9 +21,33 @@ class TuongTacMonAnViewSet(viewsets.ModelViewSet):
         return TuongTacMonAn.objects.filter(nguoi_dung=self.request.user).order_by("-tao_luc")
 
     def perform_create(self, serializer):
+        d = serializer.validated_data
+        if d["loai_tuong_tac"] == TuongTacMonAn.LoaiTuongTac.YEU_THICH:
+            # Yêu thích là trạng thái bật/tắt: mỗi khách chỉ có 1 bản ghi cho 1 món
+            cu = TuongTacMonAn.objects.filter(
+                nguoi_dung=self.request.user, mon_an=d["mon_an"],
+                loai_tuong_tac=TuongTacMonAn.LoaiTuongTac.YEU_THICH,
+            ).first()
+            if cu is not None:
+                serializer.instance = cu
+                return
         serializer.save(nguoi_dung=self.request.user)
         # Xóa cache gợi ý cũ của người dùng này để lượt truy vấn kế tiếp tính toán theo khẩu vị mới
         GoiYMonAn.objects.filter(nguoi_dung=self.request.user).delete()
+
+    @action(detail=False, methods=["post"], url_path="bo-yeu-thich")
+    def bo_yeu_thich(self, request):
+        """Bỏ yêu thích: xoá tín hiệu 'yeu_thich' của khách với món. Body: {"mon_an": id}"""
+        try:
+            mon_an_id = int(request.data.get("mon_an"))
+        except (TypeError, ValueError):
+            return Response({"detail": "Thiếu tham số mon_an."}, status=status.HTTP_400_BAD_REQUEST)
+        # QuerySet.delete() vẫn bắn post_delete → signal tự xoá cache gợi ý
+        so_xoa, _ = TuongTacMonAn.objects.filter(
+            nguoi_dung=request.user, mon_an_id=mon_an_id,
+            loai_tuong_tac=TuongTacMonAn.LoaiTuongTac.YEU_THICH,
+        ).delete()
+        return Response({"da_xoa": so_xoa})
 
 
 class GoiYMonAnViewSet(viewsets.ReadOnlyModelViewSet):
@@ -55,13 +73,14 @@ class GoiYMonAnViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_limit(self):
         try:
-            return int(
+            limit = int(
                 self.request.query_params.get("limit")
                 or self.request.query_params.get("gioi_han")
                 or 6
             )
         except (ValueError, TypeError):
             return 6
+        return max(1, min(limit, 24))
 
     def list(self, request, *args, **kwargs):
         user = request.user
@@ -79,14 +98,18 @@ class GoiYMonAnViewSet(viewsets.ReadOnlyModelViewSet):
 
         # Trường hợp 2: Người dùng đã đăng nhập -> Kiểm tra cache DB trước
         if not is_refresh:
-            cached_qs = (
-                GoiYMonAn.objects.filter(nguoi_dung=user)
+            # Bỏ món đã hết hàng / bị ẩn sau lúc tính cache
+            cached = list(
+                GoiYMonAn.objects.filter(
+                    nguoi_dung=user, mon_an__con_hang=True, mon_an__hien_thi=True
+                )
                 .select_related("mon_an", "mon_an__danh_muc")
                 .prefetch_related("mon_an__the_mon_an")
-                .order_by("thu_hang", "-diem_tuong_dong")
+                .order_by("thu_hang", "-diem_tuong_dong")[:limit]
             )
-            if cached_qs.exists():
-                serializer = self.get_serializer(cached_qs[:limit], many=True)
+            # Cache đủ số món yêu cầu mới dùng; thiếu (món hết hàng, limit lớn hơn lúc tính) → tính lại
+            if len(cached) >= limit:
+                serializer = self.get_serializer(cached, many=True)
                 return Response(serializer.data)
 
         # Trường hợp 3: Chưa có cache hoặc yêu cầu làm mới (?refresh=true)
@@ -139,7 +162,3 @@ class GoiYMonAnViewSet(viewsets.ReadOnlyModelViewSet):
             for mid in ids
         ])
         return Response({"da_ghi": len(ids)}, status=status.HTTP_201_CREATED)
-
-
-InteractionViewSet = TuongTacMonAnViewSet
-RecommendationViewSet = GoiYMonAnViewSet

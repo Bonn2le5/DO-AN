@@ -1,6 +1,6 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
-from .models import ChiNhanh, Branch
+from .models import ChiNhanh
 from .services import haversine_distance_km, find_nearest_branches
 from .serializers import ChiNhanhSerializer
 

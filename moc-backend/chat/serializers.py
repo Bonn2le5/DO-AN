@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import HoiThoai, TinNhan, ChatRoom, ChatMessage
+from .models import HoiThoai, TinNhan
 
 
 class TinNhanSerializer(serializers.ModelSerializer):
@@ -33,7 +33,7 @@ class HoiThoaiSerializer(serializers.ModelSerializer):
         return obj.khach_hang.get_full_name() or obj.khach_hang.username
 
 
-class HoiThoaiListSerializer(serializers.ModelSerializer):
+class DanhSachHoiThoaiSerializer(serializers.ModelSerializer):
     customer_name = serializers.SerializerMethodField()
     last_message = serializers.CharField(read_only=True, default="")
     unread_count = serializers.IntegerField(read_only=True)
@@ -45,7 +45,3 @@ class HoiThoaiListSerializer(serializers.ModelSerializer):
 
     def get_customer_name(self, obj):
         return obj.khach_hang.get_full_name() or obj.khach_hang.username
-
-
-ChatMessageSerializer = TinNhanSerializer
-ChatRoomSerializer = HoiThoaiSerializer

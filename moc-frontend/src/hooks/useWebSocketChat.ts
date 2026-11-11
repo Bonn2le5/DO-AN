@@ -31,7 +31,7 @@ interface UseWebSocketChatOptions {
   open?: boolean;
 }
 
-const CHAT_API = "/chat/conversations";
+const CHAT_API = "/hoi-thoai";
 const PING_MS = 25_000;
 const TYPING_IDLE_MS = 2_000;
 
@@ -151,7 +151,7 @@ export function useWebSocketChat(options: UseWebSocketChatOptions = {}) {
       syncingRef.current = id;
       try {
         const after = lastIdRef.current;
-        const res = await apiClient.get(`${CHAT_API}/${id}/messages/`, {
+        const res = await apiClient.get(`${CHAT_API}/${id}/tin-nhan/`, {
           params: after ? { after_id: after } : undefined,
         });
         if (convIdRef.current !== id) return; // đã chuyển hội thoại khác
@@ -189,7 +189,7 @@ export function useWebSocketChat(options: UseWebSocketChatOptions = {}) {
       return;
     let alive = true;
     apiClient
-      .get(`${CHAT_API}/active/`)
+      .get(`${CHAT_API}/dang-mo/`)
       .then((res) => {
         if (alive && res.data?.id) setFetchedConvId(Number(res.data.id));
       })
@@ -212,7 +212,7 @@ export function useWebSocketChat(options: UseWebSocketChatOptions = {}) {
     };
   }, [enabled, isAuthenticated, conversationId, syncMessages]);
 
-  // 3. WebSocket /ws/chat/<id>/
+  // 3. WebSocket /ws/hoi-thoai/<id>/
   useEffect(() => {
     if (!enabled || !isAuthenticated || !conversationId) return;
     let closing = false;
@@ -222,7 +222,7 @@ export function useWebSocketChat(options: UseWebSocketChatOptions = {}) {
 
     const connect = async () => {
       if (closing) return;
-      const ws = await openAuthenticatedWebSocket(`/ws/chat/${conversationId}/`);
+      const ws = await openAuthenticatedWebSocket(`/ws/hoi-thoai/${conversationId}/`);
       if (!ws) return;
       if (closing) {
         ws.close();
@@ -355,7 +355,7 @@ export function useWebSocketChat(options: UseWebSocketChatOptions = {}) {
       try {
         // Dự phòng khi socket đang reconnect; backend đã broadcast nên phía bên kia vẫn nhận ngay.
         const res = await apiClient.post(
-          `${CHAT_API}/${conversationId}/messages/`,
+          `${CHAT_API}/${conversationId}/tin-nhan/`,
           {
             noi_dung: trimmed,
             loai_tin_nhan: "van_ban",

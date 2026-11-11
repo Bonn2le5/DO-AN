@@ -18,14 +18,14 @@ export interface AuthResult {
 }
 
 export async function login(payload: LoginPayload): Promise<AuthResult> {
-  const { data: tokens } = await apiClient.post("/auth/login/", { thu_dien_tu: payload.email, password: payload.password });
+  const { data: tokens } = await apiClient.post("/xac-thuc/dang-nhap/", { thu_dien_tu: payload.email, password: payload.password });
   setAccessToken(tokens.access); setRefreshToken(tokens.refresh);
-  const { data: user } = await apiClient.get("/auth/profile/");
+  const { data: user } = await apiClient.get("/xac-thuc/ho-so/");
   return { accessToken: tokens.access, refreshToken: tokens.refresh, user: mapUser(user) };
 }
 
 export async function register(payload: RegisterPayload): Promise<{ email: string; message: string }> {
-  const { data } = await apiClient.post("/auth/register/", { thu_dien_tu: payload.email, mat_khau: payload.password, ho_ten: payload.name, so_dien_thoai: payload.phone });
+  const { data } = await apiClient.post("/xac-thuc/dang-ky/", { thu_dien_tu: payload.email, mat_khau: payload.password, ho_ten: payload.name, so_dien_thoai: payload.phone });
   // Backend now returns { email, message } instead of tokens (email verification required)
   return { email: data.email ?? payload.email, message: data.message ?? "" };
 }
@@ -34,7 +34,7 @@ export async function verifyEmail(params: {
   email: string;
   maXacThuc: string;
 }): Promise<AuthResult> {
-  const { data } = await apiClient.post("/auth/xac-thuc-email/", {
+  const { data } = await apiClient.post("/xac-thuc/xac-thuc-email/", {
     email: params.email,
     ma_xac_thuc: params.maXacThuc,
   });
@@ -48,16 +48,16 @@ export async function verifyEmail(params: {
 }
 
 export async function resendVerificationEmail(email: string): Promise<void> {
-  await apiClient.post("/auth/gui-ma-xac-thuc/", { email });
+  await apiClient.post("/xac-thuc/gui-ma-xac-thuc/", { email });
 }
 
 export async function updateProfile(payload: Record<string, string>): Promise<AuthResult["user"]> {
-  const { data } = await apiClient.patch("/auth/profile/", payload);
+  const { data } = await apiClient.patch("/xac-thuc/ho-so/", payload);
   return mapUser(data);
 }
 
 export async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
-  await apiClient.post("/auth/change-password/", { mat_khau_cu: oldPassword, mat_khau_moi: newPassword });
+  await apiClient.post("/xac-thuc/doi-mat-khau/", { mat_khau_cu: oldPassword, mat_khau_moi: newPassword });
 }
 
 /** Lấy thông báo lỗi đầu tiên từ phản hồi DRF. */

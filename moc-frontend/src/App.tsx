@@ -58,7 +58,7 @@ export default function App() {
           <Route path="bai-viet/:slug" element={<BlogDetailPage />} />
           <Route path="dang-nhap" element={<LoginPage />} />
           <Route path="dang-ky" element={<RegisterPage />} />
-          <Route path="auth/verify-email" element={<EmailVerificationPage />} />
+          <Route path="xac-thuc-email" element={<EmailVerificationPage />} />
           <Route path="tai-khoan" element={<AccountLayout />}>
             <Route index element={<AccountProfilePage />} />
             <Route path="yeu-thich" element={<AccountFavoritesPage />} />

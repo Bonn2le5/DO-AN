@@ -1,11 +1,12 @@
 from rest_framework import serializers
-from orders.models import DonHang, ChiTietDonHang, Order, OrderItem
-from .models import DanhGia, Review
+from orders.models import DonHang, ChiTietDonHang
+from .models import DanhGia
 
 
 class DanhGiaSerializer(serializers.ModelSerializer):
     ten_nguoi_dung = serializers.SerializerMethodField()
     food_name = serializers.CharField(source="mon_an.ten", read_only=True)
+    duong_dan_mon = serializers.CharField(source="mon_an.duong_dan", read_only=True)
 
     class Meta:
         model = DanhGia
@@ -61,4 +62,25 @@ class DanhGiaSerializer(serializers.ModelSerializer):
         return attrs
 
 
-ReviewSerializer = DanhGiaSerializer
+class _MonTrongBuaAnSerializer(serializers.Serializer):
+    chi_tiet_don_hang = serializers.IntegerField()
+    diem_danh_gia = serializers.IntegerField(min_value=1, max_value=5)
+    nhan_xet = serializers.CharField(required=False, allow_blank=True, max_length=1000, default="")
+
+
+class GuiDanhGiaBuaAnSerializer(serializers.Serializer):
+    """Body gửi đánh giá cả bữa: điểm từng món và/hoặc điểm chung (phục vụ + không gian)."""
+
+    don_hang = serializers.IntegerField()
+    mon = _MonTrongBuaAnSerializer(many=True, required=False, default=list)
+    diem_phuc_vu = serializers.IntegerField(min_value=1, max_value=5, required=False, allow_null=True)
+    diem_khong_gian = serializers.IntegerField(min_value=1, max_value=5, required=False, allow_null=True)
+    nhan_xet = serializers.CharField(required=False, allow_blank=True, max_length=2000, default="")
+
+    def validate(self, attrs):
+        phuc_vu, khong_gian = attrs.get("diem_phuc_vu"), attrs.get("diem_khong_gian")
+        if (phuc_vu is None) != (khong_gian is None):
+            raise serializers.ValidationError("Cần chấm cả điểm phục vụ và không gian.")
+        if not attrs.get("mon") and phuc_vu is None:
+            raise serializers.ValidationError("Hãy chấm ít nhất một món hoặc đánh giá chung bữa ăn.")
+        return attrs

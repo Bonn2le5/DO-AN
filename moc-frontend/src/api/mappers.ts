@@ -181,6 +181,7 @@ export function mapDanhGia(raw: any): DanhGiaMonAn {
     id: String(raw.id),
     idMonAn: foodId,
     tenMonAn: raw.food_name ?? "",
+    duongDanMon: raw.duong_dan_mon ?? undefined,
     tacGia: author,
     diemDanhGia: rating,
     nhanXet: comment,

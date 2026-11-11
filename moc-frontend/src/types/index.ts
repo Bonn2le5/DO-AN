@@ -57,9 +57,31 @@ export interface ComboMonAn {
 
 
 // Review types
+/** Một dòng món trong bữa ăn đã hoàn tất, kèm đánh giá nếu khách đã chấm. */
+export interface MonTrongBuaAn {
+  idChiTiet: string;
+  idMonAn: string;
+  duongDanMon: string;
+  tenMon: string;
+  duongDanAnh?: string;
+  soLuong: number;
+  danhGia: { diemDanhGia: number; nhanXet: string } | null;
+}
+
+/** Bữa ăn (đơn tại bàn đã hoàn tất) còn phần chưa đánh giá. */
+export interface BuaAnChoDanhGia {
+  id: string;
+  maDonHang: string;
+  taoLuc: string;
+  chiNhanh: string;
+  mon: MonTrongBuaAn[];
+  danhGiaChung: { diemPhucVu: number; diemKhongGian: number; nhanXet: string } | null;
+}
+
 export interface DanhGiaMonAn {
   id: string;
   idMonAn: string;
+  duongDanMon?: string;
   tenMonAn?: string;
   tacGia: string;
   diemDanhGia: number;
@@ -173,8 +195,8 @@ export interface ThongTinDatBan {
 }
 
 
-// VNPay session
-export interface PhienThanhToanVNPay {
+// Phiên thanh toán PayOS
+export interface PhienThanhToanPayOS {
   duongDanThanhToan: string;
   maGiaoDich: string;
   soTien: number;
@@ -280,7 +302,7 @@ export interface PhieuHoanTien {
   soGioTruocGioHen: number;
   lyDoHuy: string;
   trangThai: "cho_xu_ly" | "da_hoan_tien" | "tu_choi";
-  phuongThucHoan: "vnpay" | "chuyen_khoan" | "tien_mat";
+  phuongThucHoan: "payos" | "chuyen_khoan" | "tien_mat";
   taoLuc: string;
 }
 

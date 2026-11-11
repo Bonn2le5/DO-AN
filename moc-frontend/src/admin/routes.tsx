@@ -29,7 +29,7 @@ const Settings = page(() => import("./pages/SettingsPage"));
 function ModuleGate({ module, children }: { module: Module; children: ReactNode }) {
   const can = useCan();
   if (can(module)) return children;
-  return <Navigate to={module === "dashboard" ? "/admin/reservations" : "/admin"} replace />;
+  return <Navigate to={module === "dashboard" ? "/admin/dat-ban" : "/admin"} replace />;
 }
 
 /** Đặt {adminRoutes} trong <Routes> của App.tsx, NGOÀI <Route element={<Layout />}> để không dính header/footer của khách. */
@@ -37,23 +37,23 @@ export const adminRoutes = (
   <Route path="admin" element={<AdminGuard />}>
     <Route element={<AdminLayout />}>
       <Route index element={<ModuleGate module="dashboard"><Dashboard /></ModuleGate>} />
-      <Route path="orders" element={<ModuleGate module="orders"><Orders /></ModuleGate>} />
-      <Route path="reservations" element={<ModuleGate module="reservations"><Reservations /></ModuleGate>} />
-      <Route path="tables" element={<ModuleGate module="tables"><Tables /></ModuleGate>} />
-      <Route path="chat" element={<ModuleGate module="chat"><Chat /></ModuleGate>} />
-      <Route path="menu" element={<ModuleGate module="foods"><Foods /></ModuleGate>} />
-      <Route path="categories" element={<ModuleGate module="categories"><Categories /></ModuleGate>} />
-      <Route path="ingredients" element={<ModuleGate module="ingredients"><Ingredients /></ModuleGate>} />
-      <Route path="promotions" element={<ModuleGate module="promotions"><Promotions /></ModuleGate>} />
-      <Route path="posts" element={<ModuleGate module="posts"><Posts /></ModuleGate>} />
-      <Route path="reviews" element={<ModuleGate module="reviews"><Reviews /></ModuleGate>} />
-      <Route path="payments" element={<ModuleGate module="payments"><Payments /></ModuleGate>} />
-      <Route path="deposit-policy" element={<ModuleGate module="deposit"><DepositPolicy /></ModuleGate>} />
-      <Route path="branches" element={<ModuleGate module="branches"><Branches /></ModuleGate>} />
-      <Route path="users" element={<ModuleGate module="users"><Users /></ModuleGate>} />
-      <Route path="roles" element={<ModuleGate module="roles"><Roles /></ModuleGate>} />
+      <Route path="don-hang" element={<ModuleGate module="orders"><Orders /></ModuleGate>} />
+      <Route path="dat-ban" element={<ModuleGate module="reservations"><Reservations /></ModuleGate>} />
+      <Route path="ban-an" element={<ModuleGate module="tables"><Tables /></ModuleGate>} />
+      <Route path="hoi-thoai" element={<ModuleGate module="chat"><Chat /></ModuleGate>} />
+      <Route path="mon-an" element={<ModuleGate module="foods"><Foods /></ModuleGate>} />
+      <Route path="danh-muc" element={<ModuleGate module="categories"><Categories /></ModuleGate>} />
+      <Route path="nguyen-lieu" element={<ModuleGate module="ingredients"><Ingredients /></ModuleGate>} />
+      <Route path="khuyen-mai" element={<ModuleGate module="promotions"><Promotions /></ModuleGate>} />
+      <Route path="bai-viet" element={<ModuleGate module="posts"><Posts /></ModuleGate>} />
+      <Route path="danh-gia" element={<ModuleGate module="reviews"><Reviews /></ModuleGate>} />
+      <Route path="thanh-toan" element={<ModuleGate module="payments"><Payments /></ModuleGate>} />
+      <Route path="chinh-sach-coc" element={<ModuleGate module="deposit"><DepositPolicy /></ModuleGate>} />
+      <Route path="chi-nhanh" element={<ModuleGate module="branches"><Branches /></ModuleGate>} />
+      <Route path="nguoi-dung" element={<ModuleGate module="users"><Users /></ModuleGate>} />
+      <Route path="vai-tro" element={<ModuleGate module="roles"><Roles /></ModuleGate>} />
       <Route path="ai" element={<ModuleGate module="ai"><Ai /></ModuleGate>} />
-      <Route path="settings" element={<ModuleGate module="settings"><Settings /></ModuleGate>} />
+      <Route path="cai-dat" element={<ModuleGate module="settings"><Settings /></ModuleGate>} />
     </Route>
   </Route>
 );

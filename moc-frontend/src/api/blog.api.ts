@@ -3,12 +3,12 @@ import { mapBaiViet } from "./mappers";
 import type { BaiVietBlog } from "@/types";
 
 export async function getBlogPosts(): Promise<BaiVietBlog[]> {
-  const { data } = await apiClient.get("/posts/");
+  const { data } = await apiClient.get("/bai-viet/");
   return (Array.isArray(data) ? data : data.results).map(mapBaiViet);
 }
 
 export async function getBlogPostBySlug(slug: string): Promise<BaiVietBlog | undefined> {
-  try { const { data } = await apiClient.get(`/posts/${slug}/`); return mapBaiViet(data); }
+  try { const { data } = await apiClient.get(`/bai-viet/${slug}/`); return mapBaiViet(data); }
   catch (error: any) { if (error.response?.status === 404) return undefined; throw error; }
 }
 

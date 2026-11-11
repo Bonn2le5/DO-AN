@@ -78,7 +78,3 @@ class ChiNhanh(MoHinhThoiGian):
     @property
     def vi_do(self):
         return self._parse_coords()[1]
-
-
-# Backward-compatible model aliases
-Branch = ChiNhanh

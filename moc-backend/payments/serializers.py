@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ThanhToan, Payment, PhieuHoanTien, RefundReceipt
+from .models import ThanhToan, PhieuHoanTien
 
 
 class ThanhToanSerializer(serializers.ModelSerializer):
@@ -21,9 +21,6 @@ class ThanhToanSerializer(serializers.ModelSerializer):
         return attrs
 
 
-PaymentSerializer = ThanhToanSerializer
-
-
 class PhieuHoanTienSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -32,10 +29,7 @@ class PhieuHoanTienSerializer(serializers.ModelSerializer):
         read_only_fields = ("ma_phieu_hoan", "tao_luc", "cap_nhat_luc")
 
 
-RefundReceiptSerializer = PhieuHoanTienSerializer
-
-
-class VNPayCreatePaymentSerializer(serializers.Serializer):
+class TaoPhienThanhToanSerializer(serializers.Serializer):
     loai_thanh_toan = serializers.ChoiceField(
         choices=[("tien_coc", "Tiền cọc"), ("don_hang", "Đơn hàng")],
         default="tien_coc",
@@ -45,8 +39,6 @@ class VNPayCreatePaymentSerializer(serializers.Serializer):
     don_hang_id = serializers.IntegerField(required=False, allow_null=True)
     ma_tham_chieu_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
     so_tien = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
-    order_info = serializers.CharField(max_length=255, required=False, default="", allow_blank=True)
-    ip_addr = serializers.CharField(max_length=50, required=False, default="")
 
     def validate(self, attrs):
         loai = attrs.get("loai_thanh_toan") or "tien_coc"
@@ -68,4 +60,3 @@ class VNPayCreatePaymentSerializer(serializers.Serializer):
             attrs["don_hang_id"] = target_id
 
         return attrs
-

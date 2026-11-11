@@ -1,10 +1,12 @@
 from decimal import Decimal
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import F, Q, Sum
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from branches.models import ChiNhanh
+from foods.models import MonAn
 from .models import DatBan, MonAnTrongDatBan, BanAn, ChinhSachDatCoc, PhienPhucVu
 
 
@@ -36,6 +38,52 @@ def tinh_suc_chua_con_lai(chi_nhanh, ngay, gio):
         if bat_dau_khac < ket_thuc and ket_thuc_khac > bat_dau:
             so_khach_da_dat += dat_ban.so_luong_khach
     return max(0, tong_suc_chua - so_khach_da_dat), so_khach_da_dat, tong_suc_chua
+
+
+def mon_khong_du_ton(mon, so_luong):
+    """Món đếm tồn theo phần (không quản lý theo nguyên liệu) mà không đủ số lượng."""
+    return mon.ton_kho_cache is not None and not mon.quan_ly_kho and mon.ton_kho_cache < so_luong
+
+
+# Webhook của PayOS có thể đến trễ vài phút sau khi khách trả tiền sát hạn.
+THOI_GIAN_CHO_IPN = timedelta(minutes=5)
+
+
+def lay_chinh_sach_coc(chi_nhanh_id):
+    """Chính sách riêng của chi nhánh, nếu không có thì dùng chính sách chung."""
+    return ChinhSachDatCoc.objects.filter(
+        Q(chi_nhanh_id=chi_nhanh_id) | Q(chi_nhanh__isnull=True), con_ap_dung=True
+    ).order_by(F("chi_nhanh_id").desc(nulls_last=True)).first()
+
+
+def han_thanh_toan_coc(dat_ban):
+    """Thời điểm hết hạn trả cọc của một phiếu đặt bàn."""
+    chinh_sach = lay_chinh_sach_coc(dat_ban.chi_nhanh_id)
+    return dat_ban.tao_luc + timedelta(minutes=chinh_sach.han_thanh_toan_phut if chinh_sach else 15)
+
+
+def huy_giu_cho_qua_han_coc(chi_nhanh_id=None):
+    """Huỷ phiếu chờ cọc đã quá hạn thanh toán để trả ghế lại cho khung giờ."""
+    cho_coc = DatBan.objects.filter(
+        trang_thai=DatBan.TrangThai.CHO_THANH_TOAN,
+        trang_thai_coc=DatBan.TrangThaiCoc.CHUA_THANH_TOAN,
+    )
+    if chi_nhanh_id:
+        cho_coc = cho_coc.filter(chi_nhanh_id=chi_nhanh_id)
+    now = timezone.now()
+    so_huy = 0
+    for cn_id in set(cho_coc.values_list("chi_nhanh_id", flat=True)):
+        chinh_sach = lay_chinh_sach_coc(cn_id)
+        han = timedelta(minutes=chinh_sach.han_thanh_toan_phut if chinh_sach else 15)
+        so_huy += cho_coc.filter(chi_nhanh_id=cn_id, tao_luc__lt=now - han - THOI_GIAN_CHO_IPN).update(
+            trang_thai=DatBan.TrangThai.DA_HUY,
+            huy_luc=now,
+            ly_do_huy="Quá hạn thanh toán cọc",
+            phien_ban=F("phien_ban") + 1,
+            cap_nhat_luc=now,
+        )
+    return so_huy
+
 
 class DichVuDatBan:
     @classmethod
@@ -90,11 +138,21 @@ class DichVuDatBan:
         else:
             # Khách chỉ đặt chỗ theo chi nhánh; nhân viên xếp bàn khi khách đến.
             chi_nhanh = ChiNhanh.objects.select_for_update().get(pk=chi_nhanh.pk)
+            huy_giu_cho_qua_han_coc(chi_nhanh.pk)
             con_lai, da_dat, tong = tinh_suc_chua_con_lai(chi_nhanh, ngay, gio)
             if so_khach > con_lai:
                 raise ValidationError({"gio_bat_dau": f"Khung giờ này chỉ còn {con_lai} chỗ (sức chứa {tong}, đã có {da_dat} khách đặt)."})
             du_lieu["chi_nhanh"] = chi_nhanh
             du_lieu["ban_an"] = None
+
+        # Món phải còn phục vụ; tồn kho hiện tại chỉ có ý nghĩa với đặt bàn trong ngày.
+        dat_trong_ngay = ngay == timezone.localdate(timezone=ZoneInfo("Asia/Ho_Chi_Minh"))
+        for item in danh_sach_item:
+            mon = item["mon_an"]
+            if not mon.hien_thi or not mon.con_hang:
+                raise ValidationError({"danh_sach_mon": f"Món {mon.ten} hiện không phục vụ."})
+            if dat_trong_ngay and mon_khong_du_ton(mon, item["so_luong"]):
+                raise ValidationError({"danh_sach_mon": f"Món {mon.ten} chỉ còn {mon.ton_kho_cache} phần hôm nay."})
 
         # 4. Tính toán tiền món ăn và tiền đặt cọc
         tien_mon_an = sum(
@@ -111,9 +169,7 @@ class DichVuDatBan:
         if can_coc and not danh_sach_item:
             raise ValidationError({"danh_sach_mon": "Đặt bàn kèm gọi món cần chọn ít nhất một món."})
 
-        chinh_sach = ChinhSachDatCoc.objects.filter(
-            con_ap_dung=True, chi_nhanh__in=[chi_nhanh, None]
-        ).order_by("-chi_nhanh_id").first()
+        chinh_sach = lay_chinh_sach_coc(chi_nhanh.pk)
 
         so_tien_coc = Decimal("0")
         if can_coc:
@@ -128,7 +184,8 @@ class DichVuDatBan:
             yeu_cau_dat_coc=can_coc,
             so_tien_coc=so_tien_coc,
             trang_thai_coc=DatBan.TrangThaiCoc.CHUA_THANH_TOAN,
-            trang_thai=DatBan.TrangThai.CHO_XAC_NHAN,
+            # Phiếu cần cọc chỉ giữ chỗ trong hạn thanh toán; IPN thành công mới chuyển sang chờ xác nhận.
+            trang_thai=DatBan.TrangThai.CHO_THANH_TOAN if so_tien_coc > 0 else DatBan.TrangThai.CHO_XAC_NHAN,
             **du_lieu
         )
 
@@ -282,19 +339,31 @@ class DichVuPhienPhucVu:
             dat_ban=dat_ban,
         )
 
-        # Món khách chọn trước trở thành các dòng của hóa đơn chung khi phiên bắt đầu.
-        dat_truoc = list(dat_ban.danh_sach_mon.select_related("mon_an").all())
+        # Món khách chọn trước trở thành các dòng của hóa đơn chung khi phiên bắt đầu,
+        # giữ đơn giá lúc đặt. Món đã hết không chặn việc xếp bàn: bỏ qua và báo lại nhân viên.
+        dat_truoc = list(dat_ban.danh_sach_mon.all())
+        phien.mon_khong_du = []
         if dat_truoc:
-            from orders.services import DichVuDonHang
-            DichVuDonHang.them_mon_tai_cho(
-                don_hang=cls._don_cua_phien(phien, nguoi_dung, tao_moi=True),
-                danh_sach_item=[{
-                    "mon_an": item.mon_an,
+            mon_khoa = MonAn.objects.select_for_update().in_bulk([item.mon_an_id for item in dat_truoc])
+            kha_dung = []
+            for item in dat_truoc:
+                mon = mon_khoa[item.mon_an_id]
+                if not mon.hien_thi or not mon.con_hang or mon_khong_du_ton(mon, item.so_luong):
+                    phien.mon_khong_du.append({"mon_an_id": mon.id, "ten": mon.ten, "so_luong": item.so_luong})
+                    continue
+                kha_dung.append({
+                    "mon_an": mon,
                     "so_luong": item.so_luong,
+                    "don_gia": item.don_gia_luc_dat,
                     "ghi_chu": "Món khách chọn trước",
-                } for item in dat_truoc],
-                nguoi_dung=nguoi_dung,
-            )
+                })
+            if kha_dung:
+                from orders.services import DichVuDonHang
+                DichVuDonHang.them_mon_tai_cho(
+                    don_hang=cls._don_cua_phien(phien, nguoi_dung, tao_moi=True),
+                    danh_sach_item=kha_dung,
+                    nguoi_dung=nguoi_dung,
+                )
         return phien
 
     @classmethod
@@ -356,6 +425,16 @@ class DichVuPhienPhucVu:
         if not danh_sach_item and not da_gui_bep:
             cls._xoa_don_chua_gui_bep(don_hang)
             return phien
+
+        # Món đã có trong giỏ giữ đơn giá đã chốt (vd. giá lúc đặt bàn), món mới lấy giá hiện tại.
+        gia_da_chot = {}
+        for line in don_hang.danh_sach_mon.order_by("id"):
+            gia_da_chot.setdefault(line.mon_an_id, line.don_gia_luc_dat)
+        danh_sach_item = [
+            {**item, "don_gia": gia_da_chot[item["mon_an"].id]}
+            if item.get("don_gia") is None and item["mon_an"].id in gia_da_chot else item
+            for item in danh_sach_item
+        ]
 
         # Restore the stock reserved by the current cart before applying its replacement.
         for line in don_hang.danh_sach_mon.select_related("mon_an"):
@@ -454,7 +533,7 @@ class DichVuPhienPhucVu:
             raise ValidationError({"payment": "Khoản thanh toán thành công không khớp số tiền cần thu."})
         if not payment and can_thu:
             if phuong_thuc not in {"tien_mat", "chuyen_khoan"}:
-                raise ValidationError({"payment": "Thanh toán VNPay cần được xác nhận thành công trước khi checkout."})
+                raise ValidationError({"payment": "Thanh toán PayOS cần được xác nhận thành công trước khi checkout."})
             payment = ThanhToan.objects.select_for_update().filter(
                 don_hang=don_hang, trang_thai=ThanhToan.TrangThai.CHO_XU_LY
             ).first()
@@ -541,7 +620,3 @@ class DichVuPhienPhucVu:
         phien.ban_an.trang_thai = BanAn.TrangThai.TRONG
         phien.ban_an.save(update_fields=["trang_thai", "cap_nhat_luc"])
         return phien
-
-
-# Backward-compatible service alias
-ReservationService = DichVuDatBan

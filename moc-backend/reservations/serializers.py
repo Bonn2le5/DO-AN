@@ -260,16 +260,6 @@ class DanhSachMonPhienSerializer(serializers.Serializer):
 
 class CheckOutPhienSerializer(serializers.Serializer):
     phuong_thuc = serializers.ChoiceField(
-        choices=["tien_mat", "chuyen_khoan", "vnpay"], required=False, default="tien_mat"
+        choices=["tien_mat", "chuyen_khoan", "payos"], required=False, default="tien_mat"
     )
     ma_tham_chieu = serializers.CharField(max_length=100, required=False, allow_blank=True, default="")
-
-
-
-# Backward-compatible serializer aliases
-TableSerializer = BanAnSerializer
-ReservationSerializer = DatBanSerializer
-ReservationItemSerializer = MonAnDatBanSerializer
-DepositPolicySerializer = ChinhSachCocSerializer
-DepositRefundRuleSerializer = QuyTacHuyCocSerializer
-DiningSessionSerializer = PhienPhucVuSerializer

@@ -39,31 +39,31 @@ export interface AdminReservationItem {
 }
 
 export async function getAdminTables(): Promise<AdminTableItem[]> {
-  const { data } = await apiClient.get("/tables/");
+  const { data } = await apiClient.get("/ban-an/");
   return Array.isArray(data) ? data : data.results ?? [];
 }
 
 export async function createAdminTable(payload: Partial<AdminTableItem>): Promise<AdminTableItem> {
-  const { data } = await apiClient.post("/tables/", payload);
+  const { data } = await apiClient.post("/ban-an/", payload);
   return data;
 }
 
 export async function updateAdminTable(id: number, payload: Partial<AdminTableItem>): Promise<AdminTableItem> {
-  const { data } = await apiClient.patch(`/tables/${id}/`, payload);
+  const { data } = await apiClient.patch(`/ban-an/${id}/`, payload);
   return data;
 }
 
 export async function deleteAdminTable(id: number): Promise<void> {
-  await apiClient.delete(`/tables/${id}/`);
+  await apiClient.delete(`/ban-an/${id}/`);
 }
 
 export async function getAdminReservations(): Promise<AdminReservationItem[]> {
-  const { data } = await apiClient.get("/reservations/");
+  const { data } = await apiClient.get("/dat-ban/");
   return Array.isArray(data) ? data : data.results ?? [];
 }
 
 export async function updateReservationStatus(id: number, status: string): Promise<AdminReservationItem> {
-  const { data } = await apiClient.patch(`/reservations/${id}/trang_thai/`, { status });
+  const { data } = await apiClient.patch(`/dat-ban/${id}/trang_thai/`, { status });
   return data;
 }
 
@@ -72,7 +72,7 @@ export async function cancelReservationAdmin(
   reason: string,
   isNoShow = false
 ): Promise<{ status: string; phan_tram_hoan_tien: number; so_tien_hoan: number; ma_hoan_tien?: string }> {
-  const { data } = await apiClient.post(`/reservations/${id}/cancel/`, {
+  const { data } = await apiClient.post(`/dat-ban/${id}/huy_dat_ban/`, {
     ly_do: reason,
     is_no_show: isNoShow,
   });
@@ -130,46 +130,46 @@ export interface AdminInventoryTransactionItem {
 }
 
 export async function getAdminCategories(): Promise<AdminCategoryItem[]> {
-  const { data } = await apiClient.get("/categories/");
+  const { data } = await apiClient.get("/danh-muc/");
   return Array.isArray(data) ? data : data.results ?? [];
 }
 
 export async function getAdminFoods(): Promise<AdminFoodItem[]> {
-  const { data } = await apiClient.get("/foods/");
+  const { data } = await apiClient.get("/mon-an/");
   return Array.isArray(data) ? data : data.results ?? [];
 }
 
 export async function createAdminFood(payload: any): Promise<AdminFoodItem> {
-  const { data } = await apiClient.post("/foods/", payload);
+  const { data } = await apiClient.post("/mon-an/", payload);
   return data;
 }
 
 export async function updateAdminFood(slug: string, payload: any): Promise<AdminFoodItem> {
-  const { data } = await apiClient.patch(`/foods/${slug}/`, payload);
+  const { data } = await apiClient.patch(`/mon-an/${slug}/`, payload);
   return data;
 }
 
 export async function deleteAdminFood(slug: string): Promise<void> {
-  await apiClient.delete(`/foods/${slug}/`);
+  await apiClient.delete(`/mon-an/${slug}/`);
 }
 
 export async function getAdminIngredients(): Promise<AdminIngredientItem[]> {
-  const { data } = await apiClient.get("/ingredients/");
+  const { data } = await apiClient.get("/nguyen-lieu/");
   return Array.isArray(data) ? data : data.results ?? [];
 }
 
 export async function createAdminIngredient(payload: Partial<AdminIngredientItem>): Promise<AdminIngredientItem> {
-  const { data } = await apiClient.post("/ingredients/", payload);
+  const { data } = await apiClient.post("/nguyen-lieu/", payload);
   return data;
 }
 
 export async function updateAdminIngredient(id: number, payload: Partial<AdminIngredientItem>): Promise<AdminIngredientItem> {
-  const { data } = await apiClient.patch(`/ingredients/${id}/`, payload);
+  const { data } = await apiClient.patch(`/nguyen-lieu/${id}/`, payload);
   return data;
 }
 
 export async function getAdminInventoryTransactions(): Promise<AdminInventoryTransactionItem[]> {
-  const { data } = await apiClient.get("/inventory-transactions/");
+  const { data } = await apiClient.get("/kho/");
   return Array.isArray(data) ? data : data.results ?? [];
 }
 
@@ -179,7 +179,7 @@ export async function createInventoryTransaction(payload: {
   so_luong: number;
   ghi_chu?: string;
 }): Promise<AdminInventoryTransactionItem> {
-  const { data } = await apiClient.post("/inventory-transactions/", payload);
+  const { data } = await apiClient.post("/kho/", payload);
   return data;
 }
 
@@ -199,17 +199,17 @@ export interface AdminReviewItem {
 }
 
 export async function getAdminReviews(): Promise<AdminReviewItem[]> {
-  const { data } = await apiClient.get("/reviews/");
+  const { data } = await apiClient.get("/danh-gia/");
   return Array.isArray(data) ? data : data.results ?? [];
 }
 
 export async function toggleReviewVisibility(id: number, isVisible: boolean): Promise<AdminReviewItem> {
-  const { data } = await apiClient.patch(`/reviews/${id}/`, { hien_thi: isVisible });
+  const { data } = await apiClient.patch(`/danh-gia/${id}/`, { hien_thi: isVisible });
   return data;
 }
 
 export async function deleteAdminReview(id: number): Promise<void> {
-  await apiClient.delete(`/reviews/${id}/`);
+  await apiClient.delete(`/danh-gia/${id}/`);
 }
 
 // ==========================================
@@ -239,17 +239,17 @@ export interface AdminChatMessageItem {
 }
 
 export async function getAdminChatRooms(): Promise<AdminChatRoomItem[]> {
-  const { data } = await apiClient.get("/chat/rooms/");
+  const { data } = await apiClient.get("/hoi-thoai/");
   return Array.isArray(data) ? data : data.results ?? [];
 }
 
 export async function getAdminChatMessages(roomId: number): Promise<AdminChatMessageItem[]> {
-  const { data } = await apiClient.get(`/chat/rooms/${roomId}/messages/`);
+  const { data } = await apiClient.get(`/hoi-thoai/${roomId}/tin-nhan/`);
   return Array.isArray(data) ? data : data.results ?? [];
 }
 
 export async function sendAdminChatMessage(roomId: number, content: string): Promise<AdminChatMessageItem> {
-  const { data } = await apiClient.post(`/chat/rooms/${roomId}/messages/`, {
+  const { data } = await apiClient.post(`/hoi-thoai/${roomId}/tin-nhan/`, {
     noi_dung: content,
     loai_tin_nhan: "van_ban",
   });
@@ -257,7 +257,7 @@ export async function sendAdminChatMessage(roomId: number, content: string): Pro
 }
 
 export async function updateChatRoomStatus(roomId: number, status: "mo" | "dong"): Promise<AdminChatRoomItem> {
-  const { data } = await apiClient.patch(`/chat/rooms/${roomId}/`, { trang_thai: status });
+  const { data } = await apiClient.patch(`/hoi-thoai/${roomId}/`, { trang_thai: status });
   return data;
 }
 

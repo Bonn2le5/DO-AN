@@ -9,10 +9,8 @@ router.register("refund-receipts", PhieuHoanTienViewSet, basename="refund-receip
 router.register("phieu-hoan-tien", PhieuHoanTienViewSet, basename="phieu-hoan-tien")
 
 urlpatterns = [
-    # Explicit dual routes for VNPay
-    path("vnpay/create/", ThanhToanViewSet.as_view({"post": "vnpay_create"}), name="vnpay-create"),
-    path("vnpay/tao-phien/", ThanhToanViewSet.as_view({"post": "vnpay_tao_phien"}), name="vnpay-tao-phien"),
-    path("vnpay/return/", ThanhToanViewSet.as_view({"get": "vnpay_return"}), name="vnpay-return"),
-    path("vnpay/ipn/", ThanhToanViewSet.as_view({"get": "vnpay_ipn"}), name="vnpay-ipn"),
+    path("payos/tao-phien/", ThanhToanViewSet.as_view({"post": "payos_tao_phien"}), name="payos-tao-phien"),
+    path("payos/return/", ThanhToanViewSet.as_view({"get": "payos_return"}), name="payos-return"),
+    path("payos/webhook/", ThanhToanViewSet.as_view({"post": "payos_webhook"}), name="payos-webhook"),
     path("", include(router.urls)),
 ]

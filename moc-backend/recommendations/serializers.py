@@ -1,8 +1,8 @@
 from rest_framework import serializers
-from foods.models import MonAn, Food
-from foods.serializers import MonAnSerializer, FoodSerializer
-from .models import TuongTacMonAn, GoiYMonAn, SuKienGoiY, FoodInteraction, Recommendation
-from .services import TRONG_SO_TUONG_TAC, ALIAS_TRONG_SO, MODEL_VERSION_COLD_START
+from foods.models import MonAn
+from foods.serializers import MonAnSerializer
+from .models import TuongTacMonAn, GoiYMonAn, SuKienGoiY
+from .services import TRONG_SO_TUONG_TAC, ALIAS_TRONG_SO, MODEL_VERSION_COLD_START, LOAI_TUONG_TAC_TU_CLIENT
 
 
 class TuongTacMonAnSerializer(serializers.ModelSerializer):
@@ -14,7 +14,8 @@ class TuongTacMonAnSerializer(serializers.ModelSerializer):
     class Meta:
         model = TuongTacMonAn
         fields = ("id", "mon_an", "loai_tuong_tac", "trong_so", "tao_luc")
-        read_only_fields = ("tao_luc",)
+        # Trọng số do server gán theo loại tương tác — client không được tự đặt
+        read_only_fields = ("trong_so", "tao_luc")
 
     def validate(self, attrs):
         # Chuẩn hóa loại tương tác nếu nhận được bí danh tiếng Anh hoặc viết tắt
@@ -33,9 +34,12 @@ class TuongTacMonAnSerializer(serializers.ModelSerializer):
             attrs["loai_tuong_tac"] = alias_norm[loai]
             loai = attrs["loai_tuong_tac"]
 
-        # Nếu không truyền trọng số hoặc trọng số là 1 mặc định, tự động gán theo nghiệp vụ
-        if "trong_so" not in attrs or attrs["trong_so"] == 1:
-            attrs["trong_so"] = TRONG_SO_TUONG_TAC.get(loai, 1)
+        # dat_mon / danh_gia chỉ được ghi từ đơn đặt và đánh giá thật phía server
+        if loai not in LOAI_TUONG_TAC_TU_CLIENT:
+            raise serializers.ValidationError(
+                {"loai_tuong_tac": "Chỉ được ghi tương tác 'xem' hoặc 'yeu_thich'."}
+            )
+        attrs["trong_so"] = TRONG_SO_TUONG_TAC[loai]
 
         return super().validate(attrs)
 
@@ -64,7 +68,8 @@ class GoiYMonAnSerializer(serializers.ModelSerializer):
             "chi_tiet_mon_an",
             "tao_luc",
         )
-        read_only_fields = ("tao_luc",)
+        # Trọng số do server gán theo loại tương tác — client không được tự đặt
+        read_only_fields = ("trong_so", "tao_luc")
 
     def get_is_cold_start(self, obj):
         return (
@@ -78,7 +83,3 @@ class SuKienGoiYSerializer(serializers.Serializer):
     vi_tri = serializers.ChoiceField(choices=SuKienGoiY.ViTri.choices, default=SuKienGoiY.ViTri.TRANG_CHU)
     mon_an_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), min_length=1, max_length=50)
     phien_ban_model = serializers.CharField(max_length=30, required=False, allow_blank=True)
-
-
-InteractionSerializer = TuongTacMonAnSerializer
-RecommendationSerializer = GoiYMonAnSerializer

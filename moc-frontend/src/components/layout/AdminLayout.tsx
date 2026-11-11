@@ -7,11 +7,11 @@ export default function AdminLayout() {
 
   const navItems = [
     { name: "Tổng quan", path: "/admin", icon: "📊" },
-    { name: "Đơn hàng", path: "/admin/orders", icon: "🛍️" },
-    { name: "Đặt bàn", path: "/admin/reservations", icon: "📅" },
-    { name: "Thực đơn & Kho", path: "/admin/menu", icon: "🍲" },
-    { name: "Đánh giá", path: "/admin/reviews", icon: "⭐" },
-    { name: "Hỗ trợ khách", path: "/admin/chat", icon: "💬" },
+    { name: "Đơn hàng", path: "/admin/don-hang", icon: "🛍️" },
+    { name: "Đặt bàn", path: "/admin/dat-ban", icon: "📅" },
+    { name: "Thực đơn & Kho", path: "/admin/mon-an", icon: "🍲" },
+    { name: "Đánh giá", path: "/admin/danh-gia", icon: "⭐" },
+    { name: "Hỗ trợ khách", path: "/admin/hoi-thoai", icon: "💬" },
   ];
 
   return (

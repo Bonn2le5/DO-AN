@@ -30,7 +30,7 @@ export async function layDanhSachMonAn(params?: {
   }
 
   try {
-    const { data } = await apiClient.get("/foods/", { params: queryParams });
+    const { data } = await apiClient.get("/mon-an/", { params: queryParams });
     const list = Array.isArray(data) ? data : data.results ?? [];
     return list.map(mapMonAn);
   } catch {
@@ -40,7 +40,7 @@ export async function layDanhSachMonAn(params?: {
 
 export async function layChiTietMonAn(slugOrId: string): Promise<MonAn | null> {
   try {
-    const { data } = await apiClient.get(`/foods/${slugOrId}/`);
+    const { data } = await apiClient.get(`/mon-an/${slugOrId}/`);
     return mapMonAn(data);
   } catch {
     return null;
@@ -59,7 +59,7 @@ export async function getRelatedFoods(food: MonAn, limit = 3): Promise<MonAn[]> 
 
 export async function getCategories(): Promise<MucDanhMuc[]> {
   try {
-    const { data } = await apiClient.get("/categories/");
+    const { data } = await apiClient.get("/danh-muc/");
     const list = Array.isArray(data) ? data : data.results ?? [];
     return list
         .filter((cat: any) => cat.con_hoat_dong ?? cat.is_active ?? true)

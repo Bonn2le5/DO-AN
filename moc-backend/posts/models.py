@@ -50,10 +50,3 @@ class BaiViet(MoHinhThoiGian):
         if not self.duong_dan:
             self.duong_dan = slugify(self.tieu_de)
         super().save(*a, **kw)
-
-
-# Backward-compatible model aliases
-PostCategory = DanhMucBaiViet
-Post = BaiViet
-BaiViet.Status = BaiViet.TrangThai
-Post.Status = BaiViet.TrangThai

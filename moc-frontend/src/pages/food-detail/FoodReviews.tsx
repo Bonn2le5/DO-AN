@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { Star } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
-import { createReview, getReviewsByFood } from "@/api/reviews.api";
+import { coTheDanhGiaMon, createReview, getReviewsByFood } from "@/api/reviews.api";
 import { useAuthStore } from "@/store/authStore";
 import RatingStars from "@/components/ui/RatingStars";
 import { formatDate } from "@/lib/utils";
@@ -9,6 +10,11 @@ import { formatDate } from "@/lib/utils";
 export default function FoodReviews({ foodId }: { foodId: string }) {
   const { data: reviews, loading, refetch } = useAsync(() => getReviewsByFood(foodId), [foodId]);
   const isAuthenticated = useAuthStore((s) => s.daDangNhap);
+  // Chỉ hiện form khi khách đã dùng món này (đơn hoàn tất) và còn lượt chưa đánh giá
+  const { data: coThe, refetch: kiemTraLai } = useAsync(
+    () => (isAuthenticated ? coTheDanhGiaMon(foodId).catch(() => false) : Promise.resolve(false)),
+    [foodId, isAuthenticated],
+  );
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,6 +29,7 @@ export default function FoodReviews({ foodId }: { foodId: string }) {
       setComment("");
       setMessage({ ok: true, text: "Cảm ơn bạn đã đánh giá!" });
       refetch();
+      kiemTraLai();
     } catch (err: any) {
       const d = err?.response?.data;
       const text = d?.mon_an ?? d?.detail ?? d?.non_field_errors ?? "Không gửi được đánh giá. Vui lòng thử lại.";
@@ -35,7 +42,14 @@ export default function FoodReviews({ foodId }: { foodId: string }) {
   return (
     <div className="mt-20 max-w-2xl">
       <h2 className="font-display text-2xl mb-6">Đánh giá từ khách hàng</h2>
-      {isAuthenticated && (
+      {message?.ok && !coThe && <p className="text-sm text-success mb-6">{message.text}</p>}
+      {isAuthenticated && !coThe && !message?.ok && (
+        <p className="text-sm text-muted mb-8">
+          Mỗi lần dùng món này tại nhà hàng, bạn có thể đánh giá một lần — các bữa ăn đã hoàn tất sẽ hiện ở{" "}
+          <Link to="/tai-khoan/danh-gia" className="text-primary hover:underline">Đánh giá của tôi</Link>.
+        </p>
+      )}
+      {isAuthenticated && coThe && (
         <form onSubmit={submit} className="card p-5 mb-8 space-y-3">
           <div className="flex items-center gap-1" role="radiogroup" aria-label="Số sao">
             {[1, 2, 3, 4, 5].map((n) => (
