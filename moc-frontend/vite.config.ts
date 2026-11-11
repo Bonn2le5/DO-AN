@@ -13,6 +13,12 @@ export default defineConfig({
       "@": path.resolve(rootDir, "./src"),
     },
   },
+  // react-leaflet chỉ được import trong trang Chi nhánh (lazy). Nếu không khai báo ở đây,
+  // Vite phát hiện muộn và bundle lại deps giữa chừng → trang dùng 2 bản React khác nhau
+  // ("Invalid hook call") và cả app trắng trang.
+  optimizeDeps: {
+    include: ["leaflet", "react-leaflet"],
+  },
   server: {
     host: true,
     port: 5173,
