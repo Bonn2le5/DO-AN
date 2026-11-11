@@ -242,9 +242,9 @@ STORAGES = {
 if DEBUG or TESTING:
     STORAGES["staticfiles"] = {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}
 
-# Cloudflare R2 (S3-compatible) for uploaded images. Enabled when R2_BUCKET is set.
+# Cloudflare R2 (S3-compatible) for uploaded images. Enabled only when the keys are filled in.
 R2_BUCKET = env("R2_BUCKET", default="")
-if R2_BUCKET:
+if R2_BUCKET and env("R2_ACCESS_KEY_ID", default=""):
     R2_PUBLIC_DOMAIN = env("R2_PUBLIC_DOMAIN")  # e.g. media.mockitchen.id.vn
     STORAGES["default"] = {
         "BACKEND": "storages.backends.s3.S3Storage",
