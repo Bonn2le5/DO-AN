@@ -51,3 +51,13 @@ tu.md
 /2trang.md
 /API_CONTRACT.md
 /docs/so-do/
+
+# Tài liệu và cấu hình công cụ chỉ giữ trên máy (đã bỏ khỏi repo trên main)
+/README.md
+/TEST_INFRA.md
+/TEST_READY.md
+/Du-lieu-test.txt
+/BAO-CAO-AUDIT-PHAP-LY.md
+/Quy trình đặt bàn*.md
+/.agents/
+/.claude/
