@@ -61,7 +61,13 @@ class DichVuPayOS:
             f"{settings.PAYOS_API_URL.rstrip('/')}{path}",
             method=method,
             data=json.dumps(body).encode("utf-8") if body is not None else None,
-            headers={"x-client-id": client_id, "x-api-key": api_key, "Content-Type": "application/json"},
+            headers={
+                "x-client-id": client_id,
+                "x-api-key": api_key,
+                "Content-Type": "application/json",
+                # PayOS sits behind Cloudflare, which rejects the default "Python-urllib" agent (error 1010).
+                "User-Agent": "moc-backend/1.0",
+            },
         )
         try:
             with urllib.request.urlopen(req, timeout=15) as res:
