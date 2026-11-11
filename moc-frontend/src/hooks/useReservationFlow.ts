@@ -100,6 +100,19 @@ export function useReservationFlow() {
     });
   };
 
+  /** Cộng số lượng nhiều món một lần (vd. thực đơn từ Trợ lý gọi món AI); soLuong âm để bớt, món về 0 thì bỏ khỏi danh sách. */
+  const themNhieuMonVaoDatBan = (items: MonAnDatBan[]) => {
+    setFoodItems((cur) => {
+      const next = [...cur];
+      for (const { monAn, soLuong } of items) {
+        const i = next.findIndex((x) => x.monAn.id === monAn.id);
+        if (i >= 0) next[i] = { ...next[i], soLuong: next[i].soLuong + soLuong };
+        else if (soLuong > 0) next.push({ monAn, soLuong });
+      }
+      return next.filter((x) => x.soLuong > 0);
+    });
+  };
+
   const capNhatSoLuongMon = (foodId: string, quantity: number) => {
     if (quantity <= 0) {
       setFoodItems((cur) => cur.filter((i) => i.monAn.id !== foodId));
@@ -190,6 +203,7 @@ export function useReservationFlow() {
     danhMucDangLoc,
     setDanhMucDangLoc,
     themMonVaoDatBan,
+    themNhieuMonVaoDatBan,
     capNhatSoLuongMon,
     tienMonAn,
     soTienCoc,

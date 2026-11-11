@@ -6,6 +6,7 @@ import PlaceholderMedia from "@/components/ui/PlaceholderMedia";
 import { cn, formatCurrency } from "@/lib/utils";
 import { formatLongDate } from "./ReservationTicket";
 import FoodSuggestions from "./FoodSuggestions";
+import TroLyGoiMon from "./TroLyGoiMon";
 import type { MonAnDatBan, MonAn } from "@/types";
 
 const FALLBACK_FILTERS = [
@@ -25,6 +26,7 @@ const foodGroup = (food: MonAn) => {
 interface FoodStepProps {
   foodItems: MonAnDatBan[];
   onAdd: (food: MonAn) => void;
+  onAddMany: (items: MonAnDatBan[]) => void;
   onUpdateQty: (foodId: string, quantity: number) => void;
   subtotal: number;
   depositAmount: number;
@@ -42,6 +44,7 @@ interface FoodStepProps {
 export default function FoodStep({
   foodItems,
   onAdd,
+  onAddMany,
   onUpdateQty,
   subtotal,
   depositAmount,
@@ -92,6 +95,7 @@ export default function FoodStep({
 
       <div className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-8 items-start">
         <div className="min-w-0">
+          <TroLyGoiMon partySize={partySize} onAddMany={onAddMany} />
           <FoodSuggestions selectedFoods={foodItems.map((item) => item.monAn)} onAdd={onAdd} />
 
           <div className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]" role="tablist" aria-label="Lọc nhóm món">

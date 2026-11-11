@@ -55,6 +55,7 @@ class SuKienGoiY(MoHinhThoiGian):
         TRANG_CHU = "trang_chu", "Trang chủ"
         CHI_TIET_MON = "chi_tiet_mon", "Món tương tự (chi tiết món)"
         GOI_MON = "goi_mon", "Bước gọi món khi đặt bàn"
+        TRO_LY = "tro_ly", "Trợ lý gọi món AI"
 
     nguoi_dung = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="su_kien_goi_y",

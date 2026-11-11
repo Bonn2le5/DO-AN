@@ -15,7 +15,7 @@ from reservations.views import BanAnViewSet, DatBanViewSet, PhongRiengViewSet, P
 from promotions.views import KhuyenMaiViewSet, MaKhuyenMaiViewSet, LichSuDungKhuyenMaiViewSet
 from posts.views import BaiVietViewSet, DanhMucBaiVietViewSet
 from reviews.views import DanhGiaViewSet
-from recommendations.views import TuongTacMonAnViewSet, GoiYMonAnViewSet
+from recommendations.views import TuongTacMonAnViewSet, GoiYMonAnViewSet, TroLyGoiMonView
 from chat.views import HoiThoaiViewSet
 from analytics.views import ThongBaoViewSet, TongQuanViewSet
 from branches.views import ChiNhanhViewSet
@@ -127,6 +127,8 @@ urlpatterns = [
     # Explicit Recommendation dual endpoints
     path("recommendations/tuong-tac/", TuongTacMonAnViewSet.as_view({"get": "list", "post": "create"}), name="recommendation-tuong-tac"),
     path("recommendations/interactions/", TuongTacMonAnViewSet.as_view({"get": "list", "post": "create"}), name="recommendation-interactions"),
+    path("goi-y/tro-ly/", TroLyGoiMonView.as_view(), name="goi-y-tro-ly"),
+    path("recommendations/tro-ly/", TroLyGoiMonView.as_view(), name="recommendations-tro-ly"),
     path("goi-y/tuong-tac/", TuongTacMonAnViewSet.as_view({"get": "list", "post": "create"}), name="goi-y-tuong-tac"),
     path("recommendations/lam-moi/", GoiYMonAnViewSet.as_view({"get": "refresh", "post": "refresh"}), name="recommendations-lam-moi-explicit"),
     path("goi-y/lam-moi/", GoiYMonAnViewSet.as_view({"get": "refresh", "post": "refresh"}), name="goi-y-lam-moi-explicit"),

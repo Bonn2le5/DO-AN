@@ -245,6 +245,31 @@ export interface GoiYMonAn {
 }
 
 
+// Trợ lý gọi món AI
+export interface MonTrongThucDon {
+  monAn: MonAn;
+  soLuong: number;
+  thanhTien: number;
+}
+
+export interface NhomMonThucDon {
+  khoa: string;
+  ten: string;
+  soMon: number;
+  mon: MonTrongThucDon[];
+}
+
+export interface ThucDonTroLy {
+  phanTich: { soNguoi: number; nganSach: number | null; tietKiem: boolean; nhom: string[]; tranh: string[]; khauVi: string[] };
+  nhomMon: NhomMonThucDon[];
+  tongTien: number;
+  nganSach: number | null;
+  vuotNganSach: boolean;
+  ghiChu: string[];
+  phienBanMoHinh: string;
+  loiNhan: string;
+}
+
 // Branch / GIS types
 export interface ChiNhanh {
   id: string;

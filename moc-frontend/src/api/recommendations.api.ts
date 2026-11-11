@@ -1,10 +1,10 @@
 import { apiClient } from "./client";
-import { mapGoiY } from "./mappers";
+import { mapGoiY, mapMonAn } from "./mappers";
 import { useAuthStore } from "@/store/authStore";
-import type { GoiYMonAn } from "@/types";
+import type { GoiYMonAn, ThucDonTroLy } from "@/types";
 
 /** Vị trí hiển thị gợi ý — khớp SuKienGoiY.ViTri ở backend, dùng để đo CTR theo từng chỗ. */
-export type ViTriGoiY = "trang_chu" | "chi_tiet_mon" | "goi_mon";
+export type ViTriGoiY = "trang_chu" | "chi_tiet_mon" | "goi_mon" | "tro_ly";
 /** Loại tương tác client được ghi — "dat_mon" / "danh_gia" do backend tự ghi từ đơn và đánh giá. */
 export type LoaiTuongTac = "xem" | "yeu_thich";
 
@@ -71,3 +71,45 @@ export function ghiSuKienGoiY(
     .catch(() => {});
 }
 
+
+/**
+ * Trợ lý gọi món AI: gửi câu yêu cầu (+ các câu điều chỉnh) → thực đơn theo nhóm, vừa ngân sách.
+ * soNguoi: số khách của đặt bàn, dùng khi câu yêu cầu không nói số người.
+ * goiYNhanh: mã nút gợi ý nhanh (lau_nuong, gia_dinh, tiet_kiem, ...) — backend dùng JSON ý định cố định.
+ */
+export async function hoiTroLyGoiMon(
+  yeuCau: string, dieuChinh: string[] = [], soNguoi?: number, goiYNhanh?: string,
+): Promise<ThucDonTroLy> {
+  const { data } = await apiClient.post("/goi-y/tro-ly/", {
+    yeu_cau: yeuCau,
+    dieu_chinh: dieuChinh,
+    ...(soNguoi ? { so_nguoi: soNguoi } : {}),
+    ...(goiYNhanh ? { goi_y_nhanh: goiYNhanh } : {}),
+  });
+  return {
+    phanTich: {
+      soNguoi: data.phan_tich.so_nguoi,
+      nganSach: data.phan_tich.ngan_sach ?? null,
+      tietKiem: Boolean(data.phan_tich.tiet_kiem),
+      nhom: data.phan_tich.nhom ?? [],
+      tranh: data.phan_tich.tranh ?? [],
+      khauVi: data.phan_tich.khau_vi ?? [],
+    },
+    nhomMon: (data.nhom_mon ?? []).map((g: any) => ({
+      khoa: g.khoa,
+      ten: g.ten,
+      soMon: g.so_mon,
+      mon: g.mon.map((m: any) => ({
+        monAn: mapMonAn(m.mon_an),
+        soLuong: m.so_luong,
+        thanhTien: m.thanh_tien,
+      })),
+    })),
+    tongTien: data.tong_tien,
+    nganSach: data.ngan_sach ?? null,
+    vuotNganSach: Boolean(data.vuot_ngan_sach),
+    ghiChu: data.ghi_chu ?? [],
+    phienBanMoHinh: data.phien_ban_model ?? "",
+    loiNhan: data.loi_nhan ?? "",
+  };
+}

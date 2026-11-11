@@ -80,6 +80,7 @@ export default function ReservationPage() {
         <FoodStep
           foodItems={flow.danhSachMonDat}
           onAdd={flow.themMonVaoDatBan}
+          onAddMany={flow.themNhieuMonVaoDatBan}
           onUpdateQty={flow.capNhatSoLuongMon}
           subtotal={flow.tienMonAn}
           depositAmount={flow.soTienCoc}

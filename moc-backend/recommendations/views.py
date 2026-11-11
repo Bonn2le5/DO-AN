@@ -1,12 +1,15 @@
-from rest_framework import viewsets, status
+from rest_framework import serializers, viewsets, status
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import SimpleRateThrottle
 
 from foods.models import MonAn
 from .models import TuongTacMonAn, GoiYMonAn, SuKienGoiY
 from .serializers import TuongTacMonAnSerializer, GoiYMonAnSerializer, SuKienGoiYSerializer
 from .services import DichVuGoiY
+from .tro_ly import GOI_Y_NHANH, TroLyKhongSanSang, goi_y_thuc_don
 
 
 class TuongTacMonAnViewSet(viewsets.ModelViewSet):
@@ -162,3 +165,48 @@ class GoiYMonAnViewSet(viewsets.ReadOnlyModelViewSet):
             for mid in ids
         ])
         return Response({"da_ghi": len(ids)}, status=status.HTTP_201_CREATED)
+
+
+class TroLyGoiMonSerializer(serializers.Serializer):
+    yeu_cau = serializers.CharField(max_length=500, trim_whitespace=True)
+    dieu_chinh = serializers.ListField(
+        child=serializers.CharField(max_length=300), required=False, default=list, max_length=10
+    )
+    so_nguoi = serializers.IntegerField(min_value=1, max_value=20, required=False)
+    goi_y_nhanh = serializers.ChoiceField(choices=list(GOI_Y_NHANH), required=False)
+
+
+class GioiHanTroLy(SimpleRateThrottle):
+    """API mở cho khách chưa đăng nhập và mỗi câu hỏi tốn tiền gọi AI → chặn gọi dồn dập.
+    Tính theo tài khoản nếu đã đăng nhập, còn lại theo IP."""
+    scope = "tro_ly"
+    rate = "20/min"
+
+    def get_cache_key(self, request, view):
+        nd = request.user
+        dinh_danh = f"nd{nd.pk}" if nd and nd.is_authenticated else self.get_ident(request)
+        return self.cache_format % {"scope": self.scope, "ident": dinh_danh}
+
+
+class TroLyGoiMonView(APIView):
+    """
+    Trợ lý gọi món AI: POST {"yeu_cau": "...", "dieu_chinh": ["bớt cay"], "so_nguoi": 4}
+    → JSON ý định + thực đơn chọn từ database theo nhóm món, số lượng, tổng tiền.
+    "dieu_chinh": các lần điều chỉnh sau, ý nói sau ghi đè ý nói trước. AI lỗi/chưa cấu hình → 503.
+    """
+    permission_classes = [AllowAny]
+    throttle_classes = [GioiHanTroLy]
+
+    def post(self, request):
+        ser = TroLyGoiMonSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        d = ser.validated_data
+        try:
+            return Response(goi_y_thuc_don(
+                d["yeu_cau"], d["dieu_chinh"], request.user, d.get("so_nguoi"), d.get("goi_y_nhanh")
+            ))
+        except TroLyKhongSanSang:
+            return Response(
+                {"detail": "Trợ lý AI đang bận, bạn thử lại sau ít phút nhé."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )

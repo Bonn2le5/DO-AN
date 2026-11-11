@@ -301,3 +301,8 @@ else:
     }
 
 
+
+
+# Trợ lý gọi món AI: cần OPENAI_API_KEY + OPENAI_MODEL (+ OPENAI_BASE_URL nếu dùng cổng trung gian) trong .env.
+TRO_LY_DUNG_LLM = env.bool("TRO_LY_DUNG_LLM", default=not TESTING)  # test không gọi API thật
+TRO_LY_LLM_TIMEOUT = env.int("TRO_LY_LLM_TIMEOUT", default=25)  # dưới mức cắt 30s mặc định của gunicorn
