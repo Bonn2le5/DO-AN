@@ -53,12 +53,33 @@ export async function verifyEmail(params: {
   };
 }
 
+/** Quên mật khẩu bước 1: gửi mã tới email của tài khoản; trả về email đã che. */
+export async function requestPasswordReset(account: string): Promise<string> {
+  const { data } = await apiClient.post("/xac-thuc/quen-mat-khau/", { tai_khoan: account });
+  return data.email_an;
+}
+
+export async function resetPassword(account: string, code: string, newPassword: string): Promise<void> {
+  await apiClient.post("/xac-thuc/dat-lai-mat-khau/", { tai_khoan: account, ma_xac_thuc: code, mat_khau_moi: newPassword });
+}
+
 export async function resendVerificationEmail(email: string): Promise<void> {
   await apiClient.post("/xac-thuc/gui-ma-xac-thuc/", { email });
 }
 
 export async function updateProfile(payload: Record<string, string>): Promise<AuthResult["user"]> {
   const { data } = await apiClient.patch("/xac-thuc/ho-so/", payload);
+  return mapUser(data);
+}
+
+/** Gửi mã tới email mới; email chỉ đổi sau khi confirmEmailChange. Trả về email đang chờ ("" nếu không đổi). */
+export async function requestEmailChange(email: string, password: string): Promise<string> {
+  const { data } = await apiClient.patch("/xac-thuc/ho-so/", { thu_dien_tu: email, mat_khau_hien_tai: password });
+  return data.email_cho_xac_nhan ?? "";
+}
+
+export async function confirmEmailChange(code: string): Promise<AuthResult["user"]> {
+  const { data } = await apiClient.post("/xac-thuc/xac-nhan-doi-email/", { ma_xac_thuc: code });
   return mapUser(data);
 }
 

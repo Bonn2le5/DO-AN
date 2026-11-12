@@ -213,7 +213,8 @@ AUTH_PASSWORD_VALIDATORS = [
 # ==============================================================================
 # Email Configuration (Resend & Django Mailers)
 # ==============================================================================
-RESEND_API_KEY = env("RESEND_API_KEY", default="")
+# Test không gửi mail thật; mail rơi vào django.core.mail.outbox.
+RESEND_API_KEY = "" if TESTING else env("RESEND_API_KEY", default="")
 RESEND_FROM_EMAIL = env("RESEND_FROM_EMAIL", default="Nhà hàng Mộc <onboarding@resend.dev>")
 DEFAULT_FROM_EMAIL = RESEND_FROM_EMAIL
 

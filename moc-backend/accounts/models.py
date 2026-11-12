@@ -156,6 +156,8 @@ class XacThucEmail(models.Model):
     # Số lần nhập sai mã hiện tại; đủ SO_LAN_SAI_TOI_DA thì mã bị vô hiệu, phải xin mã mới.
     so_lan_sai = models.PositiveSmallIntegerField(default=0)
     da_xac_thuc = models.BooleanField(default=False)
+    # Email mới đang chờ nhập mã khi đổi email; rỗng = không có yêu cầu đổi.
+    email_moi = models.EmailField(blank=True)
     tao_luc = models.DateTimeField(auto_now_add=True)
     het_han_luc = models.DateTimeField(null=True, blank=True)
 

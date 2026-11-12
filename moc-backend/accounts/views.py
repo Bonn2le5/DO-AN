@@ -1,3 +1,4 @@
+import re
 import secrets
 
 from django.contrib.auth import get_user_model
@@ -19,6 +20,7 @@ from api.permissions import LaNhanVienNhaHang
 from api.throttling import (
     GioiHanDangKy, GioiHanDangNhapIP, GioiHanDangNhapTaiKhoan, GioiHanDoiMatKhau,
     GioiHanGuiOtp, GioiHanGuiOtpIP, GioiHanNhapOtp, GioiHanNhapOtpIP,
+    GioiHanQuenMatKhau, GioiHanDatLaiMatKhau,
 )
 from .models import VaiTro, QuyenHan, NguoiDungVaiTro
 from .serializers import (
@@ -59,11 +61,48 @@ GIOI_HAN_THEO_HANH_DONG = {
     "dang_ky_kebab": _GIOI_HAN_DANG_KY,
     "gui_ma_xac_thuc": _GIOI_HAN_GUI_OTP,
     "xac_thuc_email": _GIOI_HAN_NHAP_OTP,
+    "xac_nhan_doi_email": _GIOI_HAN_DOI_MAT_KHAU,
+    "quen_mat_khau": [GioiHanQuenMatKhau, GioiHanGuiOtpIP],
+    "dat_lai_mat_khau": [GioiHanDatLaiMatKhau, GioiHanNhapOtpIP],
     "doi_mat_khau": _GIOI_HAN_DOI_MAT_KHAU,
     "change_password": _GIOI_HAN_DOI_MAT_KHAU,
     "change_password_kebab": _GIOI_HAN_DOI_MAT_KHAU,
     "doi_mat_khau_kebab": _GIOI_HAN_DOI_MAT_KHAU,
 }
+
+
+def kiem_tra_ma(xac_thuc, ma_otp, khi_het_luot):
+    """Kiểm tra mã OTP (gọi trong transaction, đã select_for_update). Trả về Response lỗi hoặc None nếu đúng."""
+    from .models import XacThucEmail
+    if not xac_thuc.ma_xac_thuc or not xac_thuc.con_hieu_luc:
+        return Response({"detail": f"Mã xác thực đã hết hạn. {khi_het_luot}"}, status=400)
+    if xac_thuc.so_lan_sai >= XacThucEmail.SO_LAN_SAI_TOI_DA:
+        return Response({"detail": f"Bạn đã nhập sai quá nhiều lần. {khi_het_luot}"}, status=400)
+    if not secrets.compare_digest(xac_thuc.ma_xac_thuc, ma_otp):
+        xac_thuc.so_lan_sai += 1
+        xac_thuc.save(update_fields=["so_lan_sai"])
+        con_lai = XacThucEmail.SO_LAN_SAI_TOI_DA - xac_thuc.so_lan_sai
+        if con_lai <= 0:
+            return Response({"detail": f"Bạn đã nhập sai quá nhiều lần. {khi_het_luot}"}, status=400)
+        return Response({"detail": f"Mã xác thực không chính xác. Còn {con_lai} lần thử."}, status=400)
+    return None
+
+
+def tim_tai_khoan(tai_khoan):
+    """Tìm tài khoản đang hoạt động theo email hoặc số điện thoại. Trả về (nguoi_dung, loi)."""
+    tai_khoan = str(tai_khoan or "").strip().lower()
+    if not tai_khoan:
+        return None, "Vui lòng nhập số di động hoặc email."
+    if "@" in tai_khoan:
+        ds = NguoiDung.objects.filter(thu_dien_tu__iexact=tai_khoan, is_active=True)
+    else:
+        ds = NguoiDung.objects.filter(so_dien_thoai=re.sub(r"[\s.-]", "", tai_khoan), is_active=True)
+    ds = list(ds[:2])
+    if not ds:
+        return None, "Không tìm thấy tài khoản."
+    if len(ds) > 1:  # dữ liệu cũ có thể trùng SĐT
+        return None, "Số điện thoại này gắn với nhiều tài khoản. Vui lòng nhập email."
+    return ds[0], None
 
 
 class XacThucViewSet(viewsets.ViewSet):
@@ -191,16 +230,100 @@ class XacThucViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["get", "patch", "put"], permission_classes=[IsAuthenticated])
     def ho_so(self, request):
         if request.method in ["PATCH", "PUT"]:
-            email_moi = request.data.get("thu_dien_tu")
-            if email_moi and email_moi.strip().lower() != request.user.thu_dien_tu.lower():
+            du_lieu = request.data.copy()
+            email_moi = du_lieu.pop("thu_dien_tu", "")
+            if isinstance(email_moi, list):  # QueryDict.pop trả về list
+                email_moi = email_moi[0] if email_moi else ""
+            email_moi = str(email_moi or "").strip().lower()
+            doi_email = bool(email_moi) and email_moi != request.user.thu_dien_tu.lower()
+            if doi_email:
                 # Đổi email = đổi thông tin đăng nhập, nên phải nhập lại mật khẩu.
                 if not request.user.check_password(request.data.get("mat_khau_hien_tai") or ""):
                     return Response({"mat_khau_hien_tai": ["Mật khẩu hiện tại không đúng."]}, status=400)
-            s = NguoiDungSerializer(request.user, data=request.data, partial=True)
+                try:
+                    validate_email(email_moi)
+                except DjangoValidationError:
+                    return Response({"thu_dien_tu": ["Email không hợp lệ."]}, status=400)
+                if NguoiDung.objects.filter(thu_dien_tu__iexact=email_moi).exists():
+                    return Response({"thu_dien_tu": ["Email này đã được sử dụng."]}, status=400)
+            s = NguoiDungSerializer(request.user, data=du_lieu, partial=True)
             s.is_valid(raise_exception=True)
             s.save()
-            return Response(s.data)
+            if not doi_email:
+                return Response(s.data)
+            # Chưa đổi ngay: gửi mã tới email mới, đổi khi người dùng nhập đúng mã (xac_nhan_doi_email).
+            from .models import XacThucEmail
+            from .services_email import gui_ma_otp
+            xac_thuc, _ = XacThucEmail.objects.get_or_create(nguoi_dung=request.user, defaults={"da_xac_thuc": True})
+            xac_thuc.email_moi = email_moi
+            gui_ma_otp(email_moi, xac_thuc.tao_ma())
+            return Response({**s.data, "email_cho_xac_nhan": email_moi})
         return Response(NguoiDungSerializer(request.user).data)
+
+    @action(detail=False, methods=["post"], permission_classes=[AllowAny], url_path="quen-mat-khau")
+    def quen_mat_khau(self, request):
+        """Bước 1: tìm tài khoản theo email/SĐT, gửi mã tới email của tài khoản."""
+        from .models import XacThucEmail
+        from .services_email import an_email, gui_ma_otp
+        nguoi_dung, loi = tim_tai_khoan(request.data.get("tai_khoan"))
+        if loi:
+            return Response({"detail": loi}, status=400)
+        xac_thuc, _ = XacThucEmail.objects.get_or_create(nguoi_dung=nguoi_dung, defaults={"da_xac_thuc": True})
+        # Huỷ yêu cầu đổi email đang chờ: mã này gửi về email hiện tại, không được dùng để đổi email.
+        xac_thuc.email_moi = ""
+        gui_ma_otp(nguoi_dung.thu_dien_tu, xac_thuc.tao_ma())
+        return Response({"email_an": an_email(nguoi_dung.thu_dien_tu)})
+
+    @action(detail=False, methods=["post"], permission_classes=[AllowAny], url_path="dat-lai-mat-khau")
+    def dat_lai_mat_khau(self, request):
+        """Bước 2: nhập mã + mật khẩu mới; đúng thì đổi mật khẩu và đăng xuất mọi thiết bị."""
+        from .models import XacThucEmail
+        ma_otp = str(request.data.get("ma_xac_thuc") or "").strip()
+        mat_khau_moi = str(request.data.get("mat_khau_moi") or "")
+        if len(mat_khau_moi) < 6:
+            return Response({"mat_khau_moi": ["Mật khẩu tối thiểu 6 ký tự."]}, status=400)
+        nguoi_dung, loi = tim_tai_khoan(request.data.get("tai_khoan"))
+        if loi:
+            return Response({"detail": loi}, status=400)
+        with transaction.atomic():
+            xac_thuc = XacThucEmail.objects.select_for_update().filter(nguoi_dung=nguoi_dung).first()
+            # email_moi còn => mã đang là mã đổi email (gửi tới email mới), không dùng để đặt lại mật khẩu.
+            if xac_thuc is None or xac_thuc.email_moi:
+                return Response({"detail": "Chưa có yêu cầu đặt lại mật khẩu. Vui lòng gửi lại mã."}, status=400)
+            loi = kiem_tra_ma(xac_thuc, ma_otp, "Vui lòng gửi lại mã.")
+            if loi:
+                return loi
+            nguoi_dung.set_password(mat_khau_moi)
+            nguoi_dung.save(update_fields=["password"])
+            xac_thuc.ma_xac_thuc = ""
+            xac_thuc.save(update_fields=["ma_xac_thuc"])
+        thu_hoi_moi_token(nguoi_dung)
+        return Response({"thong_bao": "Đã đặt lại mật khẩu. Vui lòng đăng nhập bằng mật khẩu mới."})
+
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated], url_path="xac-nhan-doi-email")
+    def xac_nhan_doi_email(self, request):
+        """Nhập mã gửi tới email mới; đúng thì đổi email và gửi thư báo về email cũ."""
+        from .models import XacThucEmail
+        from .services_email import gui_thong_bao_doi_email
+        ma_otp = str(request.data.get("ma_xac_thuc") or "").strip()
+        nguoi_dung = request.user
+        with transaction.atomic():
+            xac_thuc = XacThucEmail.objects.select_for_update().filter(nguoi_dung=nguoi_dung).first()
+            if xac_thuc is None or not xac_thuc.email_moi:
+                return Response({"detail": "Không có yêu cầu đổi email nào đang chờ."}, status=400)
+            loi = kiem_tra_ma(xac_thuc, ma_otp, "Vui lòng gửi lại yêu cầu đổi email.")
+            if loi:
+                return loi
+            email_cu, email_moi = nguoi_dung.thu_dien_tu, xac_thuc.email_moi
+            # Có thể đã có người đăng ký email này trong lúc chờ nhập mã.
+            if NguoiDung.objects.filter(thu_dien_tu__iexact=email_moi).exclude(pk=nguoi_dung.pk).exists():
+                return Response({"detail": "Email này đã được sử dụng."}, status=400)
+            nguoi_dung.thu_dien_tu = nguoi_dung.email = email_moi
+            nguoi_dung.save(update_fields=["thu_dien_tu", "email"])
+            xac_thuc.email_moi = xac_thuc.ma_xac_thuc = ""
+            xac_thuc.save(update_fields=["email_moi", "ma_xac_thuc"])
+        gui_thong_bao_doi_email(email_cu, email_moi)
+        return Response(NguoiDungSerializer(nguoi_dung).data)
 
     @action(detail=False, methods=["get", "patch", "put"], permission_classes=[IsAuthenticated])
     def profile(self, request):

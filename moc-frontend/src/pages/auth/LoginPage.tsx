@@ -74,6 +74,11 @@ export default function LoginPage() {
               {errors.password.message}
             </p>
           )}
+          <div className="text-right mt-2">
+            <Link to="/quen-mat-khau" className="text-xs text-primary font-semibold">
+              Quên mật khẩu?
+            </Link>
+          </div>
         </div>
         {errors.root && (
           <p className="text-sm text-primary text-center">{errors.root.message}</p>

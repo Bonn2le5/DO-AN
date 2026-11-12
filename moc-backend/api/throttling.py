@@ -125,6 +125,16 @@ class GioiHanNhapOtpIP(_TheoIP):
     scope = "nhap_otp_ip"
 
 
+class GioiHanQuenMatKhau(_TheoEmail):
+    scope = "gui_otp"
+    truong_email = "tai_khoan"  # quen_mat_khau tìm tài khoản theo request.data["tai_khoan"] (email hoặc SĐT)
+
+
+class GioiHanDatLaiMatKhau(_TheoEmail):
+    scope = "nhap_otp"
+    truong_email = "tai_khoan"
+
+
 class GioiHanDoiMatKhau(_GioiHanCoBan):
     scope = "doi_mat_khau"
 
