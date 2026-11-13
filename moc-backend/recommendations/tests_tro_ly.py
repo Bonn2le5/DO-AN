@@ -63,6 +63,13 @@ class DuLieuThucDonMau:
 class KiemThuTroLyGoiMon(DuLieuThucDonMau, TestCase):
     """AI (giả lập) chỉ trả JSON ý định; backend chọn món từ database."""
 
+    def setUp(self):
+        super().setUp()
+        self.khach = NguoiDung.objects.create_user(  # câu hỏi tự do (gọi AI) cần đăng nhập
+            username="khach_thu", email="khach_thu@moc.vn", so_dien_thoai="0901112226", password="MatKhau@123"
+        )
+        self.client.force_authenticate(self.khach)
+
     def _ai(self, loi=None, van_ban=None, **kw):
         y = {"intent": "recommend_food", "categories": ["lau", "nuong"], "occasion": None, "flavors": [],
              "preferences": [], "constraints": [], "people": None, "budget": None, "chi_nhom": False,
@@ -314,6 +321,67 @@ class KiemThuTroLyGoiMon(DuLieuThucDonMau, TestCase):
         ma = [self._hoi(yeu_cau="Lẩu nướng", so_nguoi=2, goi_y_nhanh="lau_nuong").status_code for _ in range(21)]
         self.assertEqual(ma[:20], [200] * 20)
         self.assertEqual(ma[20], 429)
+
+    def test_bo_mon_khong_dua_lai(self):
+        # Khách bỏ tick/đổi vài món rồi điều chỉnh: thực đơn mới (và món dự phòng) không có lại các món đó
+        bo = [self.lau_to.id, self.bo.id, self.goi.id]
+        for _ in range(5):
+            with self._ai(people=4):
+                r = self._hoi(yeu_cau="lẩu nướng 4 người", dieu_chinh=["thêm hải sản"], bo_mon=bo)
+            du_phong = {m["mon_an"]["id"] for g in r.data["nhom_mon"] for m in g["du_phong"]}
+            self.assertFalse(set(bo) & (set(self._mon(r)) | du_phong))
+        self.assertEqual(self._so_mon(r), {"goi": 1, "nham-nhi": 1, "lau": 1, "nuong": 4})
+
+    def test_du_phong_cung_nhom_khong_trung_mon_da_chon(self):
+        with self._ai(people=2, constraints=["khong_cay"]):
+            r = self._hoi(yeu_cau="lẩu nướng 2 người không cay")
+        da_chon = set(self._mon(r))
+        for g in r.data["nhom_mon"]:
+            self.assertLessEqual(len(g["du_phong"]), 3)
+            for m in g["du_phong"]:
+                self.assertNotIn(m["mon_an"]["id"], da_chon)
+                self.assertEqual(MonAn.objects.get(id=m["mon_an"]["id"]).danh_muc.duong_dan, g["khoa"])
+                self.assertNotIn(m["mon_an"]["id"], (self.lau_mala.id, self.tom.id))  # vẫn giữ ràng buộc không cay
+        nuong = next(g for g in r.data["nhom_mon"] if g["khoa"] == "nuong")
+        self.assertEqual(len(nuong["du_phong"]), 3)
+
+    def test_chua_dang_nhap_chi_dung_nut_nhanh(self):
+        self.client.force_authenticate(None)
+        with self._ai() as post:
+            r = self._hoi(yeu_cau="lẩu nướng 2 người")
+        self.assertEqual(r.status_code, 401)
+        post.assert_not_called()
+        with self._ai() as post:  # bấm nút nhanh rồi điều chỉnh cũng là gọi AI
+            r = self._hoi(yeu_cau="Lẩu nướng", dieu_chinh=["bớt cay"], goi_y_nhanh="lau_nuong")
+        self.assertEqual(r.status_code, 401)
+        post.assert_not_called()
+        r = self._hoi(yeu_cau="Lẩu nướng", so_nguoi=2, goi_y_nhanh="lau_nuong")
+        self.assertEqual(r.status_code, 200)
+
+    def test_gia_x_forwarded_for_khong_qua_mat_gioi_han(self):
+        # SO_PROXY=1 (Render): IP thật là phần tử cuối do proxy thêm; phần đầu khách tự gửi bị bỏ qua.
+        # SO_PROXY=0 (local): bỏ qua cả header. Cả hai cách đều không cho đổi header để né giới hạn.
+        self.client.force_authenticate(None)
+        ma = [
+            self.client.post("/api/goi-y/tro-ly/",
+                             {"yeu_cau": "Lẩu nướng", "so_nguoi": 2, "goi_y_nhanh": "lau_nuong"}, format="json",
+                             HTTP_X_FORWARDED_FOR=f"10.0.0.{i}, 203.0.113.7").status_code
+            for i in range(21)
+        ]
+        self.assertEqual(ma[20], 429)
+
+    @override_settings(GIOI_HAN_TAN_SUAT={"tro_ly_ai": "3/m"})
+    def test_tran_goi_ai_toan_he_thong(self):
+        khach2 = NguoiDung.objects.create_user(
+            username="khach_thu2", email="khach_thu2@moc.vn", so_dien_thoai="0901112227", password="MatKhau@123"
+        )
+        with self._ai(people=2):
+            ma = [self._hoi(yeu_cau="lẩu nướng 2 người").status_code for _ in range(2)]
+            self.client.force_authenticate(khach2)  # đổi tài khoản không né được trần chung
+            ma += [self._hoi(yeu_cau="lẩu nướng 2 người").status_code for _ in range(2)]
+        self.assertEqual(ma, [200, 200, 200, 429])
+        r = self._hoi(yeu_cau="Lẩu nướng", so_nguoi=2, goi_y_nhanh="lau_nuong")  # nút nhanh không tốn AI
+        self.assertEqual(r.status_code, 200)
 
     def test_tu_choi_yeu_cau_rong(self):
         r = self._hoi(yeu_cau="")

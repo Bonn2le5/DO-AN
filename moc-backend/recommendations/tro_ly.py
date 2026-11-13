@@ -32,6 +32,7 @@ MODEL_VERSION_TRO_LY = "tro_ly_llm_db_v3"
 URL_OPENAI_MAC_DINH = "https://api.openai.com/v1"
 SO_NGUOI_MAC_DINH = 2
 SO_NGUOI_TOI_DA = 20
+SO_MON_DU_PHONG = 3  # mỗi nhóm trả kèm tối đa 3 món thay thế cho nút "Đổi món khác"
 SO_MON_QUEN_TOI_DA = 1  # mỗi thực đơn chỉ lặp lại tối đa 1 món khách từng xem/thích/gọi
 
 NHOM_MON = {
@@ -379,11 +380,20 @@ def _loi_nhan(phan_tich: dict, so_mon: int) -> str:
         cau += f", hợp gu {', '.join(phan_tich['khau_vi'])}"
     if phan_tich["tranh"]:
         cau += f", đã tránh {', '.join(phan_tich['tranh'])}"
-    return cau + ". Bạn có thể thêm toàn bộ hoặc nhờ mình điều chỉnh."
+    return cau + ". Bạn có thể bỏ tick hoặc đổi món chưa ưng, hay nhờ mình điều chỉnh."
 
 
-def _dong_goi(phan_tich: dict, chon: List[MonChon], ghi_chu: List[str], y_dinh: dict, loi_nhan: str) -> dict:
+def _dong_goi(phan_tich: dict, chon: List[MonChon], ghi_chu: List[str], y_dinh: dict, loi_nhan: str,
+              du_phong: Optional[Dict[str, List[MonAn]]] = None) -> dict:
     from foods.serializers import MonAnSerializer
+
+    def dong(c: MonChon) -> dict:
+        return {
+            "mon_an": MonAnSerializer(c.mon).data,
+            "so_luong": c.so_luong,
+            "don_gia": int(c.mon.don_gia_hien_tai),
+            "thanh_tien": c.thanh_tien,
+        }
 
     nhom_mon = []
     for g in THU_TU_NHOM:
@@ -393,15 +403,9 @@ def _dong_goi(phan_tich: dict, chon: List[MonChon], ghi_chu: List[str], y_dinh: 
                 "khoa": g,
                 "ten": NHOM_MON[g],
                 "so_mon": sum(c.so_luong for c in cac_mon),
-                "mon": [
-                    {
-                        "mon_an": MonAnSerializer(c.mon).data,
-                        "so_luong": c.so_luong,
-                        "don_gia": int(c.mon.don_gia_hien_tai),
-                        "thanh_tien": c.thanh_tien,
-                    }
-                    for c in cac_mon
-                ],
+                "mon": [dong(c) for c in cac_mon],
+                # Món xếp hạng kế tiếp cùng nhóm, để khách bấm "Đổi món khác" mà không phải hỏi lại
+                "du_phong": [dong(MonChon(m, g)) for m in (du_phong or {}).get(g, [])],
             })
     tong = sum(c.thanh_tien for c in chon)
     ngan_sach = phan_tich["ngan_sach"]
@@ -419,9 +423,11 @@ def _dong_goi(phan_tich: dict, chon: List[MonChon], ghi_chu: List[str], y_dinh: 
 
 
 def goi_y_thuc_don(yeu_cau: str, dieu_chinh: List[str], nguoi_dung=None,
-                   so_nguoi_mac_dinh: Optional[int] = None, goi_y_nhanh: Optional[str] = None) -> dict:
+                   so_nguoi_mac_dinh: Optional[int] = None, goi_y_nhanh: Optional[str] = None,
+                   bo_mon: Optional[List[int]] = None) -> dict:
     """Điểm vào của API. Nút gợi ý nhanh (chưa điều chỉnh) dùng JSON ý định cố định, không gọi AI;
-    còn lại AI đọc tin nhắn. Ném TroLyKhongSanSang nếu cần AI mà AI chưa cấu hình hoặc lỗi."""
+    còn lại AI đọc tin nhắn. Ném TroLyKhongSanSang nếu cần AI mà AI chưa cấu hình hoặc lỗi.
+    bo_mon: id các món khách đã bỏ/đổi ở thực đơn trước — không đưa lại vào thực đơn mới."""
     if goi_y_nhanh in GOI_Y_NHANH and not dieu_chinh:
         y_dinh = dict(GOI_Y_NHANH[goi_y_nhanh]["y_dinh"], original_query=yeu_cau)
     elif not co_dung_llm():
@@ -460,8 +466,10 @@ def goi_y_thuc_don(yeu_cau: str, dieu_chinh: List[str], nguoi_dung=None,
 
     tu_gu = [t for x in gu for t in TU_KHOA_GU.get(x, [])]
     an_chay = "chay" in gu
+    da_bo = set(bo_mon or [])
     danh_sach = [m for m in _lay_mon_dang_ban()
-                 if m.danh_muc_id and m.danh_muc.duong_dan in can and not _vi_pham(m, rang_buoc)
+                 if m.id not in da_bo
+                 and m.danh_muc_id and m.danh_muc.duong_dan in can and not _vi_pham(m, rang_buoc)
                  and not (an_chay and _co_dong_vat(m))]
     max_review = max((m.so_luot_danh_gia or 0 for m in danh_sach), default=0) or 1
     max_gia = max((int(m.don_gia_hien_tai) for m in danh_sach), default=0) or 1
@@ -472,9 +480,11 @@ def goi_y_thuc_don(yeu_cau: str, dieu_chinh: List[str], nguoi_dung=None,
     quen = _mon_khach_tung_goi(nguoi_dung)
     da_quen: List[int] = []
     chon: List[MonChon] = []
+    xep_hang_nhom: Dict[str, List[MonAn]] = {}
     for g in THU_TU_NHOM:
         if g in can:
             xep_hang = [m for _, m in sorted(theo_nhom[g], key=lambda x: x[0], reverse=True)]
+            xep_hang_nhom[g] = list(xep_hang)  # _chon_nhom rút dần khỏi danh sách nó nhận
             chon += [MonChon(m, g) for m in _chon_nhom(xep_hang, can[g], g, quen, da_quen,
                                                        uu_tien_rau=bool({"thanh_dam", "chay"} & set(gu)))]
 
@@ -487,4 +497,6 @@ def goi_y_thuc_don(yeu_cau: str, dieu_chinh: List[str], nguoi_dung=None,
         ghi_chu += _ep_ngan_sach(chon, ngan_sach)
     if "do-uong" not in can:
         ghi_chu.append("Đồ uống gọi tại bàn theo sở thích.")
-    return _dong_goi(phan_tich, chon, ghi_chu, y_dinh, _loi_nhan(phan_tich, len(chon)))
+    id_chon = {c.mon.id for c in chon}
+    du_phong = {g: [m for m in ds if m.id not in id_chon][:SO_MON_DU_PHONG] for g, ds in xep_hang_nhom.items()}
+    return _dong_goi(phan_tich, chon, ghi_chu, y_dinh, _loi_nhan(phan_tich, len(chon)), du_phong)

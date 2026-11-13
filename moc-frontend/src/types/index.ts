@@ -270,6 +270,8 @@ export interface NhomMonThucDon {
   ten: string;
   soMon: number;
   mon: MonTrongThucDon[];
+  /** Món thay thế cùng nhóm cho nút "Đổi món khác". */
+  duPhong: MonTrongThucDon[];
 }
 
 export interface ThucDonTroLy {

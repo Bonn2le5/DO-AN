@@ -1,10 +1,11 @@
 from rest_framework import serializers, viewsets, status
 from rest_framework.views import APIView
+from rest_framework.exceptions import NotAuthenticated
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import SimpleRateThrottle
-from api.throttling import ChoQuaKhiCacheLoi
+from api.throttling import ChoQuaKhiCacheLoi, _GioiHanCoBan
 
 from foods.models import MonAn
 from .models import TuongTacMonAn, GoiYMonAn, SuKienGoiY
@@ -175,11 +176,13 @@ class TroLyGoiMonSerializer(serializers.Serializer):
     )
     so_nguoi = serializers.IntegerField(min_value=1, max_value=20, required=False)
     goi_y_nhanh = serializers.ChoiceField(choices=list(GOI_Y_NHANH), required=False)
+    bo_mon = serializers.ListField(
+        child=serializers.IntegerField(min_value=1), required=False, default=list, max_length=100
+    )
 
 
 class GioiHanTroLy(ChoQuaKhiCacheLoi, SimpleRateThrottle):
-    """API mở cho khách chưa đăng nhập và mỗi câu hỏi tốn tiền gọi AI → chặn gọi dồn dập.
-    Tính theo tài khoản nếu đã đăng nhập, còn lại theo IP."""
+    """Chặn gọi dồn dập: tính theo tài khoản nếu đã đăng nhập, còn lại theo IP (theo SO_PROXY)."""
     scope = "tro_ly"
     rate = "20/min"
 
@@ -189,11 +192,22 @@ class GioiHanTroLy(ChoQuaKhiCacheLoi, SimpleRateThrottle):
         return self.cache_format % {"scope": self.scope, "ident": dinh_danh}
 
 
+class NganSachAIToanCuc(_GioiHanCoBan):
+    """Trần chung cho mọi lần gọi AI thật (GIOI_HAN_TAN_SUAT["tro_ly_ai"]), một bộ đếm cho cả hệ thống:
+    nhiều tài khoản/IP cùng gọi cũng không vượt được chi phí đặt trước."""
+    scope = "tro_ly_ai"
+
+    def dinh_danh(self, request):
+        return "toan_cuc"
+
+
 class TroLyGoiMonView(APIView):
     """
     Trợ lý gọi món AI: POST {"yeu_cau": "...", "dieu_chinh": ["bớt cay"], "so_nguoi": 4}
     → JSON ý định + thực đơn chọn từ database theo nhóm món, số lượng, tổng tiền.
     "dieu_chinh": các lần điều chỉnh sau, ý nói sau ghi đè ý nói trước. AI lỗi/chưa cấu hình → 503.
+    "bo_mon": id các món khách đã bỏ tick/đổi → không đưa lại. Mỗi nhóm trả kèm "du_phong" để đổi món.
+    Nút gợi ý nhanh mở cho mọi người; câu hỏi tự do (gọi AI) cần đăng nhập và tính vào trần chung.
     """
     permission_classes = [AllowAny]
     throttle_classes = [GioiHanTroLy]
@@ -202,9 +216,17 @@ class TroLyGoiMonView(APIView):
         ser = TroLyGoiMonSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         d = ser.validated_data
+        # Nút gợi ý nhanh chưa điều chỉnh không gọi AI (miễn phí); còn lại tốn tiền gọi AI thật
+        if not (d.get("goi_y_nhanh") and not d["dieu_chinh"]):
+            if not request.user.is_authenticated:
+                raise NotAuthenticated("Bạn đăng nhập để hỏi trợ lý AI nhé.")
+            ngan_sach = NganSachAIToanCuc()
+            if not ngan_sach.allow_request(request, self):
+                self.throttled(request, ngan_sach.wait())
         try:
             return Response(goi_y_thuc_don(
-                d["yeu_cau"], d["dieu_chinh"], request.user, d.get("so_nguoi"), d.get("goi_y_nhanh")
+                d["yeu_cau"], d["dieu_chinh"], request.user, d.get("so_nguoi"), d.get("goi_y_nhanh"),
+                d["bo_mon"],
             ))
         except TroLyKhongSanSang:
             return Response(

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { Check, Loader2, RotateCcw, SendHorizontal, Sparkles, UtensilsCrossed, X } from "lucide-react";
+import { Check, Loader2, RefreshCw, RotateCcw, SendHorizontal, Sparkles, UtensilsCrossed, X } from "lucide-react";
 import { hoiTroLyGoiMon, ghiSuKienGoiY } from "@/api/recommendations.api";
 import PlaceholderMedia from "@/components/ui/PlaceholderMedia";
 import { cn, formatCurrency } from "@/lib/utils";
-import type { MonAnDatBan, ThucDonTroLy } from "@/types";
+import type { MonAnDatBan, NhomMonThucDon, ThucDonTroLy } from "@/types";
 
 // Mỗi nút có JSON ý định cố định ở backend (GOI_Y_NHANH trong recommendations/tro_ly.py), không gọi AI.
 // "cau" là câu gốc để các lần "Điều chỉnh" sau đó cho AI đọc tiếp.
@@ -22,6 +22,8 @@ const GOI_Y_NHANH = [
  * Khách gõ một câu ("lẩu nướng lai rai, cay một chút, 4 người 1 triệu") → AI đọc thành JSON ý định
  * (nhóm món, dịp, vị, sở thích, điều cần tránh, số người, ngân sách) → backend truy vấn database chọn món
  * theo số người, ràng buộc và ngân sách. "Điều chỉnh" gửi thêm câu mới.
+ * Thực đơn chia tab theo nhóm món; khách bỏ tick món không thích hoặc bấm "Đổi món" (lấy món dự phòng
+ * backend trả kèm), rồi mới thêm các món còn tick vào "Món đã chọn".
  */
 const NUT =
   "h-9 flex-auto sm:flex-none whitespace-nowrap rounded-full px-4 text-sm font-medium inline-flex items-center justify-center gap-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
@@ -38,6 +40,12 @@ export default function TroLyGoiMon({
   const [dieuChinh, setDieuChinh] = useState<string[]>([]);
   const [dangDieuChinh, setDangDieuChinh] = useState(false);
   const [thucDon, setThucDon] = useState<ThucDonTroLy | null>(null);
+  // Bản đang hiển thị của thucDon.nhomMon, đã áp các lần "Đổi món".
+  const [nhom, setNhom] = useState<NhomMonThucDon[]>([]);
+  const [tab, setTab] = useState("");
+  const [boTick, setBoTick] = useState<string[]>([]);
+  // Món đã bị đổi đi, hoặc bị bỏ tick ở các lần điều chỉnh trước: gửi kèm để backend không đưa lại.
+  const [monBiLoai, setMonBiLoai] = useState<string[]>([]);
   const [dangHoi, setDangHoi] = useState(false);
   const [loi, setLoi] = useState("");
   const [daThem, setDaThem] = useState(false);
@@ -47,15 +55,19 @@ export default function TroLyGoiMon({
   const am = (ds: MonAnDatBan[]) => ds.map((m) => ({ ...m, soLuong: -m.soLuong }));
   const oNhap = useRef<HTMLInputElement>(null);
 
-  const hoi = async (goc: string, cacDieuChinh: string[], goiYNhanh?: string) => {
+  const hoi = async (goc: string, cacDieuChinh: string[], goiYNhanh?: string, loaiBo: string[] = []) => {
     setDangHoi(true);
     setLoi("");
     setDaThem(false);
     try {
-      const kq = await hoiTroLyGoiMon(goc, cacDieuChinh, partySize, goiYNhanh);
+      const kq = await hoiTroLyGoiMon(goc, cacDieuChinh, partySize, goiYNhanh, loaiBo);
       setYeuCauGoc(goc);
       setDieuChinh(cacDieuChinh);
       setThucDon(kq);
+      setNhom(kq.nhomMon);
+      setTab(kq.nhomMon[0]?.khoa ?? "");
+      setBoTick([]);
+      setMonBiLoai(loaiBo);
       setDangDieuChinh(false);
       setCau("");
     } catch (e) {
@@ -67,6 +79,8 @@ export default function TroLyGoiMon({
             ? "Bạn đã điều chỉnh thực đơn này nhiều lần rồi. Bấm “Hỏi lại” để bắt đầu thực đơn mới nhé."
             : "Mộc chưa đọc được yêu cầu này. Bạn thử viết ngắn gọn hơn nhé.",
         );
+      } else if (ma === 401) {
+        setLoi("Bạn đăng nhập để hỏi trợ lý AI nhé. Các nút gợi ý nhanh vẫn dùng được.");
       } else if (ma === 429) {
         setLoi("Bạn hỏi hơi nhanh, chờ khoảng một phút rồi thử lại nhé.");
       } else {
@@ -81,11 +95,34 @@ export default function TroLyGoiMon({
     e?.preventDefault();
     const text = cau.trim();
     if (!text || dangHoi) return;
-    if (dangDieuChinh && yeuCauGoc) hoi(yeuCauGoc, [...dieuChinh, text]);
+    if (dangDieuChinh && yeuCauGoc) hoi(yeuCauGoc, [...dieuChinh, text], undefined, [...new Set([...monBiLoai, ...boTick])]);
     else hoi(text, []);
   };
 
+  // tatCaMon: thực đơn gốc AI trả (để ghi sự kiện hiển thị); monChon: các món còn tick sau khi khách sửa.
   const tatCaMon = thucDon?.nhomMon.flatMap((g) => g.mon) ?? [];
+  const conTick = (id: string) => !boTick.includes(id);
+  const monChon = nhom.flatMap((g) => g.mon).filter((m) => conTick(m.monAn.id));
+  const tongTien = monChon.reduce((t, m) => t + m.thanhTien, 0);
+  const vuotNganSach = Boolean(thucDon?.nganSach && tongTien > thucDon.nganSach);
+  const nhomDangMo = nhom.find((g) => g.khoa === tab) ?? nhom[0];
+
+  const doiTick = (id: string) => {
+    setBoTick((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+    setDaThem(false);
+  };
+
+  const doiMon = (khoa: string, id: string) => {
+    setNhom((cur) =>
+      cur.map((g) => {
+        if (g.khoa !== khoa || !g.duPhong.length) return g;
+        const [moi, ...conLai] = g.duPhong;
+        return { ...g, mon: g.mon.map((m) => (m.monAn.id === id ? moi : m)), duPhong: conLai };
+      }),
+    );
+    setMonBiLoai((cur) => [...cur, id]);
+    setDaThem(false);
+  };
 
   useEffect(() => {
     if (tatCaMon.length) {
@@ -99,14 +136,14 @@ export default function TroLyGoiMon({
   }, [thucDon]);
 
   const themToanBo = () => {
-    if (!tatCaMon.length) return;
-    const moi = tatCaMon.map((m) => ({ monAn: m.monAn, soLuong: m.soLuong }));
+    if (!monChon.length) return;
+    const moi = monChon.map((m) => ({ monAn: m.monAn, soLuong: m.soLuong }));
     onAddMany([...am(monDaThem), ...moi]);
     setMonDaThem(moi);
     ghiSuKienGoiY(
       "nhap",
       "tro_ly",
-      tatCaMon.map((m) => ({ monAn: m.monAn, diemTuongDong: 0, lyDoGoiY: "", phienBanMoHinh: thucDon?.phienBanMoHinh })),
+      monChon.map((m) => ({ monAn: m.monAn, diemTuongDong: 0, lyDoGoiY: "", phienBanMoHinh: thucDon?.phienBanMoHinh })),
     );
     setDaThem(true);
   };
@@ -125,6 +162,9 @@ export default function TroLyGoiMon({
 
   const lamLai = () => {
     setThucDon(null);
+    setNhom([]);
+    setBoTick([]);
+    setMonBiLoai([]);
     setYeuCauGoc("");
     setDieuChinh([]);
     setDangDieuChinh(false);
@@ -238,40 +278,59 @@ export default function TroLyGoiMon({
               </button>
             </div>
 
-            {thucDon.nhomMon.length === 0 ? (
+            {nhom.length === 0 ? (
               <p className="text-sm text-muted mt-4">Chưa tìm được món phù hợp. Thử nói khác đi, ví dụ “lẩu cho 4 người”.</p>
             ) : (
-              <div className="mt-3 divide-y divide-black/[0.06]">
-                {thucDon.nhomMon.map((g) => (
-                  <div key={g.khoa} className="py-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-[15px]">{g.ten}</span>
-                      <span className="text-xs font-semibold rounded-full bg-black/[0.06] px-2.5 py-0.5 tabular-nums">{g.soMon} món</span>
-                    </div>
-                    <ul className="mt-2 space-y-2">
-                      {g.mon.map((m) => (
-                        <li key={m.monAn.id} className="flex items-center gap-3 text-sm">
+              <div className="mt-3">
+                <div role="tablist" aria-label="Nhóm món trong thực đơn"
+                  className="flex gap-1.5 overflow-x-auto pb-2 [scrollbar-width:none]">
+                  {nhom.map((g) => {
+                    const dangMo = g.khoa === nhomDangMo.khoa;
+                    return (
+                      <button key={g.khoa} type="button" role="tab" aria-selected={dangMo} onClick={() => setTab(g.khoa)}
+                        className={cn(
+                          "shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium inline-flex items-center gap-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                          dangMo ? "bg-primary text-white" : "bg-black/[0.05] hover:bg-primary/10 hover:text-primary",
+                        )}>
+                        {g.ten}
+                        <span className={cn("text-xs rounded-full px-1.5 tabular-nums", dangMo ? "bg-white/20" : "bg-black/[0.07]")}>
+                          {g.mon.filter((m) => conTick(m.monAn.id)).length}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <ul role="tabpanel" aria-label={nhomDangMo.ten} className="mt-1 divide-y divide-black/[0.06]">
+                  {nhomDangMo.mon.map((m) => {
+                    const chon = conTick(m.monAn.id);
+                    return (
+                      <li key={m.monAn.id} className="flex items-center gap-3 text-sm py-2">
+                        <label className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer">
+                          <input type="checkbox" checked={chon} onChange={() => doiTick(m.monAn.id)}
+                            aria-label={`Chọn ${m.monAn.tenMon}`} className="w-4 h-4 shrink-0 accent-primary" />
                           {m.monAn.duongDanAnh ? (
                             <img src={m.monAn.duongDanAnh} alt="" loading="lazy"
-                              className="w-14 h-14 rounded-lg object-cover bg-black/5 shrink-0" />
+                              className={cn("w-14 h-14 rounded-lg object-cover bg-black/5 shrink-0", !chon && "opacity-40")} />
                           ) : (
                             <PlaceholderMedia tone={m.monAn.phongCachHienThi} icon={UtensilsCrossed}
-                              className="w-14 h-14 rounded-lg shrink-0" iconClassName="w-5 h-5" />
+                              className={cn("w-14 h-14 rounded-lg shrink-0", !chon && "opacity-40")} iconClassName="w-5 h-5" />
                           )}
-                          <div className="min-w-0 flex-1 leading-snug">
-                            <span>{m.monAn.tenMon}</span>
-                            {m.soLuong > 1 && (
-                              <span className="ml-1.5 align-middle text-xs font-semibold rounded-full bg-primary/10 text-primary px-1.5 py-0.5 tabular-nums">
-                                ×{m.soLuong}
-                              </span>
-                            )}
-                          </div>
-                          <span className="tabular-nums text-muted shrink-0">{formatCurrency(m.thanhTien)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+                          <span className={cn("min-w-0 leading-snug", !chon && "line-through text-muted")}>{m.monAn.tenMon}</span>
+                        </label>
+                        <span className={cn("tabular-nums shrink-0", chon ? "text-muted" : "text-muted/60 line-through")}>
+                          {formatCurrency(m.thanhTien)}
+                        </span>
+                        {nhomDangMo.duPhong.length > 0 && (
+                          <button type="button" onClick={() => doiMon(nhomDangMo.khoa, m.monAn.id)}
+                            aria-label={`Đổi ${m.monAn.tenMon} sang món khác`}
+                            className="shrink-0 inline-flex items-center gap-1 rounded-full border border-black/12 px-2.5 py-1 text-xs text-muted hover:border-primary/50 hover:text-primary transition-colors">
+                            <RefreshCw size={12} aria-hidden="true" /> Đổi món
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             )}
 
@@ -281,12 +340,12 @@ export default function TroLyGoiMon({
               </ul>
             )}
 
-            {tatCaMon.length > 0 && (
+            {nhom.length > 0 && (
               <>
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-black/8">
-                  <span className="font-semibold">Tổng thực đơn</span>
-                  <span className={cn("font-semibold tabular-nums", thucDon.vuotNganSach ? "text-red-600" : "text-primary")}>
-                    {formatCurrency(thucDon.tongTien)}
+                  <span className="font-semibold">Tổng {monChon.length} món đã chọn</span>
+                  <span className={cn("font-semibold tabular-nums", vuotNganSach ? "text-red-600" : "text-primary")}>
+                    {formatCurrency(tongTien)}
                   </span>
                 </div>
                 {daThem && (
@@ -303,8 +362,9 @@ export default function TroLyGoiMon({
                       Bỏ các món đã thêm
                     </button>
                   ) : (
-                    <button type="button" onClick={themToanBo} className={cn(NUT, "bg-primary text-white hover:bg-primary-dark")}>
-                      {monDaThem.length ? "Thay thực đơn đã thêm" : "Thêm toàn bộ thực đơn"}
+                    <button type="button" onClick={themToanBo} disabled={!monChon.length}
+                      className={cn(NUT, "bg-primary text-white hover:bg-primary-dark disabled:opacity-40")}>
+                      {monDaThem.length ? "Thay thực đơn đã thêm" : `Thêm ${monChon.length} món đã chọn`}
                     </button>
                   )}
                 </div>

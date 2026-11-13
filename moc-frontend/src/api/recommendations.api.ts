@@ -78,14 +78,18 @@ export function ghiSuKienGoiY(
  * goiYNhanh: mã nút gợi ý nhanh (lau_nuong, gia_dinh, tiet_kiem, ...) — backend dùng JSON ý định cố định.
  */
 export async function hoiTroLyGoiMon(
-  yeuCau: string, dieuChinh: string[] = [], soNguoi?: number, goiYNhanh?: string,
+  yeuCau: string, dieuChinh: string[] = [], soNguoi?: number, goiYNhanh?: string, boMon: string[] = [],
 ): Promise<ThucDonTroLy> {
+  // boMon: id các món khách đã bỏ tick / đổi ở thực đơn trước — backend không đưa lại.
+  const idBo = boMon.map(Number).filter((id) => id > 0);
   const { data } = await apiClient.post("/goi-y/tro-ly/", {
     yeu_cau: yeuCau,
     dieu_chinh: dieuChinh,
     ...(soNguoi ? { so_nguoi: soNguoi } : {}),
     ...(goiYNhanh ? { goi_y_nhanh: goiYNhanh } : {}),
+    ...(idBo.length ? { bo_mon: idBo } : {}),
   });
+  const mapMon = (m: any) => ({ monAn: mapMonAn(m.mon_an), soLuong: m.so_luong, thanhTien: m.thanh_tien });
   return {
     phanTich: {
       soNguoi: data.phan_tich.so_nguoi,
@@ -99,11 +103,8 @@ export async function hoiTroLyGoiMon(
       khoa: g.khoa,
       ten: g.ten,
       soMon: g.so_mon,
-      mon: g.mon.map((m: any) => ({
-        monAn: mapMonAn(m.mon_an),
-        soLuong: m.so_luong,
-        thanhTien: m.thanh_tien,
-      })),
+      mon: g.mon.map(mapMon),
+      duPhong: (g.du_phong ?? []).map(mapMon),
     })),
     tongTien: data.tong_tien,
     nganSach: data.ngan_sach ?? null,
