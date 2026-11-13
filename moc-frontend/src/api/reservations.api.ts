@@ -139,6 +139,21 @@ export async function layDatBanCuaToi(): Promise<ThongTinDatBan[]> {
   return (Array.isArray(data) ? data : data.results).map(mapThongTinDatBan);
 }
 
+/** Khách tự huỷ phiếu của mình; backend chỉ cho huỷ trước khi check-in và tự tính hoàn cọc. */
+export async function huyDatBanCuaToi(
+  id: string,
+  lyDo?: string
+): Promise<{ datBan: ThongTinDatBan; soTienHoan: number; phanTramHoan: number }> {
+  const { data } = await apiClient.post(`/dat-ban/${id}/huy_dat_ban/`, {
+    ly_do: lyDo || "Khách hàng tự huỷ trên trang tài khoản",
+  });
+  return {
+    datBan: mapThongTinDatBan(data.dat_ban),
+    soTienHoan: Number(data.so_tien_hoan ?? 0),
+    phanTramHoan: Number(data.phan_tram_hoan_tien ?? 0),
+  };
+}
+
 export async function taoPhienThanhToanPayOS(
   idDatBan: string
 ): Promise<PhienThanhToanPayOS> {

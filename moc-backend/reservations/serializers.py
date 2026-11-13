@@ -125,7 +125,8 @@ class DatBanSerializer(serializers.ModelSerializer):
         )
 
     def get_refund_record(self, obj):
-        refund = obj.phieu_hoan_tien.order_by("-tao_luc").first()
+        # Chọn trong Python để dùng được prefetch của danh sách (order_by sẽ tạo query mới mỗi phiếu).
+        refund = max(obj.phieu_hoan_tien.all(), key=lambda r: r.tao_luc, default=None)
         if not refund:
             return None
         detail = refund.du_lieu_chi_tiet or {}

@@ -100,7 +100,9 @@ export function mapThongTinDatBan(raw: any): ThongTinDatBan {
   const foodItems = (raw.danh_sach_mon ?? []).map((item: any): MonAnDatBan => ({
     monAn: mapMonAn(item.mon_an ?? item.food),
     soLuong: item.so_luong ?? item.quantity ?? 1,
+    donGiaLucDat: item.don_gia_luc_dat != null ? Number(item.don_gia_luc_dat) : undefined,
   }));
+  const refund = raw.refund_record;
 
   const tableId = String(raw.ban_an_id ?? raw.table ?? "");
   const tableLabel = raw.ten_ban ?? raw.table_label ?? "";
@@ -136,6 +138,17 @@ export function mapThongTinDatBan(raw: any): ThongTinDatBan {
     trangThai: status,
     trangThaiThanhToanCoc: depositStatus,
     taoLuc: createdAt,
+    lyDoHuy: raw.ly_do_huy ?? "",
+    huyLuc: raw.huy_luc ?? "",
+    hoanCoc: refund
+      ? {
+          phanTram: Number(refund.percent ?? 0),
+          soTien: Number(refund.amount ?? 0),
+          maGiaoDich: refund.reference ?? "",
+          ghiChu: refund.note ?? "",
+          luc: refund.at ?? "",
+        }
+      : null,
 
     thoiHanGiuCho: raw.thoi_han_giu_cho,
   };

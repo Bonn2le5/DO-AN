@@ -176,7 +176,7 @@ class DatBanViewSet(viewsets.ModelViewSet):
             huy_giu_cho_qua_han_coc()
         danh_sach = DatBan.objects.select_related(
             "ban_an", "chi_nhanh", "nguoi_dung", "phien_phuc_vu__don_hang"
-        ).prefetch_related("danh_sach_mon__mon_an").order_by("-tao_luc")
+        ).prefetch_related("danh_sach_mon__mon_an", "phieu_hoan_tien").order_by("-tao_luc")
         user = self.request.user
         # ?mine=1: trang tài khoản — kể cả nhân viên chỉ thấy bàn mình đặt.
         if user.is_authenticated and self.request.query_params.get("mine"):

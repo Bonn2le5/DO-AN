@@ -84,6 +84,9 @@ def han_thanh_toan_coc(dat_ban):
     return dat_ban.tao_luc + timedelta(minutes=chinh_sach.han_thanh_toan_phut if chinh_sach else 15)
 
 
+LY_DO_QUA_HAN_COC = "Quá hạn thanh toán cọc"
+
+
 def huy_giu_cho_qua_han_coc(chi_nhanh_id=None):
     """Huỷ phiếu chờ cọc đã quá hạn thanh toán để trả ghế lại cho khung giờ."""
     cho_coc = DatBan.objects.filter(
@@ -100,7 +103,7 @@ def huy_giu_cho_qua_han_coc(chi_nhanh_id=None):
         so_huy += cho_coc.filter(chi_nhanh_id=cn_id, tao_luc__lt=now - han - THOI_GIAN_CHO_IPN).update(
             trang_thai=DatBan.TrangThai.DA_HUY,
             huy_luc=now,
-            ly_do_huy="Quá hạn thanh toán cọc",
+            ly_do_huy=LY_DO_QUA_HAN_COC,
             phien_ban=F("phien_ban") + 1,
             cap_nhat_luc=now,
         )
@@ -439,9 +442,6 @@ class DichVuPhienPhucVu:
         if don_hang.trang_thai in DichVuDonHang.TERMINAL_STATES:
             raise ValidationError({"session": "Hoá đơn đã kết thúc, không sửa món được nữa."})
 
-        da_gui_bep = don_hang.trang_thai != DonHang.TrangThai.CHO_TIEP_NHAN
-        if da_gui_bep and not cls.la_quan_ly(nguoi_dung):
-            # Nhân viên chỉ được gọi thêm; bớt món bếp đã nhận cần quản lý chi nhánh.
         # Mã QR PayOS đang chờ ghi số tiền cũ nên phải huỷ trước khi sửa món; khách đã trả thì hoá đơn chốt.
         from payments.models import ThanhToan
         from payments.services import DichVuPayOS
@@ -454,6 +454,9 @@ class DichVuPhienPhucVu:
         if cho_payos.exists():
             raise ValidationError({"payment": "Chưa huỷ được mã PayOS đang chờ, vui lòng thử lại."})
 
+        da_gui_bep = don_hang.trang_thai != DonHang.TrangThai.CHO_TIEP_NHAN
+        if da_gui_bep and not cls.la_quan_ly(nguoi_dung):
+            # Nhân viên chỉ được gọi thêm; bớt món bếp đã nhận cần quản lý chi nhánh.
             cu, moi = {}, {}
             for line in don_hang.danh_sach_mon.all():
                 cu[line.mon_an_id] = cu.get(line.mon_an_id, 0) + line.so_luong
@@ -548,9 +551,6 @@ class DichVuPhienPhucVu:
         don_hang = cls._don_cua_phien(phien)
         if don_hang is None or not don_hang.danh_sach_mon.exists():
             raise ValidationError({"order": "Bàn chưa gọi món nào. Dùng “Huỷ bàn” nếu khách không dùng bữa."})
-        # Checkout is the cashier's final action. Advance the order through its
-        # normal kitchen states so the existing inventory and history hooks run.
-        next_states = {
 
         # Mã QR PayOS đang chờ: hỏi lại PayOS (phòng webhook chưa tới). Trả bằng cách khác thì huỷ mã
         # để khách không trả hai lần; khách đã quét trả rồi thì không cho thu tiền mặt nữa.
@@ -568,6 +568,9 @@ class DichVuPhienPhucVu:
         ).exists():
             raise ValidationError({"payment": "Khách đã thanh toán qua PayOS. Chọn PayOS để hoàn tất, không thu thêm."})
 
+        # Checkout is the cashier's final action. Advance the order through its
+        # normal kitchen states so the existing inventory and history hooks run.
+        next_states = {
             DonHang.TrangThai.CHO_TIEP_NHAN: DonHang.TrangThai.DA_XAC_NHAN,
             DonHang.TrangThai.DA_XAC_NHAN: DonHang.TrangThai.DANG_CHE_BIEN,
             DonHang.TrangThai.DANG_CHE_BIEN: DonHang.TrangThai.SAN_SANG,

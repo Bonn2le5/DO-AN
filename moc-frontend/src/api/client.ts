@@ -89,6 +89,14 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Các màn hình hiện error.message, nên đưa câu lỗi backend trả về vào đó thay cho "Request failed with status code 400".
+    const data = error.response?.data;
+    if (data && typeof data === "object") {
+      const cau = Object.entries(data)
+        .flatMap(([k, v]) => (k === "code" ? [] : Array.isArray(v) ? v : [v]))
+        .filter((v) => typeof v === "string");
+      if (cau.length) error.message = cau.join(" · ");
+    }
     const request = error.config as
       | (typeof error.config & { _retriedAfterRefresh?: boolean })
       | undefined;

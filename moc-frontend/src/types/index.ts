@@ -168,6 +168,16 @@ export interface ChinhSachDatCoc {
 export interface MonAnDatBan {
   monAn: MonAn;
   soLuong: number;
+  /** Giá lúc đặt (backend chốt giá), có thể khác giá hiện tại của món. */
+  donGiaLucDat?: number;
+}
+
+export interface HoanCocDatBan {
+  phanTram: number;
+  soTien: number;
+  maGiaoDich: string;
+  ghiChu: string;
+  luc: string;
 }
 
 
@@ -190,6 +200,9 @@ export interface ThongTinDatBan {
   trangThai: TrangThaiDatBan;
   trangThaiThanhToanCoc: TrangThaiThanhToanCoc;
   taoLuc: string;
+  lyDoHuy?: string;
+  huyLuc?: string;
+  hoanCoc?: HoanCocDatBan | null;
 
   thoiHanGiuCho?: string;
 }
