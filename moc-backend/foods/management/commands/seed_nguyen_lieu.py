@@ -4,7 +4,7 @@ Tạo nguyên liệu thật và định mức (BOM) cho các món đang có tron
 Định mức tính cho 1 phần món. Chỉ ghi nguyên liệu chính (đạm, rau củ, nước lẩu,
 sốt đặc trưng); gia vị chung (muối, đường, dầu ăn...) không theo dõi.
 
-Chạy lại an toàn: nguyên liệu đã có được giữ nguyên tồn kho, định mức được cập nhật.
+Tồn kho tạo riêng cho từng chi nhánh. Chạy lại an toàn: tồn kho đã có được giữ nguyên, định mức được cập nhật.
     python manage.py seed_nguyen_lieu
 """
 from decimal import Decimal
@@ -12,7 +12,8 @@ from decimal import Decimal
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from foods.models import DinhMucNguyenLieu, LichSuXuatNhapKho, MonAn, NguyenLieu
+from branches.models import ChiNhanh
+from foods.models import DinhMucNguyenLieu, LichSuXuatNhapKho, MonAn, NguyenLieu, TonKhoChiNhanh
 
 # (tên, đơn vị, tồn đầu kỳ, tồn tối thiểu)
 NGUYEN_LIEU = [
@@ -174,19 +175,23 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **options):
         nl_map, tao_moi = {}, 0
+        chi_nhanh_ids = list(ChiNhanh.objects.values_list("id", flat=True))
         for ten, don_vi, ton_dau, toi_thieu in NGUYEN_LIEU:
-            nl, created = NguyenLieu.objects.get_or_create(
-                ten=ten,
-                defaults={"don_vi": don_vi, "ton_kho_hien_tai": _d(ton_dau), "ton_kho_toi_thieu": _d(toi_thieu)},
-            )
-            if created:
-                tao_moi += 1
-                LichSuXuatNhapKho.objects.create(
-                    nguyen_lieu=nl, loai_giao_dich=LichSuXuatNhapKho.LoaiGiaoDich.NHAP,
-                    so_luong=_d(ton_dau), ton_kho_truoc=0, ton_kho_sau=_d(ton_dau),
-                    loai_tham_chieu="ton_dau_ky", ghi_chu="Tồn đầu kỳ khi khởi tạo nguyên liệu",
-                )
+            nl, created = NguyenLieu.objects.get_or_create(ten=ten, defaults={"don_vi": don_vi})
+            tao_moi += created
             nl_map[ten] = nl
+            # Mỗi chi nhánh một kho riêng; chỉ khởi tạo tồn cho chi nhánh chưa có dòng tồn.
+            for cn in chi_nhanh_ids:
+                tk, moi = TonKhoChiNhanh.objects.get_or_create(
+                    nguyen_lieu=nl, chi_nhanh_id=cn,
+                    defaults={"ton_kho_hien_tai": _d(ton_dau), "ton_kho_toi_thieu": _d(toi_thieu)},
+                )
+                if moi and tk.ton_kho_hien_tai > 0:
+                    LichSuXuatNhapKho.objects.create(
+                        nguyen_lieu=nl, chi_nhanh_id=cn, loai_giao_dich=LichSuXuatNhapKho.LoaiGiaoDich.NHAP,
+                        so_luong=tk.ton_kho_hien_tai, ton_kho_truoc=0, ton_kho_sau=tk.ton_kho_hien_tai,
+                        loai_tham_chieu="ton_dau_ky", ghi_chu="Tồn đầu kỳ khi khởi tạo nguyên liệu",
+                    )
 
         mon_map = {m.ten: m for m in MonAn.objects.filter(ten__in=DINH_MUC.keys())}
         thieu_mon = sorted(set(DINH_MUC) - set(mon_map))

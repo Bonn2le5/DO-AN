@@ -4,7 +4,7 @@ import re
 from django.core.files.base import ContentFile
 from rest_framework import serializers
 from decimal import Decimal
-from .models import DanhMuc, NguyenLieu, MonAn, HinhAnhMonAn, TheMonAn, LichSuXuatNhapKho, DinhMucNguyenLieu
+from .models import DanhMuc, NguyenLieu, MonAn, HinhAnhMonAn, TheMonAn, LichSuXuatNhapKho, DinhMucNguyenLieu, TonKhoChiNhanh
 
 
 class DanhMucSerializer(serializers.ModelSerializer):
@@ -21,17 +21,78 @@ class TheMonAnSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class NguyenLieuSerializer(serializers.ModelSerializer):
+class TonKhoChiNhanhSerializer(serializers.ModelSerializer):
+    ten_chi_nhanh = serializers.CharField(source="chi_nhanh.ten", read_only=True)
+    ten_nguyen_lieu = serializers.CharField(source="nguyen_lieu.ten", read_only=True)
+    don_vi = serializers.CharField(source="nguyen_lieu.don_vi", read_only=True)
+    sap_het = serializers.BooleanField(read_only=True)
 
+    class Meta:
+        model = TonKhoChiNhanh
+        fields = (
+            "id", "nguyen_lieu", "chi_nhanh", "ten_chi_nhanh", "ten_nguyen_lieu", "don_vi",
+            "ton_kho_hien_tai", "ton_kho_toi_thieu", "sap_het", "cap_nhat_luc",
+        )
+        # Tồn hiện tại chỉ đổi qua phiếu kho; ở đây chỉ sửa được mức tối thiểu.
+        read_only_fields = ("nguyen_lieu", "chi_nhanh", "ton_kho_hien_tai")
+
+    def validate_ton_kho_toi_thieu(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Tồn tối thiểu không được âm.")
+        return value
+
+
+class NguyenLieuSerializer(serializers.ModelSerializer):
+    """
+    Danh mục nguyên liệu dùng chung. Tồn kho trả theo các chi nhánh trong context["chi_nhanh_ids"]:
+    - ton_kho: từng chi nhánh;
+    - ton_kho_hien_tai / ton_kho_toi_thieu / sap_het: tổng (hoặc của chi nhánh đang chọn nếu chỉ một).
+    """
     so_mon_dinh_muc = serializers.IntegerField(read_only=True, default=0)
+    ton_kho = serializers.SerializerMethodField()
+    ton_kho_hien_tai = serializers.SerializerMethodField()
     sap_het = serializers.SerializerMethodField()
+    # Ghi: mức tối thiểu mặc định cho mọi chi nhánh khi tạo nguyên liệu. Đọc: tổng tối thiểu.
+    ton_kho_toi_thieu = serializers.DecimalField(max_digits=14, decimal_places=3, required=False, min_value=0)
 
     class Meta:
         model = NguyenLieu
-        fields = "__all__"
+        fields = (
+            "id", "ten", "don_vi", "con_hoat_dong", "tao_luc", "cap_nhat_luc", "so_mon_dinh_muc",
+            "ton_kho", "ton_kho_hien_tai", "ton_kho_toi_thieu", "sap_het",
+        )
+
+    def _rows(self, obj):
+        ids = self.context.get("chi_nhanh_ids")
+        rows = list(obj.ton_kho_chi_nhanh.all())
+        if ids is not None:
+            rows = [r for r in rows if r.chi_nhanh_id in ids]
+        return sorted(rows, key=lambda r: r.chi_nhanh_id)
+
+    def get_ton_kho(self, obj):
+        rows = self._rows(obj)
+        data = list(TonKhoChiNhanhSerializer(rows, many=True).data)
+        # Chi nhánh trong phạm vi nhưng chưa có dòng tồn (vd. chi nhánh mới mở): hiện tồn 0.
+        co = {r.chi_nhanh_id for r in rows}
+        for cn_id, ten in sorted(self.context.get("chi_nhanh_ten", {}).items()):
+            if cn_id not in co:
+                data.append({
+                    "id": None, "nguyen_lieu": obj.id, "chi_nhanh": cn_id, "ten_chi_nhanh": ten,
+                    "ten_nguyen_lieu": obj.ten, "don_vi": obj.don_vi, "ton_kho_hien_tai": "0.000",
+                    "ton_kho_toi_thieu": "0.000", "sap_het": True, "cap_nhat_luc": None,
+                })
+        return sorted(data, key=lambda d: d["chi_nhanh"])
+
+    def get_ton_kho_hien_tai(self, obj):
+        return str(sum((r.ton_kho_hien_tai for r in self._rows(obj)), Decimal("0")))
 
     def get_sap_het(self, obj):
-        return obj.ton_kho_hien_tai <= 0 or obj.ton_kho_hien_tai <= obj.ton_kho_toi_thieu
+        return any(r.sap_het for r in self._rows(obj))
+
+    def to_representation(self, obj):
+        data = super().to_representation(obj)
+        data["ton_kho_toi_thieu"] = str(sum((r.ton_kho_toi_thieu for r in self._rows(obj)), Decimal("0")))
+        return data
 
     def validate_ten(self, value):
         value = (value or "").strip()
@@ -39,33 +100,17 @@ class NguyenLieuSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Tên nguyên liệu không được để trống.")
         return value
 
-    def validate_ton_kho_hien_tai(self, value):
-        if value < 0:
-            raise serializers.ValidationError("Tồn kho không được âm.")
-        return value
-
-    def validate_ton_kho_toi_thieu(self, value):
-        if value < 0:
-            raise serializers.ValidationError("Tồn tối thiểu không được âm.")
-        return value
-
     def create(self, validated_data):
-        """Tồn đầu kỳ được ghi thành một phiếu nhập để lịch sử kho khớp với tồn hiện tại."""
-        ton_dau = validated_data.pop("ton_kho_hien_tai", Decimal("0")) or Decimal("0")
-        nl = super().create({**validated_data, "ton_kho_hien_tai": ton_dau})
-        if ton_dau > 0:
-            request = self.context.get("request")
-            user = request.user if request and request.user.is_authenticated else None
-            LichSuXuatNhapKho.objects.create(
-                nguyen_lieu=nl, loai_giao_dich=LichSuXuatNhapKho.LoaiGiaoDich.NHAP,
-                so_luong=ton_dau, ton_kho_truoc=0, ton_kho_sau=ton_dau,
-                loai_tham_chieu="ton_dau_ky", ghi_chu="Tồn đầu kỳ khi tạo nguyên liệu", tao_boi=user,
-            )
+        toi_thieu = validated_data.pop("ton_kho_toi_thieu", None)
+        nl = super().create(validated_data)
+        from branches.models import ChiNhanh
+        from .services import DichVuKho
+        DichVuKho.dam_bao_ton_kho([nl.id], ChiNhanh.objects.values_list("id", flat=True), toi_thieu)
         return nl
 
     def update(self, instance, validated_data):
-        # Tồn kho chỉ thay đổi qua phiếu nhập / xuất / điều chỉnh để luôn có lịch sử.
-        validated_data.pop("ton_kho_hien_tai", None)
+        # Mức tối thiểu sửa theo từng chi nhánh qua /api/ton-kho/.
+        validated_data.pop("ton_kho_toi_thieu", None)
         return super().update(instance, validated_data)
 
 
@@ -133,6 +178,7 @@ class MonAnSerializer(serializers.ModelSerializer):
 
 
 class LichSuKhoSerializer(serializers.ModelSerializer):
+    ten_chi_nhanh = serializers.CharField(source="chi_nhanh.ten", read_only=True, default="")
     ten_nguyen_lieu = serializers.CharField(source="nguyen_lieu.ten", read_only=True)
     don_vi = serializers.CharField(source="nguyen_lieu.don_vi", read_only=True)
     ten_nguoi_tao = serializers.SerializerMethodField()

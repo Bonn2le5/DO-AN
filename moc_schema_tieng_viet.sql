@@ -156,8 +156,7 @@ CREATE TABLE nguyen_lieu (
   id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   ten             VARCHAR(150) NOT NULL,
   don_vi          VARCHAR(20)  NOT NULL,              -- 'g','kg','ml','l','cái'...
-  ton_kho_hien_tai NUMERIC(14,3) NOT NULL DEFAULT 0 CHECK (ton_kho_hien_tai >= 0),
-  ton_kho_toi_thieu NUMERIC(14,3) NOT NULL DEFAULT 0 CHECK (ton_kho_toi_thieu >= 0),
+  -- tồn kho tách theo chi nhánh: xem ton_kho_chi_nhanh
   con_hoat_dong   BOOLEAN      NOT NULL DEFAULT true,
   tao_luc         TIMESTAMPTZ  NOT NULL DEFAULT now(),
   cap_nhat_luc    TIMESTAMPTZ  NOT NULL DEFAULT now()
@@ -217,14 +216,27 @@ CREATE TABLE dinh_muc_nguyen_lieu (
   UNIQUE (mon_an_id, nguyen_lieu_id)
 );
 
+-- Tồn kho từng chi nhánh. Danh mục nguyên liệu và định mức món dùng chung.
+CREATE TABLE ton_kho_chi_nhanh (
+  id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  nguyen_lieu_id    BIGINT      NOT NULL REFERENCES nguyen_lieu(id) ON DELETE CASCADE,
+  chi_nhanh_id      BIGINT      NOT NULL REFERENCES chi_nhanh(id) ON DELETE CASCADE,
+  ton_kho_hien_tai  NUMERIC(14,3) NOT NULL DEFAULT 0 CHECK (ton_kho_hien_tai >= 0),
+  ton_kho_toi_thieu NUMERIC(14,3) NOT NULL DEFAULT 0 CHECK (ton_kho_toi_thieu >= 0),
+  tao_luc           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  cap_nhat_luc      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (nguyen_lieu_id, chi_nhanh_id)
+);
+
 CREATE TABLE lich_su_xuat_nhap_kho (
   id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   nguyen_lieu_id    BIGINT      NOT NULL REFERENCES nguyen_lieu(id) ON DELETE RESTRICT,
+  chi_nhanh_id      BIGINT      REFERENCES chi_nhanh(id) ON DELETE RESTRICT,  -- kho chi nhánh bị đổi
   loai_giao_dich    loai_giao_dich_kho NOT NULL,
   so_luong          NUMERIC(14,3) NOT NULL,
   ton_kho_truoc     NUMERIC(14,3) NOT NULL,
   ton_kho_sau       NUMERIC(14,3) NOT NULL,
-  loai_tham_chieu   VARCHAR(30),    -- 'don_hang','nhap_hang','dieu_chinh_thu_cong'...
+  loai_tham_chieu   VARCHAR(30),    -- 'don_hang','thu_cong','ton_dau_ky','chuyen_kho'...
   id_tham_chieu     BIGINT,         -- polymorphic, không FK cứng
   ghi_chu           TEXT,
   tao_boi           BIGINT REFERENCES nguoi_dung(id) ON DELETE SET NULL,

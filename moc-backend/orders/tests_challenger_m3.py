@@ -22,6 +22,24 @@ from foods.models import MonAn, DanhMuc, NguyenLieu, DinhMucNguyenLieu, LichSuXu
 from chat.models import HoiThoai, TinNhan
 
 
+
+def _chi_nhanh():
+    from branches.models import ChiNhanh
+    return ChiNhanh.objects.order_by("id").first() or ChiNhanh.objects.create(ten="CN Challenger", dia_chi="a")
+
+
+def _dat_ton(nguyen_lieu, so_luong):
+    from foods.models import TonKhoChiNhanh
+    TonKhoChiNhanh.objects.update_or_create(
+        nguyen_lieu=nguyen_lieu, chi_nhanh=_chi_nhanh(), defaults={"ton_kho_hien_tai": Decimal(so_luong)}
+    )
+
+
+def _ton(nguyen_lieu):
+    from foods.models import TonKhoChiNhanh
+    return TonKhoChiNhanh.objects.get(nguyen_lieu=nguyen_lieu, chi_nhanh=_chi_nhanh()).ton_kho_hien_tai
+
+
 class FSMFullMatrixStressTest(TestCase):
     """
     Stress-tests the full 6x6 state transition matrix (36 pairs)
@@ -49,6 +67,7 @@ class FSMFullMatrixStressTest(TestCase):
             ma_don_hang=f"CHAL-{DonHang.objects.count() + 1}",
             khach_hang=self.customer,
             hinh_thuc=DonHang.HinhThuc.TAI_CHO,
+            chi_nhanh=_chi_nhanh(),
             trang_thai=status,
             ten_khach="Test Customer",
             sdt_khach="0912345678",
@@ -191,6 +210,7 @@ class ActorAuthorizationStressTest(TestCase):
             ma_don_hang=f"AUTH-{DonHang.objects.count() + 1}",
             khach_hang=self.customer,
             hinh_thuc=DonHang.HinhThuc.TAI_CHO,
+            chi_nhanh=_chi_nhanh(),
             trang_thai=status,
             ten_khach="Owner Customer",
             sdt_khach="0911111111",
@@ -279,13 +299,14 @@ class BOMInventoryHooksStressTest(TestCase):
         self.ingredient_beef = NguyenLieu.objects.create(
             ten="Thịt Bò Úc Challenger",
             don_vi="g",
-            ton_kho_hien_tai=Decimal("1000.00"),
         )
         self.ingredient_butter = NguyenLieu.objects.create(
             ten="Bơ Lạt Challenger",
             don_vi="g",
-            ton_kho_hien_tai=Decimal("500.00"),
         )
+
+        _dat_ton(self.ingredient_beef, "1000.00")
+        _dat_ton(self.ingredient_butter, "500.00")
 
         # 1 portion needs 200g Beef and 20g Butter
         DinhMucNguyenLieu.objects.create(
@@ -304,6 +325,7 @@ class BOMInventoryHooksStressTest(TestCase):
             ma_don_hang=f"BOM-{DonHang.objects.count() + 1}",
             khach_hang=self.customer,
             hinh_thuc=DonHang.HinhThuc.TAI_CHO,
+            chi_nhanh=_chi_nhanh(),
             trang_thai=status,
             ten_khach="Customer BOM",
             sdt_khach="0911223344",
@@ -326,8 +348,8 @@ class BOMInventoryHooksStressTest(TestCase):
         # Initially stock is intact
         self.ingredient_beef.refresh_from_db()
         self.ingredient_butter.refresh_from_db()
-        self.assertEqual(self.ingredient_beef.ton_kho_hien_tai, Decimal("1000.00"))
-        self.assertEqual(self.ingredient_butter.ton_kho_hien_tai, Decimal("500.00"))
+        self.assertEqual(_ton(self.ingredient_beef), Decimal("1000.00"))
+        self.assertEqual(_ton(self.ingredient_butter), Decimal("500.00"))
 
         # Transition to da_xac_nhan
         DichVuDonHang.doi_trang_thai(order, DonHang.TrangThai.DA_XAC_NHAN, self.staff, "Confirm BOM")
@@ -335,8 +357,8 @@ class BOMInventoryHooksStressTest(TestCase):
         # Verify stock deducted
         self.ingredient_beef.refresh_from_db()
         self.ingredient_butter.refresh_from_db()
-        self.assertEqual(self.ingredient_beef.ton_kho_hien_tai, Decimal("600.00"))
-        self.assertEqual(self.ingredient_butter.ton_kho_hien_tai, Decimal("460.00"))
+        self.assertEqual(_ton(self.ingredient_beef), Decimal("600.00"))
+        self.assertEqual(_ton(self.ingredient_butter), Decimal("460.00"))
 
         # Verify XUAT audit records
         xuat_logs = list(LichSuXuatNhapKho.objects.filter(
@@ -352,7 +374,7 @@ class BOMInventoryHooksStressTest(TestCase):
 
         # Stock deducted
         self.ingredient_beef.refresh_from_db()
-        self.assertEqual(self.ingredient_beef.ton_kho_hien_tai, Decimal("600.00"))
+        self.assertEqual(_ton(self.ingredient_beef), Decimal("600.00"))
 
         # Cancel from da_xac_nhan
         DichVuDonHang.doi_trang_thai(order, DonHang.TrangThai.DA_HUY, self.staff, "Staff cancels after confirm")
@@ -360,8 +382,8 @@ class BOMInventoryHooksStressTest(TestCase):
         # Stock refunded back to 1000.00 and 500.00
         self.ingredient_beef.refresh_from_db()
         self.ingredient_butter.refresh_from_db()
-        self.assertEqual(self.ingredient_beef.ton_kho_hien_tai, Decimal("1000.00"))
-        self.assertEqual(self.ingredient_butter.ton_kho_hien_tai, Decimal("500.00"))
+        self.assertEqual(_ton(self.ingredient_beef), Decimal("1000.00"))
+        self.assertEqual(_ton(self.ingredient_butter), Decimal("500.00"))
 
         nhap_logs = list(LichSuXuatNhapKho.objects.filter(
             loai_tham_chieu="don_hang",
@@ -380,7 +402,7 @@ class BOMInventoryHooksStressTest(TestCase):
 
         # Stock refunded
         self.ingredient_beef.refresh_from_db()
-        self.assertEqual(self.ingredient_beef.ton_kho_hien_tai, Decimal("1000.00"))
+        self.assertEqual(_ton(self.ingredient_beef), Decimal("1000.00"))
 
     def test_no_bom_refund_on_cancel_from_cho_tiep_nhan(self):
         order = self._create_order_with_items(quantity=2)
@@ -394,7 +416,7 @@ class BOMInventoryHooksStressTest(TestCase):
         self.assertEqual(logs.count(), 0)
 
         self.ingredient_beef.refresh_from_db()
-        self.assertEqual(self.ingredient_beef.ton_kho_hien_tai, Decimal("1000.00"))
+        self.assertEqual(_ton(self.ingredient_beef), Decimal("1000.00"))
 
     def test_insufficient_bom_inventory_blocks_transition_atomically(self):
         # Order needs 6 portions -> 1200g Beef (only 1000g in stock!)
@@ -412,8 +434,8 @@ class BOMInventoryHooksStressTest(TestCase):
         # Verify stock completely uncorrupted
         self.ingredient_beef.refresh_from_db()
         self.ingredient_butter.refresh_from_db()
-        self.assertEqual(self.ingredient_beef.ton_kho_hien_tai, Decimal("1000.00"))
-        self.assertEqual(self.ingredient_butter.ton_kho_hien_tai, Decimal("500.00"))
+        self.assertEqual(_ton(self.ingredient_beef), Decimal("1000.00"))
+        self.assertEqual(_ton(self.ingredient_butter), Decimal("500.00"))
 
 
 class ConcurrencyPessimisticLockStressTest(TransactionTestCase):
@@ -460,8 +482,8 @@ class ConcurrencyPessimisticLockStressTest(TransactionTestCase):
         self.ingredient = NguyenLieu.objects.create(
             ten="Thịt Gà Race",
             don_vi="con",
-            ton_kho_hien_tai=Decimal("10.00"),
         )
+        _dat_ton(self.ingredient, "10.00")
         DinhMucNguyenLieu.objects.create(
             mon_an=self.dish,
             nguyen_lieu=self.ingredient,
@@ -473,6 +495,7 @@ class ConcurrencyPessimisticLockStressTest(TransactionTestCase):
             ma_don_hang="RACE-001",
             khach_hang=self.customer,
             hinh_thuc=DonHang.HinhThuc.TAI_CHO,
+            chi_nhanh=_chi_nhanh(),
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
             ten_khach="Race Customer",
             sdt_khach="0933333333",
@@ -545,7 +568,7 @@ class ConcurrencyPessimisticLockStressTest(TransactionTestCase):
 
         # Check inventory deducted EXACTLY once (10.00 - 1.00 = 9.00)
         self.ingredient.refresh_from_db()
-        self.assertEqual(self.ingredient.ton_kho_hien_tai, Decimal("9.00"))
+        self.assertEqual(_ton(self.ingredient), Decimal("9.00"))
 
         # Exactly 1 XUAT log
         xuat_logs = LichSuXuatNhapKho.objects.filter(
@@ -643,6 +666,7 @@ class OrderRestApiFsmStressTest(TestCase):
             ma_don_hang="API-ORD-01",
             khach_hang=self.customer_a,
             hinh_thuc=DonHang.HinhThuc.TAI_CHO,
+            chi_nhanh=_chi_nhanh(),
             trang_thai=DonHang.TrangThai.CHO_TIEP_NHAN,
             ten_khach="Customer A",
             sdt_khach="0911223344",

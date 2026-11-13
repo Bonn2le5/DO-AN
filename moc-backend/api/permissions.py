@@ -15,7 +15,7 @@ class LaNhanVienNhaHang(BasePermission):
         "foods": "foods", "mon-an": "foods", "tags": "foods", "the-mon-an": "foods",
         "categories": "categories", "danh-muc": "categories",
         "ingredients": "ingredients", "nguyen-lieu": "ingredients", "kho": "ingredients",
-        "inventory-transactions": "ingredients", "dinh-muc-nguyen-lieu": "ingredients",
+        "inventory-transactions": "ingredients", "dinh-muc-nguyen-lieu": "ingredients", "ton-kho": "ingredients",
         "promotions": "promotions", "khuyen-mai": "promotions", "promotion-codes": "promotions",
         "ma-khuyen-mai": "promotions", "promotion-usages": "promotions", "lich-su-khuyen-mai": "promotions",
         "posts": "posts", "bai-viet": "posts", "post-categories": "posts", "danh-muc-bai-viet": "posts",
@@ -78,10 +78,15 @@ class LaNhanVienNhaHang(BasePermission):
         if module == "ingredients":
             if request.method in SAFE_METHODS:
                 return True
-            # Nguyên liệu, định mức món và tồn kho dùng chung cho mọi chi nhánh: danh mục nguyên liệu
-            # và định mức chỉ quản trị viên sửa. Quản lý chi nhánh chỉ được lập phiếu nhập/xuất/kiểm kê.
+            # Danh mục nguyên liệu và định mức món dùng chung: chỉ quản trị viên sửa.
+            # Tồn kho tách theo chi nhánh: quản lý chi nhánh lập phiếu nhập/xuất/kiểm kê, chuyển kho
+            # và sửa mức tối thiểu — view kiểm tra đúng chi nhánh được phân công.
             phan_dau = [p for p in path.split("/") if p and p != "api"][:1]
-            return is_manager and request.method == "POST" and phan_dau in (["kho"], ["inventory-transactions"])
+            if not is_manager:
+                return False
+            if request.method == "POST":
+                return phan_dau in (["kho"], ["inventory-transactions"])
+            return request.method == "PATCH" and phan_dau == ["ton-kho"]
         if module == "dashboard":
             return is_manager and request.method in SAFE_METHODS
 

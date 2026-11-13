@@ -6,7 +6,10 @@ export interface AdminFood {
 }
 export interface AdminCategory { id: string; name: string; description: string; active: boolean }
 export interface AdminTag { id: string; name: string }
-export interface AdminIngredient { id: string; name: string; unit: string; currentStock: number; minimumStock: number; active: boolean; recipeCount?: number; updatedAt?: string }
+/** Tồn kho của nguyên liệu tại một chi nhánh (id rỗng: chi nhánh chưa có dòng tồn). */
+export interface BranchStock { id: string; branchId: string; branchName: string; stock: number; minimum: number; low: boolean }
+/** currentStock / minimumStock: của chi nhánh đang xem, hoặc tổng các chi nhánh. */
+export interface AdminIngredient { id: string; name: string; unit: string; currentStock: number; minimumStock: number; active: boolean; recipeCount?: number; updatedAt?: string; stocks?: BranchStock[] }
 export interface AdminPromotion {
   id: string; code: string; name: string; discountType: "percent" | "fixed"; discountValue: number; minOrder: number;
   maxDiscount: number; startAt: string; endAt: string; usageLimit: number; usedCount: number; active: boolean;

@@ -432,61 +432,9 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"   -> Đã nạp {len(users_spec)} tài khoản người dùng mẫu."))
 
     def seed_inventory_and_bom(self):
-        self.stdout.write("8. Nạp nguyên liệu và định mức kho (BOM cho Milestone 2)...")
-        materials = [
-            ("Thịt bò Mỹ cao cấp", "kg", Decimal("50.0"), Decimal("10.0")),
-            ("Tôm sú tươi sống", "kg", Decimal("30.0"), Decimal("5.0")),
-            ("Mực lá tươi", "kg", Decimal("25.0"), Decimal("5.0")),
-            ("Nước dùng lẩu Thái Mộc", "lít", Decimal("60.0"), Decimal("10.0")),
-            ("Nấm tổng hợp tươi", "kg", Decimal("20.0"), Decimal("5.0")),
-        ]
-
-        mat_map = {}
-        for ten, don_vi, ton_kho, ton_min in materials:
-            nl, _ = NguyenLieu.objects.update_or_create(
-                ten=ten,
-                defaults={
-                    "don_vi": don_vi,
-                    "ton_kho_hien_tai": ton_kho,
-                    "ton_kho_toi_thieu": ton_min,
-                    "con_hoat_dong": True,
-                },
-            )
-            mat_map[ten] = nl
-
-        # Gắn định mức cho Lẩu Thái
-        lau_thai = MonAn.objects.filter(duong_dan="lau-thai").first()
-        if lau_thai:
-            lau_thai.quan_ly_kho = True
-            lau_thai.save(update_fields=["quan_ly_kho"])
-            DinhMucNguyenLieu.objects.update_or_create(
-                mon_an=lau_thai,
-                nguyen_lieu=mat_map["Tôm sú tươi sống"],
-                defaults={"so_luong_can": Decimal("0.300")},
-            )
-            DinhMucNguyenLieu.objects.update_or_create(
-                mon_an=lau_thai,
-                nguyen_lieu=mat_map["Mực lá tươi"],
-                defaults={"so_luong_can": Decimal("0.200")},
-            )
-            DinhMucNguyenLieu.objects.update_or_create(
-                mon_an=lau_thai,
-                nguyen_lieu=mat_map["Nước dùng lẩu Thái Mộc"],
-                defaults={"so_luong_can": Decimal("1.000")},
-            )
-
-        # Gắn định mức cho Bò nướng tảng
-        bo_nuong = MonAn.objects.filter(duong_dan="bo-nuong-tang").first()
-        if bo_nuong:
-            bo_nuong.quan_ly_kho = True
-            bo_nuong.save(update_fields=["quan_ly_kho"])
-            DinhMucNguyenLieu.objects.update_or_create(
-                mon_an=bo_nuong,
-                nguyen_lieu=mat_map["Thịt bò Mỹ cao cấp"],
-                defaults={"so_luong_can": Decimal("0.400")},
-            )
-
-        self.stdout.write(self.style.SUCCESS("   -> Đã nạp 5 nguyên liệu và định mức kho cho Lẩu Thái, Bò Nướng Tảng."))
+        self.stdout.write("8. Nạp nguyên liệu, tồn kho từng chi nhánh và định mức món...")
+        from django.core.management import call_command
+        call_command("seed_nguyen_lieu", stdout=self.stdout)
 
     def seed_promotions(self):
         self.stdout.write("9. Nạp mã khuyến mãi mẫu (KhuyenMai)...")

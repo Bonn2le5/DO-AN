@@ -1,7 +1,7 @@
 import re
 from datetime import datetime, time as dtime, timedelta
 from zoneinfo import ZoneInfo
-from django.db.models import Sum, Count, F, Min
+from django.db.models import Sum, Count, F, Min, Q
 from django.db.models.functions import Coalesce, TruncDate
 from django.utils import timezone
 from rest_framework import viewsets
@@ -68,7 +68,7 @@ class TongQuanViewSet(viewsets.ViewSet):
         so_dat_ban = dat_ban.count()
         from django.contrib.auth import get_user_model
         from orders.models import ChiTietDonHang
-        from foods.models import NguyenLieu
+        from foods.models import TonKhoChiNhanh
         from chat.models import TinNhan
         User = get_user_model()
         so_khach = User.objects.filter(date_joined__gte=start).count() if is_admin else 0
@@ -92,7 +92,13 @@ class TongQuanViewSet(viewsets.ViewSet):
         ).count()
         refund_queue = dat_ban.filter(trang_thai__in=[DatBan.TrangThai.DA_HUY, DatBan.TrangThai.KHACH_KHONG_DEN], trang_thai_coc=DatBan.TrangThaiCoc.THANH_CONG).count()
         # Quản lý chi nhánh cũng quản lý kho nên thấy cảnh báo nguyên liệu.
-        low_stock = NguyenLieu.objects.filter(con_hoat_dong=True, ton_kho_hien_tai__lt=F("ton_kho_toi_thieu")).count()
+        # Đếm theo dòng tồn của từng chi nhánh (cùng quy tắc với cảnh báo khi gửi bếp: tồn <= tối thiểu).
+        ton_thap = TonKhoChiNhanh.objects.filter(nguyen_lieu__con_hoat_dong=True).filter(
+            Q(ton_kho_hien_tai__lte=0) | Q(ton_kho_toi_thieu__gt=0, ton_kho_hien_tai__lte=F("ton_kho_toi_thieu"))
+        )
+        if not is_admin:
+            ton_thap = ton_thap.filter(chi_nhanh_id=branch_id) if branch_id else ton_thap.none()
+        low_stock = ton_thap.count()
         unread = TinNhan.objects.filter(da_doc=False, nguoi_gui__is_staff=False).exclude(nguoi_gui__danh_sach_vai_tro__ten__in=["nhan_vien", "nhan_vien_ban_hang", "quan_ly_chi_nhanh", "quan_tri_vien"]).distinct().count() if is_admin else 0
 
         return Response({

@@ -28,7 +28,7 @@ class TheMonAnAdmin(admin.ModelAdmin):
 
 @admin.register(NguyenLieu)
 class NguyenLieuAdmin(admin.ModelAdmin):
-    list_display = ("id", "ten", "don_vi", "ton_kho_hien_tai", "ton_kho_toi_thieu", "con_hoat_dong")
+    list_display = ("id", "ten", "don_vi", "con_hoat_dong")
     list_filter = ("con_hoat_dong",)
     search_fields = ("ten",)
 

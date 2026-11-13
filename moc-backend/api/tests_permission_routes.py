@@ -90,15 +90,16 @@ class TongQuanTheoVaiTroTest(TestCase):
 
 
 class QuyenKhoNguyenLieuTest(TongQuanTheoVaiTroTest):
-    """Nguyên liệu, định mức và tồn kho dùng chung mọi chi nhánh: quản lý chi nhánh chỉ lập phiếu kho."""
+    """Nguyên liệu và định mức dùng chung; tồn kho theo chi nhánh: quản lý chỉ lập phiếu / sửa tối thiểu kho chi nhánh mình."""
 
     test_quan_ly_xem_tong_quan_nhan_vien_khong = None  # không chạy lại test của lớp cha
 
     def setUp(self):
         super().setUp()
         from decimal import Decimal
-        from foods.models import DanhMuc, DinhMucNguyenLieu, MonAn, NguyenLieu
-        self.nl = NguyenLieu.objects.create(ten="Tôm", don_vi="kg", ton_kho_hien_tai=Decimal("10"), ton_kho_toi_thieu=Decimal("1"))
+        from foods.models import DanhMuc, DinhMucNguyenLieu, MonAn, NguyenLieu, TonKhoChiNhanh
+        self.nl = NguyenLieu.objects.create(ten="Tôm", don_vi="kg")
+        self.ton = TonKhoChiNhanh.objects.create(nguyen_lieu=self.nl, chi_nhanh=self.branch, ton_kho_hien_tai=Decimal("10"), ton_kho_toi_thieu=Decimal("1"))
         mon = MonAn.objects.create(danh_muc=DanhMuc.objects.create(ten="Lẩu", duong_dan="lau"), ten="Lẩu", duong_dan="lau", don_gia=100000)
         self.mon = mon
         self.dm = DinhMucNguyenLieu.objects.create(mon_an=mon, nguyen_lieu=self.nl, so_luong_can=Decimal("0.2"))
@@ -122,6 +123,18 @@ class QuyenKhoNguyenLieuTest(TongQuanTheoVaiTroTest):
         self.assertEqual(r.status_code, 201, r.content)
         self.assertEqual(ql.post("/api/inventory-transactions/", {"nguyen_lieu": self.nl.id, "loai_giao_dich": "xuat", "so_luong": "1"}, format="json").status_code, 201)
         self.assertEqual(set(self._ghi(ql).values()), {403}, self._ghi(ql))
+        # Mức tối thiểu: sửa được kho chi nhánh mình, không thấy kho chi nhánh khác.
+        from decimal import Decimal
+        self.assertEqual(ql.patch(f"/api/ton-kho/{self.ton.id}/", {"ton_kho_toi_thieu": "3"}, format="json").status_code, 200)
+        from branches.models import ChiNhanh
+        from foods.models import TonKhoChiNhanh
+        khac = ChiNhanh.objects.create(ten="CN khác", dia_chi="b")
+        ton_khac = TonKhoChiNhanh.objects.create(nguyen_lieu=self.nl, chi_nhanh=khac, ton_kho_hien_tai=Decimal("5"))
+        self.assertEqual(ql.patch(f"/api/ton-kho/{ton_khac.id}/", {"ton_kho_toi_thieu": "3"}, format="json").status_code, 404)
+        self.assertEqual(ql.post("/api/kho/", {"nguyen_lieu": self.nl.id, "chi_nhanh": khac.id, "loai_giao_dich": "nhap", "so_luong": "1"}, format="json").status_code, 403)
+        from foods.services import DichVuKho
+        phieu_khac = DichVuKho.lap_phieu(nguyen_lieu_id=self.nl.id, chi_nhanh_id=khac.id, loai_giao_dich="nhap", so_luong=1)
+        self.assertEqual(ql.get(f"/api/kho/{phieu_khac.id}/").status_code, 404)
 
     def test_nhan_vien_chi_xem(self):
         nv = self._client("nv", "nhan_vien_ban_hang")

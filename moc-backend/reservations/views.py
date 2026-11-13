@@ -586,7 +586,8 @@ class PhienPhucVuViewSet(viewsets.ReadOnlyModelViewSet):
         from orders.models import ChiTietDonHang
         data = dict(self.get_serializer(phien).data)
         data["canh_bao_kho"] = DichVuKho.canh_bao_sap_het(
-            ChiTietDonHang.objects.filter(don_hang__phien_phuc_vu=phien).values_list("mon_an_id", flat=True)
+            ChiTietDonHang.objects.filter(don_hang__phien_phuc_vu=phien).values_list("mon_an_id", flat=True),
+            phien.chi_nhanh_id,
         )
         return Response(data)
 
@@ -607,11 +608,14 @@ class PhienPhucVuViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="canh-bao-kho")
     def canh_bao_kho(self, request):
-        """Món đang thiếu nguyên liệu, để màn gọi món đánh dấu trước khi khách gọi."""
+        """Món đang thiếu nguyên liệu tại chi nhánh (?chi_nhanh=, mặc định chi nhánh của nhân viên)."""
         from foods.models import DinhMucNguyenLieu
         from foods.services import DichVuKho
+        chi_nhanh_id = request.query_params.get("chi_nhanh") or getattr(request.user, "chi_nhanh_quan_ly_id", None)
+        if chi_nhanh_id:
+            self._assert_branch_access(chi_nhanh_id)
         mon_ids = DinhMucNguyenLieu.objects.values_list("mon_an_id", flat=True).distinct()
-        return Response(DichVuKho.canh_bao_sap_het(mon_ids))
+        return Response(DichVuKho.canh_bao_sap_het(mon_ids, chi_nhanh_id))
 
     @action(detail=True, methods=["post"], url_path="move-table")
     def move_table(self, request, pk=None):

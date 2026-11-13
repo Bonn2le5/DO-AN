@@ -79,7 +79,7 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
 
   const { data, loading, refetch } = useAsync(async () => {
     if (!session) return undefined;
-    const [orders, foods, current, alerts] = await Promise.all([ordersStore.list(), foodsStore.list(), getDiningSession(session.id), getStockAlerts().catch(() => [])]);
+    const [orders, foods, current, alerts] = await Promise.all([ordersStore.list(), foodsStore.list(), getDiningSession(session.id), getStockAlerts(session.branchId || undefined).catch(() => [])]);
     return { orders, foods, current, alerts };
   }, [session?.id]);
 

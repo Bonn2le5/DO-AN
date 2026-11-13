@@ -96,8 +96,12 @@ class DonHangViewSet(viewsets.ModelViewSet):
         )
         from foods.services import DichVuKho
         data = dict(self.get_serializer(don_hang).data)
+        try:
+            chi_nhanh_id = DichVuKho.chi_nhanh_cua_don(don_hang)
+        except Exception:
+            chi_nhanh_id = None
         data["canh_bao_kho"] = DichVuKho.canh_bao_sap_het(
-            don_hang.danh_sach_mon.values_list("mon_an_id", flat=True)
+            don_hang.danh_sach_mon.values_list("mon_an_id", flat=True), chi_nhanh_id
         )
         return Response(data)
 

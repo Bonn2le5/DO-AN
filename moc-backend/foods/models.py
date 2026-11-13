@@ -70,8 +70,7 @@ class TheMonAn(MoHinhThoiGian):
 class NguyenLieu(MoHinhThoiGian):
     ten = models.CharField(max_length=100, unique=True)
     don_vi = models.CharField(max_length=30, blank=True)
-    ton_kho_hien_tai = models.DecimalField(max_digits=14, decimal_places=3, default=0)
-    ton_kho_toi_thieu = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    # Tồn kho tách theo chi nhánh: xem TonKhoChiNhanh.
     con_hoat_dong = models.BooleanField(default=True)
 
 
@@ -162,6 +161,30 @@ class HinhAnhMonAn(MoHinhThoiGian):
         db_table = "hinh_anh_mon_an"
 
 
+class TonKhoChiNhanh(MoHinhThoiGian):
+    """Tồn kho của một nguyên liệu tại một chi nhánh. Danh mục nguyên liệu và định mức món dùng chung."""
+    nguyen_lieu = models.ForeignKey(NguyenLieu, related_name="ton_kho_chi_nhanh", on_delete=models.CASCADE)
+    chi_nhanh = models.ForeignKey("branches.ChiNhanh", related_name="ton_kho_nguyen_lieu", on_delete=models.CASCADE)
+    ton_kho_hien_tai = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    ton_kho_toi_thieu = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+
+    class Meta:
+        db_table = "ton_kho_chi_nhanh"
+        verbose_name = "Tồn kho chi nhánh"
+        constraints = [
+            models.UniqueConstraint(fields=["nguyen_lieu", "chi_nhanh"], name="uq_ton_kho_nguyen_lieu_chi_nhanh"),
+        ]
+
+    @property
+    def sap_het(self):
+        return self.ton_kho_hien_tai <= 0 or (
+            self.ton_kho_toi_thieu > 0 and self.ton_kho_hien_tai <= self.ton_kho_toi_thieu
+        )
+
+    def __str__(self):
+        return f"{self.nguyen_lieu} @ {self.chi_nhanh_id}"
+
+
 class LichSuXuatNhapKho(MoHinhThoiGian):
     class LoaiGiaoDich(models.TextChoices):
         NHAP = "nhap", "Nhập kho"
@@ -169,6 +192,9 @@ class LichSuXuatNhapKho(MoHinhThoiGian):
         DIEU_CHINH = "dieu_chinh", "Điều chỉnh"
 
     nguyen_lieu = models.ForeignKey(NguyenLieu, related_name="lich_su_giao_dich", on_delete=models.PROTECT)
+    chi_nhanh = models.ForeignKey(
+        "branches.ChiNhanh", related_name="lich_su_kho", null=True, blank=True, on_delete=models.PROTECT
+    )
     loai_giao_dich = models.CharField(max_length=15, choices=LoaiGiaoDich.choices)
     so_luong = models.DecimalField(max_digits=14, decimal_places=3)
     ton_kho_truoc = models.DecimalField(max_digits=14, decimal_places=3)

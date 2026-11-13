@@ -15,16 +15,17 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from openpyxl import load_workbook
 from django.db import transaction
-from django.db.models import Q, Count, ProtectedError
+from django.db.models import Q, Count, Prefetch, ProtectedError
 from django.utils.text import slugify
 from rest_framework import viewsets
 from rest_framework.decorators import action, parser_classes
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from api.permissions import LaNhanVienHoacChiDoc, LaNhanVienNhaHang
-from .models import DanhMuc, NguyenLieu, MonAn, HinhAnhMonAn, TheMonAn, LichSuXuatNhapKho, DinhMucNguyenLieu
-from .serializers import DanhMucSerializer, NguyenLieuSerializer, MonAnSerializer, TheMonAnSerializer, LichSuKhoSerializer, DinhMucNguyenLieuSerializer
+from .models import DanhMuc, NguyenLieu, MonAn, HinhAnhMonAn, TheMonAn, LichSuXuatNhapKho, DinhMucNguyenLieu, TonKhoChiNhanh
+from .services import DichVuKho
+from .serializers import DanhMucSerializer, NguyenLieuSerializer, MonAnSerializer, TheMonAnSerializer, LichSuKhoSerializer, DinhMucNguyenLieuSerializer, TonKhoChiNhanhSerializer
 
 
 def _validate_food_image(payload):
@@ -109,6 +110,41 @@ class TheMonAnViewSet(viewsets.ModelViewSet):
     lookup_field = "duong_dan"
 
 
+def _la_quan_tri(user):
+    return bool(user.is_superuser or getattr(user, "la_quan_tri_vien", False))
+
+
+def _pham_vi_chi_nhanh(request, bat_buoc_mot=False):
+    """
+    Chi nhánh người dùng được xem kho.
+    - ?chi_nhanh=<id>: đúng chi nhánh đó (nhân viên/quản lý chỉ được chi nhánh mình).
+    - Không truyền: quản trị viên xem mọi chi nhánh, còn lại xem chi nhánh được phân công.
+    """
+    from branches.models import ChiNhanh
+    user = request.user
+    rieng = getattr(user, "chi_nhanh_quan_ly_id", None)
+    raw = request.query_params.get("chi_nhanh") or (request.data.get("chi_nhanh") if request.method not in ("GET", "HEAD") else None)
+    if raw not in (None, ""):
+        try:
+            cn = int(raw)
+        except (TypeError, ValueError):
+            raise ValidationError({"chi_nhanh": "Chi nhánh không hợp lệ."})
+        if not _la_quan_tri(user) and cn != rieng:
+            raise PermissionDenied("Bạn chỉ được thao tác kho của chi nhánh được phân công.")
+        if not ChiNhanh.objects.filter(id=cn).exists():
+            raise ValidationError({"chi_nhanh": "Không tìm thấy chi nhánh."})
+        return [cn]
+    if _la_quan_tri(user):
+        if bat_buoc_mot:
+            raise ValidationError({"chi_nhanh": "Chọn chi nhánh cho phiếu kho."})
+        return list(ChiNhanh.objects.values_list("id", flat=True))
+    if not rieng:
+        if bat_buoc_mot:
+            raise PermissionDenied("Tài khoản chưa được gán chi nhánh.")
+        return []
+    return [rieng]
+
+
 class NguyenLieuViewSet(viewsets.ModelViewSet):
     serializer_class = NguyenLieuSerializer
     permission_classes = [LaNhanVienHoacChiDoc]
@@ -116,7 +152,24 @@ class NguyenLieuViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return NguyenLieu.objects.annotate(
             so_mon_dinh_muc=Count("dinhmucnguyenlieu", distinct=True)
+        ).prefetch_related(
+            Prefetch("ton_kho_chi_nhanh", queryset=TonKhoChiNhanh.objects.select_related("chi_nhanh"))
         ).order_by("-con_hoat_dong", "ten")
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        user = self.request.user
+        if user and user.is_authenticated and getattr(user, "la_nhan_vien_nha_hang", False):
+            if self.request.method in ("GET", "HEAD"):
+                from branches.models import ChiNhanh
+                ids = set(_pham_vi_chi_nhanh(self.request))
+                ctx["chi_nhanh_ids"] = ids
+                ctx["chi_nhanh_ten"] = dict(ChiNhanh.objects.filter(id__in=ids).values_list("id", "ten"))
+            else:
+                ctx["chi_nhanh_ids"] = None
+        else:
+            ctx["chi_nhanh_ids"] = set()  # khách xem danh mục, không xem tồn kho
+        return ctx
 
     def perform_destroy(self, instance):
         try:
@@ -127,14 +180,32 @@ class NguyenLieuViewSet(viewsets.ModelViewSet):
             })
 
 
+class TonKhoChiNhanhViewSet(viewsets.ModelViewSet):
+    """Tồn kho từng chi nhánh: xem, và sửa mức tồn tối thiểu của chi nhánh mình."""
+    serializer_class = TonKhoChiNhanhSerializer
+    permission_classes = [LaNhanVienNhaHang]
+    http_method_names = ["get", "patch", "head", "options"]
+
+    def get_queryset(self):
+        qs = TonKhoChiNhanh.objects.select_related("nguyen_lieu", "chi_nhanh").filter(
+            chi_nhanh_id__in=_pham_vi_chi_nhanh(self.request)
+        )
+        if self.request.query_params.get("nguyen_lieu"):
+            qs = qs.filter(nguyen_lieu_id=self.request.query_params["nguyen_lieu"])
+        return qs.order_by("nguyen_lieu__ten", "chi_nhanh_id")
+
+
 class LichSuKhoViewSet(viewsets.ModelViewSet):
-    """Lịch sử xuất nhập kho: chỉ xem và tạo phiếu mới, không sửa/xoá để giữ vết."""
+    """Lịch sử xuất nhập kho theo chi nhánh: chỉ xem và lập phiếu mới, không sửa/xoá để giữ vết."""
     serializer_class = LichSuKhoSerializer
     permission_classes = [LaNhanVienNhaHang]
     http_method_names = ["get", "post", "head", "options"]
 
     def get_queryset(self):
-        qs = LichSuXuatNhapKho.objects.select_related("nguyen_lieu", "tao_boi").order_by("-tao_luc", "-id")
+        qs = LichSuXuatNhapKho.objects.select_related("nguyen_lieu", "tao_boi", "chi_nhanh").order_by("-tao_luc", "-id")
+        # Mọi thao tác đọc (danh sách và chi tiết) chỉ thấy phiếu của chi nhánh được xem.
+        if self.action not in ("create", "chuyen_kho"):
+            qs = qs.filter(chi_nhanh_id__in=_pham_vi_chi_nhanh(self.request))
         params = self.request.query_params
         if params.get("nguyen_lieu"):
             qs = qs.filter(nguyen_lieu_id=params["nguyen_lieu"])
@@ -142,38 +213,42 @@ class LichSuKhoViewSet(viewsets.ModelViewSet):
             qs = qs.filter(loai_giao_dich=params["loai_giao_dich"])
         return qs[:500] if self.action == "list" else qs
 
-    @transaction.atomic
-    def perform_create(self, serializer):
-        nguyen_lieu = serializer.validated_data["nguyen_lieu"]
-        nl = NguyenLieu.objects.select_for_update().get(id=nguyen_lieu.id)
-        so_luong = Decimal(str(serializer.validated_data["so_luong"]))
-        loai_gd = serializer.validated_data["loai_giao_dich"]
-
-        ton_truoc = nl.ton_kho_hien_tai
-        if loai_gd == LichSuXuatNhapKho.LoaiGiaoDich.NHAP:
-            ton_sau = ton_truoc + so_luong
-        elif loai_gd == LichSuXuatNhapKho.LoaiGiaoDich.XUAT:
-            if ton_truoc < so_luong:
-                raise ValidationError(
-                    {"so_luong": f"Tồn kho hiện tại ({ton_truoc} {nl.don_vi}) không đủ để xuất {so_luong} {nl.don_vi}."}
-                )
-            ton_sau = ton_truoc - so_luong
-        elif loai_gd == LichSuXuatNhapKho.LoaiGiaoDich.DIEU_CHINH:
-            # Điều chỉnh: so_luong là tồn thực tế sau kiểm kê
-            ton_sau = so_luong
-        else:
-            raise ValidationError({"loai_giao_dich": f"Loại giao dịch '{loai_gd}' không hợp lệ."})
-
-        nl.ton_kho_hien_tai = ton_sau
-        nl.save(update_fields=["ton_kho_hien_tai", "cap_nhat_luc"])
-
-        user = self.request.user if self.request.user.is_authenticated else None
-        serializer.save(
-            tao_boi=user,
-            ton_kho_truoc=ton_truoc,
-            ton_kho_sau=ton_sau,
-            loai_tham_chieu="thu_cong",
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        chi_nhanh_id = _pham_vi_chi_nhanh(request, bat_buoc_mot=True)[0]
+        phieu = DichVuKho.lap_phieu(
+            nguyen_lieu_id=serializer.validated_data["nguyen_lieu"].id,
+            chi_nhanh_id=chi_nhanh_id,
+            loai_giao_dich=serializer.validated_data["loai_giao_dich"],
+            so_luong=serializer.validated_data["so_luong"],
+            ghi_chu=serializer.validated_data.get("ghi_chu", ""),
+            nguoi_dung=request.user,
         )
+        return Response(self.get_serializer(phieu).data, status=201)
+
+    @action(detail=False, methods=["post"], url_path="chuyen-kho")
+    def chuyen_kho(self, request):
+        """Chuyển nguyên liệu từ chi nhánh gửi (của người lập, trừ quản trị viên) sang chi nhánh nhận."""
+        data = request.data
+        try:
+            nguyen_lieu_id = int(data.get("nguyen_lieu"))
+            den = int(data.get("den_chi_nhanh"))
+            tu = int(data.get("tu_chi_nhanh") or getattr(request.user, "chi_nhanh_quan_ly_id", 0) or 0)
+            so_luong = Decimal(str(data.get("so_luong")))
+        except (TypeError, ValueError, InvalidOperation):
+            raise ValidationError({"so_luong": "Thiếu nguyên liệu, chi nhánh hoặc số lượng hợp lệ."})
+        if not tu:
+            raise ValidationError({"tu_chi_nhanh": "Chọn chi nhánh gửi."})
+        if not _la_quan_tri(request.user) and tu != getattr(request.user, "chi_nhanh_quan_ly_id", None):
+            raise PermissionDenied("Bạn chỉ được chuyển kho đi từ chi nhánh được phân công.")
+        if not NguyenLieu.objects.filter(id=nguyen_lieu_id).exists():
+            raise ValidationError({"nguyen_lieu": "Không tìm thấy nguyên liệu."})
+        xuat, nhap = DichVuKho.chuyen_kho(
+            nguyen_lieu_id=nguyen_lieu_id, tu_chi_nhanh_id=tu, den_chi_nhanh_id=den,
+            so_luong=so_luong, ghi_chu=str(data.get("ghi_chu") or ""), nguoi_dung=request.user,
+        )
+        return Response({"xuat": self.get_serializer(xuat).data, "nhap": self.get_serializer(nhap).data}, status=201)
 
 
 class DinhMucNguyenLieuViewSet(viewsets.ModelViewSet):
