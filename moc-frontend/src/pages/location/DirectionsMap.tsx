@@ -37,10 +37,11 @@ export default function DirectionsMap({
         scrollWheelZoom
       >
         <TileLayer
-          // tile.openstreetmap.org is unreachable on some networks; OSM France mirror needs no API key.
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, tiles by <a href="https://www.openstreetmap.fr">OSM France</a>'
-          url="https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png"
-          maxZoom={20}
+          // Esri World Street Map: gọn hơn (không dày đặc nhãn "Khu phố"), không cần API key.
+          // Lưu ý thứ tự {z}/{y}/{x} của Esri khác OSM.
+          attribution='Tiles &copy; <a href="https://www.esri.com">Esri</a> &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+          maxZoom={19}
         />
 
         {branches.map((b) => (

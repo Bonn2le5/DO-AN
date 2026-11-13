@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { Search, X } from "lucide-react";
 import FoodCard from "@/components/food/FoodCard";
@@ -12,6 +12,7 @@ interface MenuResultsProps {
   onSearchChange: (value: string) => void;
   sort: SortKey;
   onSortChange: (value: SortKey) => void;
+  categoryBar?: ReactNode;
 }
 
 export default function MenuResults({
@@ -21,6 +22,7 @@ export default function MenuResults({
   onSearchChange,
   sort,
   onSortChange,
+  categoryBar,
 }: MenuResultsProps) {
   const location = useLocation();
 
@@ -31,46 +33,49 @@ export default function MenuResults({
   }, [location.search]);
 
   return (
-    <div className="flex-1">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-7">
-        <div className="relative w-full sm:max-w-xs">
-          <Search
-            width={15}
-            height={15}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-          />
-          <input
-            id="menu-search"
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Tìm món ăn, nguyên liệu..."
-            aria-label="Tìm món ăn hoặc nguyên liệu"
-            className="w-full pl-9 pr-8 py-2 rounded-md border border-black/15 text-sm outline-none focus:border-primary"
-          />
-          {search && (
-            <button
-              onClick={() => onSearchChange("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted"
-            >
-              <X width={15} height={15} />
-            </button>
-          )}
+    <div>
+      <div className="flex flex-col lg:flex-row lg:items-center gap-3 pb-5 mb-7 border-b border-black/10">
+        <div className="min-w-0 flex-1">{categoryBar}</div>
+        <div className="flex gap-3 shrink-0">
+          <div className="relative flex-1 lg:w-64">
+            <Search
+              width={15}
+              height={15}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+            />
+            <input
+              id="menu-search"
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Tìm món ăn, nguyên liệu..."
+              aria-label="Tìm món ăn hoặc nguyên liệu"
+              className="w-full pl-9 pr-8 py-2 rounded-md border border-black/15 text-sm outline-none focus:border-primary"
+            />
+            {search && (
+              <button
+                onClick={() => onSearchChange("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted"
+              >
+                <X width={15} height={15} />
+              </button>
+            )}
+          </div>
+          <select
+            value={sort}
+            onChange={(e) => onSortChange(e.target.value as SortKey)}
+            className="px-3 py-2 rounded-md border border-black/15 text-sm outline-none bg-white"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.key} value={opt.key}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
-        <select
-          value={sort}
-          onChange={(e) => onSortChange(e.target.value as SortKey)}
-          className="px-3 py-2 rounded-md border border-black/15 text-sm outline-none bg-white"
-        >
-          {SORT_OPTIONS.map((opt) => (
-            <option key={opt.key} value={opt.key}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
       </div>
 
       {loading ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
@@ -80,10 +85,10 @@ export default function MenuResults({
         </div>
       ) : foods.length === 0 ? (
         <div className="text-center py-24 text-muted">
-          Không tìm thấy món ăn phù hợp. Hãy thử điều chỉnh bộ lọc.
+          Không tìm thấy món ăn phù hợp. Hãy thử danh mục hoặc từ khoá khác.
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {foods.map((food) => (
             <FoodCard key={food.id} food={food} />
           ))}

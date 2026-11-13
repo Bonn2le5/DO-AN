@@ -1,4 +1,3 @@
-import { SlidersHorizontal } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import { getCategories } from "@/api/foods.api";
 import type { LoaiMonAn } from "@/types";
@@ -7,62 +6,43 @@ import { cn } from "@/lib/utils";
 interface MenuFiltersProps {
   activeCategory: LoaiMonAn | null;
   onCategoryChange: (cat: LoaiMonAn | null) => void;
-  open: boolean;
-  onToggleOpen: () => void;
 }
 
+/** Hàng nút danh mục (lấy từ backend), cuộn ngang trên màn hình nhỏ. */
 export default function MenuFilters({
   activeCategory,
   onCategoryChange,
-  open,
-  onToggleOpen,
 }: MenuFiltersProps) {
   const { data: categories } = useAsync(getCategories);
 
-  return (
-    <aside className="md:w-52 shrink-0">
-      <button
-        className="md:hidden btn btn-outline w-full mb-4 rounded-md!"
-        onClick={onToggleOpen}
-      >
-        <SlidersHorizontal width={16} height={16} />
-        {open ? "Ẩn bộ lọc" : "Hiện bộ lọc"}
-      </button>
+  const chip = (active: boolean) =>
+    cn(
+      "shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-md border text-sm transition-colors",
+      active
+        ? "bg-dark border-dark text-white font-semibold"
+        : "border-black/15 hover:border-black/40",
+    );
 
-      <div className={cn("space-y-6 md:border-r md:border-black/10 md:pr-6", !open && "hidden md:block")}>
-        <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-muted mb-2.5">
-            Danh mục
-          </h3>
-          <div className="flex flex-wrap md:flex-col gap-1.5 md:gap-0.5">
-            <button
-              onClick={() => onCategoryChange(null)}
-              className={cn(
-                "text-left px-3 py-1.5 rounded-sm text-sm transition-colors border border-black/10 md:border-transparent",
-                !activeCategory
-                  ? "bg-dark text-white font-semibold"
-                  : "hover:bg-black/5",
-              )}
-            >
-              Tất cả món
-            </button>
-            {categories?.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => onCategoryChange(cat.id)}
-                className={cn(
-                  "text-left px-3 py-1.5 rounded-sm text-sm transition-colors border border-black/10 md:border-transparent",
-                  activeCategory === cat.id
-                    ? "bg-dark text-white font-semibold"
-                    : "hover:bg-black/5",
-                )}
-              >
-                {cat.ten}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </aside>
+  return (
+    <nav
+      aria-label="Danh mục món"
+      className="-mx-5 px-5 md:mx-0 md:px-0 flex gap-2 overflow-x-auto lg:flex-wrap [scrollbar-width:none]"
+    >
+      <button
+        onClick={() => onCategoryChange(null)}
+        className={chip(!activeCategory)}
+      >
+        Tất cả
+      </button>
+      {categories?.map((cat) => (
+        <button
+          key={cat.id}
+          onClick={() => onCategoryChange(cat.id)}
+          className={chip(activeCategory === cat.id)}
+        >
+          {cat.ten}
+        </button>
+      ))}
+    </nav>
   );
 }

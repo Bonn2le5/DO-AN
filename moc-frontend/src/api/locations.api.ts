@@ -15,32 +15,59 @@ export interface UserCoords {
   lng: number;
 }
 
-/** Wraps the browser Geolocation API in a Promise. Requires HTTPS (or localhost) and user permission. */
-export function getUserLocation(): Promise<UserCoords> {
+function layViTri(options: PositionOptions): Promise<UserCoords> {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error("Trình duyệt không hỗ trợ định vị."));
-      return;
-    }
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      (err) => reject(new Error(mapGeolocationError(err))),
-      { enableHighAccuracy: true, timeout: 10000 }
+      reject,
+      options,
     );
   });
 }
 
-function mapGeolocationError(err: GeolocationPositionError): string {
-  switch (err.code) {
-    case err.PERMISSION_DENIED:
-      return "Bạn chưa cho phép truy cập vị trí. Hãy bật quyền định vị cho trang web.";
-    case err.POSITION_UNAVAILABLE:
-      return "Không thể xác định vị trí hiện tại.";
-    case err.TIMEOUT:
-      return "Yêu cầu định vị hết thời gian chờ.";
-    default:
-      return "Không thể lấy vị trí của bạn.";
+/**
+ * Lấy vị trí người dùng. Thử chế độ thường trước (Wi-Fi/IP — nhanh, chạy được trên PC không có GPS),
+ * thất bại vì lý do khác "từ chối quyền" thì thử lại với độ chính xác cao. Cần HTTPS hoặc localhost.
+ */
+export async function getUserLocation(): Promise<UserCoords> {
+  if (!navigator.geolocation) throw new Error("Trình duyệt không hỗ trợ định vị.");
+  try {
+    return await layViTri({ enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 });
+  } catch (err) {
+    const loi = err as GeolocationPositionError;
+    if (loi.code !== 1) {
+      try {
+        return await layViTri({ enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+      } catch (err2) {
+        throw new Error(mapGeolocationError(err2 as GeolocationPositionError));
+      }
+    }
+    throw new Error(mapGeolocationError(loi));
   }
+}
+
+// So sánh bằng số (1/2/3) thay vì err.PERMISSION_DENIED: một số trình duyệt/extension trả về object thường.
+function mapGeolocationError(err: GeolocationPositionError): string {
+  switch (err?.code) {
+    case 1:
+      return "Trình duyệt hoặc hệ điều hành đang chặn định vị. Hãy cho phép vị trí cho trang web, và trên Windows bật Settings › Privacy & security › Location (cả mục \"Let desktop apps access your location\").";
+    case 2:
+      return "Thiết bị không xác định được vị trí. Trên máy tính, hãy bật dịch vụ định vị của hệ điều hành (Windows: Settings › Privacy & security › Location; macOS: System Settings › Privacy & Security › Location Services) rồi thử lại.";
+    case 3:
+      return "Định vị quá lâu không phản hồi. Vui lòng thử lại.";
+    default:
+      return `Không thể lấy vị trí của bạn${err?.message ? ` (${err.message})` : ""}.`;
+  }
+}
+
+/** Khoảng cách đường chim bay (km) giữa 2 toạ độ — dùng để sắp chi nhánh gần nhất. */
+export function khoangCachKm(a: UserCoords, b: UserCoords): number {
+  const R = 6371;
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
 }
 
 /**
@@ -63,7 +90,7 @@ export async function getRoute(from: UserCoords, to: UserCoords): Promise<ThongT
 
   return {
     khoangCachKm: Math.round((route.distance / 1000) * 10) / 10,
-    thoiGianPhut: Math.round(route.duration / 60),
+    thoiGianPhut: Math.max(1, Math.round(route.duration / 60)),
     toaDoTuyenDuong: geometry,
   };
 }

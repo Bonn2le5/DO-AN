@@ -9,6 +9,8 @@ interface BranchListProps {
   route: ThongTinTuyenDuong | null;
   routeLoading: boolean;
   hasUserLocation: boolean;
+  /** Khoảng cách chim bay (km) theo id chi nhánh; null khi chưa định vị. Danh sách đã được sắp sẵn. */
+  khoangCach: Record<string, number> | null;
 }
 
 export default function BranchList({
@@ -18,11 +20,13 @@ export default function BranchList({
   route,
   routeLoading,
   hasUserLocation,
+  khoangCach,
 }: BranchListProps) {
   return (
     <div className="space-y-3">
-      {branches.map((branch) => {
+      {branches.map((branch, index) => {
         const active = branch.id === selectedBranchId;
+        const km = khoangCach?.[branch.id];
         return (
           <button
             key={branch.id}
@@ -36,6 +40,11 @@ export default function BranchList({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-display text-lg">{branch.tenChiNhanh}</h3>
+                  {khoangCach && index === 0 && (
+                    <span className="text-[10px] font-bold uppercase bg-primary text-white px-2 py-0.5 rounded-full shrink-0">
+                      Gần nhất
+                    </span>
+                  )}
                   {branch.laChiNhanhChinh && (
                     <span className="text-[10px] font-bold uppercase bg-accent/15 text-accent px-2 py-0.5 rounded-full">
                       Trụ sở
@@ -58,6 +67,14 @@ export default function BranchList({
                 <MapPin width={13} height={13} className="mt-0.5 shrink-0" />
                 <span>{branch.diaChi}</span>
               </div>
+              {km !== undefined && (
+                <div className="flex items-center gap-2 text-text font-medium">
+                  <Navigation width={13} height={13} className="shrink-0" />
+                  <span>
+                    Cách bạn khoảng {km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <Phone width={13} height={13} className="shrink-0" />
                 <span>{branch.soDienThoai}</span>

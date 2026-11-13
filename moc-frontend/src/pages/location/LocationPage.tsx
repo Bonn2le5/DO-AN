@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { LocateFixed, AlertCircle } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import {
   getBranches,
   getUserLocation,
   getRoute,
+  khoangCachKm,
   type UserCoords,
 } from "@/api/locations.api";
 import DirectionsMap from "./DirectionsMap";
@@ -28,10 +29,18 @@ export default function LocationPage() {
     try {
       const coords = await getUserLocation();
       setUserLocation(coords);
-      if (selectedBranchId && branches) {
-        const branch = branches.find((b) => b.id === selectedBranchId);
-        if (branch) await fetchRoute(coords, branch);
-      }
+      if (!branches?.length) return;
+      // Chưa chọn chi nhánh nào thì tự chọn chi nhánh gần nhất và vẽ đường đi.
+      const target =
+        branches.find((b) => b.id === selectedBranchId) ??
+        branches.reduce((gan, b) =>
+          khoangCachKm(coords, { lat: b.viDo, lng: b.kinhDo }) <
+          khoangCachKm(coords, { lat: gan.viDo, lng: gan.kinhDo })
+            ? b
+            : gan,
+        );
+      setSelectedBranchId(target.id);
+      await fetchRoute(coords, target);
     } catch (err) {
       setLocationError(
         err instanceof Error ? err.message : "Không thể lấy vị trí của bạn.",
@@ -53,6 +62,21 @@ export default function LocationPage() {
       setRouteLoading(false);
     }
   };
+
+  // Có vị trí thì sắp chi nhánh theo khoảng cách (đường chim bay), gần nhất lên đầu.
+  const khoangCach = useMemo(() => {
+    const map: Record<string, number> = {};
+    if (userLocation && branches)
+      for (const b of branches)
+        map[b.id] = khoangCachKm(userLocation, { lat: b.viDo, lng: b.kinhDo });
+    return map;
+  }, [userLocation, branches]);
+
+  const branchesDaSap = useMemo(() => {
+    const ds = [...(branches ?? [])];
+    if (userLocation) ds.sort((a, b) => khoangCach[a.id] - khoangCach[b.id]);
+    return ds;
+  }, [branches, userLocation, khoangCach]);
 
   const handleSelectBranch = async (branch: ChiNhanh) => {
     setSelectedBranchId(branch.id);
@@ -94,7 +118,7 @@ export default function LocationPage() {
       )}
 
       <div className="grid md:grid-cols-[380px_1fr] gap-8">
-        <div className="order-2 md:order-1 max-h-140rflow-y-auto pr-1">
+        <div className="order-2 md:order-1 max-h-140 overflow-y-auto pr-1">
           {branchesLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -106,7 +130,8 @@ export default function LocationPage() {
             </div>
           ) : (
             <BranchList
-              branches={branches ?? []}
+              branches={branchesDaSap}
+              khoangCach={userLocation ? khoangCach : null}
               selectedBranchId={selectedBranchId}
               onSelect={handleSelectBranch}
               route={route}

@@ -6,7 +6,6 @@ import RecommendedSection from "./sections/RecommendedSection";
 import WhyChooseSection from "./sections/WhyChooseSection";
 import PromoPreviewSection from "./sections/PromoPreviewSection";
 import CtaSection from "./sections/CtaSection";
-import TestimonialSection from "./sections/TestimonialSection";
 import BlogPreviewSection from "./sections/BlogPreviewSection";
 
 /**
@@ -25,7 +24,6 @@ export default function HomePage() {
       <WhyChooseSection />
       <PromoPreviewSection />
       <CtaSection />
-      <TestimonialSection />
       <BlogPreviewSection />
     </div>
   );
