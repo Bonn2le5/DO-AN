@@ -77,7 +77,19 @@ class GioiHanTanSuatTest(TestCase):
         for _ in range(30):
             self.assertNotEqual(self._dang_nhap().status_code, 429)
 
-    @override_settings(GIOI_HAN_TAN_SUAT={"gui_otp": "5/h"})
+    @override_settings(GIOI_HAN_TAN_SUAT={"quen_mat_khau": "2/h", "gui_otp": "2/h"})
+    def test_quen_mat_khau_chuoi_tu_go_khong_trung_bo_dem_tai_khoan(self):
+        # "nd<id>" là dạng khoá của tài khoản; gõ chuỗi đó không được làm hết lượt của chủ tài khoản.
+        for i in range(3):
+            self.client.post("/api/xac-thuc/quen-mat-khau/", {"tai_khoan": f"nd{self.user.pk}"}, format="json",
+                             REMOTE_ADDR=f"10.0.4.{i}")
+            self.client.post("/api/xac-thuc/gui-ma-xac-thuc/", {"email": f"nd{self.user.pk}"}, format="json",
+                             REMOTE_ADDR=f"10.0.5.{i}")
+        r = self.client.post("/api/xac-thuc/quen-mat-khau/", {"tai_khoan": "kh@moc.vn"}, format="json",
+                             REMOTE_ADDR="10.0.4.9")
+        self.assertEqual(r.status_code, 200)
+
+    @override_settings(GIOI_HAN_TAN_SUAT={"quen_mat_khau": "5/h"})
     def test_quen_mat_khau_doi_cach_viet_khong_lach_duoc_gioi_han(self):
         NguoiDung.objects.filter(pk=self.user.pk).update(so_dien_thoai="0938261105")
         cach_viet = ["0938261105", "0938 261 105", "0938.261.105", "KH@moc.vn", " 0938-261-105 "]

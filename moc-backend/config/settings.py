@@ -306,6 +306,8 @@ GIOI_HAN_TAN_SUAT = {
     "nhap_otp": "5/m",                # dò mã OTP 6 số của một email
     "nhap_otp_ip": "20/m",
     "doi_mat_khau": "5/m",
+    "quen_mat_khau": "5/h",           # gửi mã quên mật khẩu cho một tài khoản
+    "dat_lai_mat_khau": "5/m",        # nhập mã đặt lại mật khẩu của một tài khoản
     "dang_nhap_admin": "10/h",        # trang đăng nhập /admin của Django (không đi qua DRF)
 }
 if TESTING:
