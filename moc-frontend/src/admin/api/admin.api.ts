@@ -141,6 +141,17 @@ export async function checkoutDiningSession(sessionId: string, paymentMethod: "c
   const { data } = await apiClient.post(`/phien-phuc-vu/${sessionId}/checkout/`, { phuong_thuc: paymentMethod === "cod" ? "tien_mat" : paymentMethod === "bank" ? "chuyen_khoan" : "payos", ma_tham_chieu: reference ?? "" });
   return mapDiningSession(data);
 }
+export interface TablePayOSLink { paymentId: string; amount: number; qr: string; url: string; expiresAt: string }
+/** Tạo mã QR PayOS cho phần còn phải thu của hoá đơn tại bàn (đã trừ cọc). */
+export async function createTablePayOS(orderId: string): Promise<TablePayOSLink> {
+  const { data } = await apiClient.post("/thanh-toan/payos/tao-phien/", { loai_thanh_toan: "don_hang", don_hang_id: Number(orderId) });
+  return { paymentId: String(data.thanh_toan_id), amount: Number(data.so_tien), qr: data.ma_qr ?? "", url: data.duong_dan_thanh_toan, expiresAt: data.het_han_luc };
+}
+/** Trạng thái khoản PayOS: "cho_xu_ly" | "thanh_cong" | "that_bai"... (backend tự hỏi lại PayOS khi còn chờ). */
+export async function getPayOSStatus(paymentId: string): Promise<string> {
+  const { data } = await apiClient.get(`/thanh-toan/${paymentId}/payos/trang-thai/`);
+  return data.trang_thai;
+}
 /** Huỷ bàn: nhân viên khi chưa gửi bếp, quản lý khi đã gửi bếp (hoá đơn chuyển "Đã huỷ"). */
 export async function cancelDiningSession(sessionId: string, reason = ""): Promise<AdminDiningSession> {
   const { data } = await apiClient.post(`/phien-phuc-vu/${sessionId}/huy/`, { ly_do: reason });
@@ -228,6 +239,14 @@ export async function createStockMove(ingredientId: string, branchId: string, ty
   const { data } = await apiClient.post("/kho/", { nguyen_lieu: Number(ingredientId), chi_nhanh: Number(branchId), loai_giao_dich: type, so_luong: qty, ghi_chu: note });
   return mapStockMove(data);
 }
+export async function transferStock(ingredientId: string, fromBranchId: string, toBranchId: string, qty: number, note: string) {
+  const { data } = await apiClient.post("/kho/chuyen-kho/", { nguyen_lieu: Number(ingredientId), tu_chi_nhanh: Number(fromBranchId), den_chi_nhanh: Number(toBranchId), so_luong: qty, ghi_chu: note });
+  return { out: mapStockMove(data.xuat), in: mapStockMove(data.nhap) };
+}
+export async function updateBranchMinimum(stockId: string, minimum: number): Promise<BranchStock> {
+  const { data } = await apiClient.patch(`/ton-kho/${stockId}/`, { ton_kho_toi_thieu: minimum });
+  return mapBranchStock(data);
+}
 export interface IngredientRecipe { id: string; foodId: string; foodName: string; ingredientId: string; ingredientName: string; unit: string; qty: number }
 const mapRecipe = (r: Raw): IngredientRecipe => ({ id: text(r.id), foodId: text(r.mon_an), foodName: text(r.ten_mon), ingredientId: text(r.nguyen_lieu), ingredientName: text(r.ten_nguyen_lieu), unit: text(r.don_vi), qty: num(r.so_luong_can) });
 export async function listRecipes(ingredientId: string): Promise<IngredientRecipe[]> { return (await list(`/dinh-muc-nguyen-lieu/?nguyen_lieu=${ingredientId}`)).map(mapRecipe); }
@@ -239,14 +258,6 @@ export type Range = 1 | 7 | 30;
 export type LiveTableState = "free" | "busy" | "cleaning" | "maintenance" | "held";
 export interface DashboardBranch { id: string; name: string; tables: { name: string; seats: number; state: LiveTableState }[]; guests: number; openTotal: number; todayRevenue: number; todayBills: number; rangeRevenue: number; rangeBills: number; rangeGuests: number }
 export interface DashboardLeak { count: number; value: number; worstBranch: string | null }
-export async function transferStock(ingredientId: string, fromBranchId: string, toBranchId: string, qty: number, note: string) {
-  const { data } = await apiClient.post("/kho/chuyen-kho/", { nguyen_lieu: Number(ingredientId), tu_chi_nhanh: Number(fromBranchId), den_chi_nhanh: Number(toBranchId), so_luong: qty, ghi_chu: note });
-  return { out: mapStockMove(data.xuat), in: mapStockMove(data.nhap) };
-}
-export async function updateBranchMinimum(stockId: string, minimum: number): Promise<BranchStock> {
-  const { data } = await apiClient.patch(`/ton-kho/${stockId}/`, { ton_kho_toi_thieu: minimum });
-  return mapBranchStock(data);
-}
 export interface DashboardData {
   revenue: number; orderCount: number; reservationsToday: number; newCustomers: number; series: { label: string; value: number }[]; byStatus: { status: OrderStatus; value: number }[]; topFoods: [string, number][];
   tasks: { pendingOrders: number; pendingDeposits: number; refundQueue: number; lowStock: number; unreadChats: number; pendingConfirm: number };

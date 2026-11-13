@@ -5,18 +5,22 @@ import { inputCls } from "./primitives";
 import { useAsync } from "@/hooks/useAsync";
 import { formatCurrency } from "@/lib/utils";
 import ConfirmModal from "./ConfirmModal";
+import { QRCodeSVG } from "qrcode.react";
 import {
   cancelDiningSession,
   checkoutDiningSession,
   confirmDiningSessionCleaned,
+  createTablePayOS,
   foodsStore,
   getDiningSession,
+  getPayOSStatus,
   getStockAlerts,
   moveDiningSession,
   ordersStore,
   replaceDiningSessionItems,
   setOrderStatus,
   lowStockMessage,
+  type TablePayOSLink,
 } from "../api/admin.api";
 import { useCan, useRole } from "../permissions";
 import { ORDER_META, ORDER_NEXT } from "../statusMeta";
@@ -68,7 +72,7 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
   const [cart, setCart] = useState<CartLine[]>([]);
   const [saved, setSaved] = useState<CartLine[]>([]);
   const [noteOpen, setNoteOpen] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<"cod" | "bank">("cod");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
   const [paymentReference, setPaymentReference] = useState("");
   const [tendered, setTendered] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -560,9 +564,11 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
   );
 }
 
+type PaymentMethod = "cod" | "bank" | "payos";
+
 interface InvoiceProps {
   lines: CartLine[]; subtotal: number; discount: number; total: number; deposit: number; order?: AdminOrder; busy: boolean;
-  paymentMethod: "cod" | "bank"; setPaymentMethod: (m: "cod" | "bank") => void;
+  paymentMethod: PaymentMethod; setPaymentMethod: (m: PaymentMethod) => void;
   paymentReference: string; setPaymentReference: (v: string) => void;
   tendered: number; setTendered: (v: number) => void;
   onBack: () => void; onCheckout: () => void;
@@ -601,8 +607,8 @@ function InvoiceView({ lines, subtotal, discount, total: billTotal, deposit, ord
         </div>
         <fieldset>
           <legend className="mb-2 text-sm font-medium">Hình thức</legend>
-          <div className="grid grid-cols-2 gap-2">
-            {([["cod", "Tiền mặt"], ["bank", "Chuyển khoản"]] as const).map(([value, label]) => (
+          <div className="grid grid-cols-3 gap-2">
+            {([["cod", "Tiền mặt"], ["bank", "Chuyển khoản"], ["payos", "PayOS (QR)"]] as const).filter(([value]) => value !== "payos" || total > 0).map(([value, label]) => (
               <label key={value} className={`cursor-pointer rounded-lg border px-3 py-2.5 text-center text-sm font-medium has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-primary ${paymentMethod === value ? "border-dark bg-dark text-white" : "border-black/10 bg-white hover:border-black/25"}`}>
                 <input type="radio" name="payment-method" value={value} checked={paymentMethod === value} onChange={() => setPaymentMethod(value)} className="sr-only" />{label}
               </label>
@@ -618,6 +624,8 @@ function InvoiceView({ lines, subtotal, discount, total: billTotal, deposit, ord
             <div className="mt-4 flex items-baseline justify-between text-sm"><span className="text-muted">Tiền thối</span><span className="text-lg font-semibold tabular-nums">{formatCurrency(change)}</span></div>
             {short && <p className="mt-1 text-xs text-primary">Còn thiếu {formatCurrency(total - tendered)}.</p>}
           </div>
+        ) : paymentMethod === "payos" ? (
+          order && <PayOSPanel orderId={order.id} amount={total} onPaid={onCheckout} />
         ) : (
           <label className="block text-sm font-medium">Mã giao dịch
             <input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} className={`${inputCls} mt-1.5`} placeholder="Không bắt buộc" />
@@ -625,9 +633,63 @@ function InvoiceView({ lines, subtotal, discount, total: billTotal, deposit, ord
         )}
         <div className="mt-auto flex gap-2 pt-2">
           <button onClick={onBack} className="btn btn-outline flex-1 py-3!">Quay lại</button>
-          <button disabled={busy || short} onClick={onCheckout} className="btn btn-primary flex-[2] py-3! disabled:opacity-45"><Check size={17} />{busy ? "Đang thanh toán…" : total > 0 ? `Thu ${formatCurrency(total)}` : "Hoàn tất, không thu thêm"}</button>
+          <button disabled={busy || short} onClick={onCheckout} className="btn btn-primary flex-[2] py-3! disabled:opacity-45"><Check size={17} />{busy ? "Đang thanh toán…" : total <= 0 ? "Hoàn tất, không thu thêm" : paymentMethod === "payos" ? "Đã nhận tiền, hoàn tất" : `Thu ${formatCurrency(total)}`}</button>
         </div>
       </section>
+    </div>
+  );
+}
+
+/** Mã QR PayOS cho khách quét. Tự hỏi trạng thái mỗi 3 giây, khách trả xong thì hoàn tất bàn. */
+function PayOSPanel({ orderId, amount, onPaid }: { orderId: string; amount: number; onPaid: () => void }) {
+  const [link, setLink] = useState<TablePayOSLink | null>(null);
+  const [state, setState] = useState<"idle" | "creating" | "waiting" | "paid" | "failed">("idle");
+  const [error, setError] = useState("");
+  const paidRef = useRef(onPaid);
+  paidRef.current = onPaid;
+
+  const create = async () => {
+    setState("creating"); setError("");
+    try {
+      setLink(await createTablePayOS(orderId));
+      setState("waiting");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không tạo được mã PayOS.");
+      setState("failed");
+    }
+  };
+
+  // Số tiền đổi (gọi thêm món) thì mã cũ không còn đúng: bỏ để tạo lại.
+  useEffect(() => { setLink(null); setState("idle"); }, [orderId, amount]);
+
+  useEffect(() => {
+    if (state !== "waiting" || !link) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const status = await getPayOSStatus(link.paymentId);
+        if (status === "thanh_cong") { setState("paid"); paidRef.current(); }
+        else if (status !== "cho_xu_ly") { setState("failed"); setError("Mã đã bị huỷ hoặc hết hạn. Tạo mã mới."); }
+      } catch { /* lỗi mạng tạm thời: thử lại ở lần sau */ }
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [state, link]);
+
+  if (!link || state === "failed" || state === "idle" || state === "creating") {
+    return (
+      <div className="space-y-2">
+        {error && <p className="text-xs text-primary">{error}</p>}
+        <button onClick={() => void create()} disabled={state === "creating"} className="btn btn-outline w-full py-2.5! disabled:opacity-45">
+          {state === "creating" ? "Đang tạo mã…" : `Tạo mã QR ${formatCurrency(amount)}`}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-xl border border-black/10 bg-white p-4 text-center">
+      {link.qr ? <QRCodeSVG value={link.qr} size={208} marginSize={2} /> : null}
+      <div className="font-display text-xl font-semibold tabular-nums">{formatCurrency(link.amount)}</div>
+      <p className="text-xs text-muted">{state === "paid" ? "Đã nhận tiền, đang hoàn tất bàn…" : "Khách quét bằng app ngân hàng. Màn này tự hoàn tất khi nhận được tiền."}</p>
+      <a href={link.url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">Mở trang thanh toán PayOS</a>
     </div>
   );
 }

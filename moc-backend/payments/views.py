@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from api.permissions import LaNhanVienNhaHang
 from reservations.models import DatBan
-from reservations.services import han_thanh_toan_coc, huy_giu_cho_qua_han_coc
+from reservations.services import LY_DO_QUA_HAN_COC, han_thanh_toan_coc, huy_giu_cho_qua_han_coc
 from orders.models import DonHang
 from .models import ThanhToan, PhieuHoanTien
 from .serializers import ThanhToanSerializer, PhieuHoanTienSerializer, TaoPhienThanhToanSerializer
@@ -120,17 +120,23 @@ class ThanhToanViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied("Bạn không có quyền thanh toán cọc cho đặt bàn này.")
             huy_giu_cho_qua_han_coc(dat_ban.chi_nhanh_id)
             dat_ban.refresh_from_db()
+            if dat_ban.trang_thai == DatBan.TrangThai.DA_HUY and dat_ban.ly_do_huy == LY_DO_QUA_HAN_COC:
+                raise ValidationError({"dat_ban_id": "Phiếu đặt bàn đã bị huỷ do quá hạn thanh toán cọc, vui lòng đặt bàn lại."})
             if dat_ban.trang_thai not in {DatBan.TrangThai.CHO_XAC_NHAN, DatBan.TrangThai.CHO_THANH_TOAN} or dat_ban.trang_thai_coc != DatBan.TrangThaiCoc.CHUA_THANH_TOAN:
                 raise ValidationError({"dat_ban_id": "Đặt bàn không còn ở trạng thái chờ thanh toán cọc."})
             het_han_luc = han_thanh_toan_coc(dat_ban)
             if timezone.now() >= het_han_luc:
-                raise ValidationError({"dat_ban_id": "Đã quá hạn thanh toán cọc, vui lòng đặt bàn lại."})
+                # Còn trong thời gian chờ IPN nên chưa huỷ hẳn, nhưng khách không thể trả cọc nữa.
+                raise ValidationError({"dat_ban_id": "Phiếu đặt bàn đã quá hạn thanh toán cọc và sẽ bị huỷ, vui lòng đặt bàn lại."})
             so_tien = dat_ban.so_tien_coc
         else:
-            don_hang = get_object_or_404(DonHang, id=data["don_hang_id"])
-            if don_hang.khach_hang_id != user.id and not getattr(user, "la_nhan_vien_nha_hang", False):
-                raise PermissionDenied("Bạn không có quyền thanh toán đơn hàng này.")
-            so_tien = don_hang.tong_tien
+            don_hang = get_object_or_404(DonHang.objects.select_related("phien_phuc_vu__dat_ban"), id=data["don_hang_id"])
+            if don_hang.phien_phuc_vu_id:
+                so_tien = self._so_tien_ban_can_thu(user, don_hang)
+            else:
+                if don_hang.khach_hang_id != user.id and not getattr(user, "la_nhan_vien_nha_hang", False):
+                    raise PermissionDenied("Bạn không có quyền thanh toán đơn hàng này.")
+                so_tien = don_hang.tong_tien
 
         requested_amount = data.get("so_tien")
         if requested_amount is not None and requested_amount != so_tien:
@@ -148,14 +154,46 @@ class ThanhToanViewSet(viewsets.ModelViewSet):
             thanh_toan.so_tien = so_tien
             thanh_toan.save(update_fields=["so_tien", "cap_nhat_luc"])
 
-        payment_url = DichVuPayOS.tao_link(thanh_toan=thanh_toan, het_han_luc=het_han_luc)
+        link = DichVuPayOS.tao_link(thanh_toan=thanh_toan, het_han_luc=het_han_luc)
         return Response({
-            "duong_dan_thanh_toan": payment_url,
+            "duong_dan_thanh_toan": link["checkoutUrl"],
+            "ma_qr": link.get("qrCode", ""),
             "ma_giao_dich": thanh_toan.ma_giao_dich,
             "so_tien": float(thanh_toan.so_tien),
             "het_han_luc": het_han_luc.isoformat(),
             "thanh_toan_id": thanh_toan.id,
         })
+
+    @staticmethod
+    def _so_tien_ban_can_thu(user, don_hang):
+        """Hoá đơn tại bàn: nhân viên đúng chi nhánh tạo mã QR cho phần còn phải thu sau khi trừ cọc."""
+        from reservations.models import PhienPhucVu
+        from reservations.services import DichVuPhienPhucVu
+        if not getattr(user, "la_nhan_vien_nha_hang", False):
+            raise PermissionDenied("Chỉ nhân viên nhà hàng mới tạo mã thanh toán tại bàn.")
+        if not (user.is_superuser or getattr(user, "la_quan_tri_vien", False)) and \
+                don_hang.chi_nhanh_id != getattr(user, "chi_nhanh_quan_ly_id", None):
+            raise PermissionDenied("Hoá đơn không thuộc chi nhánh được phân công.")
+        phien = don_hang.phien_phuc_vu
+        if phien.trang_thai != PhienPhucVu.TrangThai.DANG_PHUC_VU:
+            raise ValidationError({"don_hang_id": "Bàn này đã thanh toán hoặc đã đóng."})
+        if ThanhToan.objects.filter(don_hang=don_hang, trang_thai=ThanhToan.TrangThai.THANH_CONG).exists():
+            raise ValidationError({"don_hang_id": "Khách đã thanh toán hoá đơn này. Bấm hoàn tất để đóng bàn."})
+        if not don_hang.danh_sach_mon.exists():
+            raise ValidationError({"don_hang_id": "Bàn chưa gọi món nào."})
+        so_tien = don_hang.tong_tien - DichVuPhienPhucVu.tien_coc_da_tra(phien, don_hang)
+        if so_tien <= 0:
+            raise ValidationError({"don_hang_id": "Tiền cọc đã đủ, không cần thu thêm."})
+        return so_tien
+
+    @action(detail=True, methods=["get"], url_path="payos/trang-thai")
+    def payos_trang_thai(self, request, pk=None):
+        """Màn thu ngân hỏi định kỳ. Còn chờ thì hỏi lại PayOS, phòng khi webhook chưa tới."""
+        thanh_toan = self.get_object()
+        if thanh_toan.phuong_thuc == "payos" and thanh_toan.trang_thai == ThanhToan.TrangThai.CHO_XU_LY and thanh_toan.ma_giao_dich:
+            DichVuPayOS.doi_soat(thanh_toan.ma_giao_dich)
+            thanh_toan.refresh_from_db()
+        return Response({"id": thanh_toan.id, "trang_thai": thanh_toan.trang_thai, "so_tien": float(thanh_toan.so_tien)})
 
     @action(detail=False, methods=["get"], url_path="payos/return", permission_classes=[AllowAny], authentication_classes=[])
     def payos_return(self, request):

@@ -79,8 +79,8 @@ class DichVuPayOS:
         return ket_qua.get("data") or {}
 
     @classmethod
-    def tao_link(cls, *, thanh_toan: ThanhToan, het_han_luc: datetime) -> str:
-        """Tạo link thanh toán mới, trả về checkoutUrl. Link cũ đang chờ (nếu có) bị huỷ để khách không trả nhầm."""
+    def tao_link(cls, *, thanh_toan: ThanhToan, het_han_luc: datetime) -> Dict[str, Any]:
+        """Tạo link thanh toán mới, trả về data của PayOS (checkoutUrl, qrCode...). Link cũ đang chờ bị huỷ để khách không trả nhầm."""
         khoa = cls._khoa_checksum()
         if thanh_toan.ma_giao_dich:
             trang_thai = cls.doi_soat(thanh_toan.ma_giao_dich)
@@ -115,7 +115,23 @@ class DichVuPayOS:
         ket_qua = cls._goi_api("POST", "/v2/payment-requests", du_lieu)
         thanh_toan.ma_giao_dich = str(ma_don)
         thanh_toan.save(update_fields=["ma_giao_dich", "cap_nhat_luc"])
-        return ket_qua["checkoutUrl"]
+        return ket_qua
+
+    @classmethod
+    def huy_cho(cls, thanh_toan: ThanhToan) -> None:
+        """Huỷ link PayOS đang chờ (khách chuyển sang trả cách khác). Đối soát trước để không huỷ khoản đã trả."""
+        if thanh_toan.ma_giao_dich:
+            if cls.doi_soat(thanh_toan.ma_giao_dich) == "PAID":
+                return
+            try:
+                cls._goi_api("POST", f"/v2/payment-requests/{thanh_toan.ma_giao_dich}/cancel",
+                             {"cancellationReason": "Khách trả bằng hình thức khác"})
+            except cls.LoiCong:
+                # Chưa huỷ được ở PayOS thì giữ "chờ xử lý": khách lỡ quét mã cũ, webhook vẫn ghi nhận được tiền.
+                return
+        ThanhToan.objects.filter(pk=thanh_toan.pk, trang_thai=ThanhToan.TrangThai.CHO_XU_LY).update(
+            trang_thai=ThanhToan.TrangThai.THAT_BAI, cap_nhat_luc=timezone.now()
+        )
 
     @classmethod
     def xu_ly_webhook(cls, body: Dict[str, Any]) -> bool:
@@ -171,7 +187,9 @@ class DichVuPayOS:
                     db.phien_ban += 1
                     db.save(update_fields=["trang_thai", "trang_thai_coc", "thanh_toan_coc_luc", "phien_ban", "cap_nhat_luc"])
 
-                elif thanh_toan.loai_thanh_toan == ThanhToan.LoaiThanhToan.DON_HANG and thanh_toan.don_hang:
+                # Hoá đơn tại bàn: trạng thái bếp do checkout tại quầy đẩy tiếp, ở đây chỉ ghi nhận tiền.
+                elif (thanh_toan.loai_thanh_toan == ThanhToan.LoaiThanhToan.DON_HANG and thanh_toan.don_hang
+                      and not thanh_toan.don_hang.phien_phuc_vu_id):
                     dh = thanh_toan.don_hang
                     dh.trang_thai = DonHang.TrangThai.DA_XAC_NHAN
                     dh.save(update_fields=["trang_thai", "cap_nhat_luc"])

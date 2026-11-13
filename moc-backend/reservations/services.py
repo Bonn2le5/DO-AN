@@ -442,6 +442,18 @@ class DichVuPhienPhucVu:
         da_gui_bep = don_hang.trang_thai != DonHang.TrangThai.CHO_TIEP_NHAN
         if da_gui_bep and not cls.la_quan_ly(nguoi_dung):
             # Nhân viên chỉ được gọi thêm; bớt món bếp đã nhận cần quản lý chi nhánh.
+        # Mã QR PayOS đang chờ ghi số tiền cũ nên phải huỷ trước khi sửa món; khách đã trả thì hoá đơn chốt.
+        from payments.models import ThanhToan
+        from payments.services import DichVuPayOS
+        cua_don = ThanhToan.objects.filter(don_hang=don_hang)
+        cho_payos = cua_don.filter(phuong_thuc="payos", trang_thai=ThanhToan.TrangThai.CHO_XU_LY)
+        for tt in cho_payos.all():  # all(): không nạp cache vào cho_payos, để .exists() bên dưới hỏi lại DB
+            DichVuPayOS.huy_cho(tt)
+        if cua_don.filter(trang_thai=ThanhToan.TrangThai.THANH_CONG).exists():
+            raise ValidationError({"payment": "Khách đã thanh toán hoá đơn này, không sửa món được nữa. Hãy hoàn tất bàn."})
+        if cho_payos.exists():
+            raise ValidationError({"payment": "Chưa huỷ được mã PayOS đang chờ, vui lòng thử lại."})
+
             cu, moi = {}, {}
             for line in don_hang.danh_sach_mon.all():
                 cu[line.mon_an_id] = cu.get(line.mon_an_id, 0) + line.so_luong
@@ -539,6 +551,23 @@ class DichVuPhienPhucVu:
         # Checkout is the cashier's final action. Advance the order through its
         # normal kitchen states so the existing inventory and history hooks run.
         next_states = {
+
+        # Mã QR PayOS đang chờ: hỏi lại PayOS (phòng webhook chưa tới). Trả bằng cách khác thì huỷ mã
+        # để khách không trả hai lần; khách đã quét trả rồi thì không cho thu tiền mặt nữa.
+        from payments.services import DichVuPayOS
+        cho_payos = list(ThanhToan.objects.filter(
+            don_hang=don_hang, phuong_thuc="payos", trang_thai=ThanhToan.TrangThai.CHO_XU_LY
+        ))
+        for tt in cho_payos:
+            if phuong_thuc == "payos":
+                DichVuPayOS.doi_soat(tt.ma_giao_dich)
+            else:
+                DichVuPayOS.huy_cho(tt)
+        if phuong_thuc != "payos" and ThanhToan.objects.filter(
+            don_hang=don_hang, phuong_thuc="payos", trang_thai=ThanhToan.TrangThai.THANH_CONG
+        ).exists():
+            raise ValidationError({"payment": "Khách đã thanh toán qua PayOS. Chọn PayOS để hoàn tất, không thu thêm."})
+
             DonHang.TrangThai.CHO_TIEP_NHAN: DonHang.TrangThai.DA_XAC_NHAN,
             DonHang.TrangThai.DA_XAC_NHAN: DonHang.TrangThai.DANG_CHE_BIEN,
             DonHang.TrangThai.DANG_CHE_BIEN: DonHang.TrangThai.SAN_SANG,
@@ -560,9 +589,9 @@ class DichVuPhienPhucVu:
             raise ValidationError({"payment": "Khoản thanh toán thành công không khớp số tiền cần thu."})
         if not payment and can_thu:
             if phuong_thuc not in {"tien_mat", "chuyen_khoan"}:
-                raise ValidationError({"payment": "Thanh toán PayOS cần được xác nhận thành công trước khi checkout."})
+                raise ValidationError({"payment": "Khách chưa thanh toán xong qua PayOS."})
             payment = ThanhToan.objects.select_for_update().filter(
-                don_hang=don_hang, trang_thai=ThanhToan.TrangThai.CHO_XU_LY
+                don_hang=don_hang, phuong_thuc=phuong_thuc, trang_thai=ThanhToan.TrangThai.CHO_XU_LY
             ).first()
             if payment and payment.so_tien != can_thu:
                 raise ValidationError({"payment": "Hóa đơn thanh toán đang chờ có số tiền không khớp."})
