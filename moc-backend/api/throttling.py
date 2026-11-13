@@ -125,14 +125,24 @@ class GioiHanNhapOtpIP(_TheoIP):
     scope = "nhap_otp_ip"
 
 
-class GioiHanQuenMatKhau(_TheoEmail):
-    scope = "gui_otp"
-    truong_email = "tai_khoan"  # quen_mat_khau tìm tài khoản theo request.data["tai_khoan"] (email hoặc SĐT)
-
-
-class GioiHanDatLaiMatKhau(_TheoEmail):
-    scope = "nhap_otp"
+class _TheoTaiKhoanQuenMatKhau(_TheoEmail):
+    """Đếm theo tài khoản tìm được, không theo chuỗi gõ vào: "0938261105", "0938 261 105"
+    và email của cùng tài khoản dùng chung một bộ đếm, đổi cách viết không lách được giới hạn."""
     truong_email = "tai_khoan"
+
+    def dinh_danh(self, request):
+        from accounts.views import tim_tai_khoan
+        data = request.data if hasattr(request.data, "get") else {}
+        nguoi_dung, _ = tim_tai_khoan(data.get("tai_khoan"))
+        return f"nd{nguoi_dung.pk}" if nguoi_dung else super().dinh_danh(request)
+
+
+class GioiHanQuenMatKhau(_TheoTaiKhoanQuenMatKhau):
+    scope = "gui_otp"
+
+
+class GioiHanDatLaiMatKhau(_TheoTaiKhoanQuenMatKhau):
+    scope = "nhap_otp"
 
 
 class GioiHanDoiMatKhau(_GioiHanCoBan):

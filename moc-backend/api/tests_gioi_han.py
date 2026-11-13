@@ -77,6 +77,17 @@ class GioiHanTanSuatTest(TestCase):
         for _ in range(30):
             self.assertNotEqual(self._dang_nhap().status_code, 429)
 
+    @override_settings(GIOI_HAN_TAN_SUAT={"gui_otp": "5/h"})
+    def test_quen_mat_khau_doi_cach_viet_khong_lach_duoc_gioi_han(self):
+        NguoiDung.objects.filter(pk=self.user.pk).update(so_dien_thoai="0938261105")
+        cach_viet = ["0938261105", "0938 261 105", "0938.261.105", "KH@moc.vn", " 0938-261-105 "]
+        for i, tk in enumerate(cach_viet):
+            r = self.client.post("/api/xac-thuc/quen-mat-khau/", {"tai_khoan": tk}, format="json",
+                                 REMOTE_ADDR=f"10.0.3.{i}")
+            self.assertEqual(r.status_code, 200)
+        r = self.client.post("/api/xac-thuc/quen-mat-khau/", {"tai_khoan": "0938  261105"}, format="json",
+                             REMOTE_ADDR="10.0.3.9")
+        self.assertEqual(r.status_code, 429)
 
 class ThamSoSaiKieuTest(TestCase):
     def test_tham_so_so_nguyen_sai_tra_400(self):
@@ -141,3 +152,4 @@ class DoMaOtpTest(TestCase):
     def test_du_lieu_sai_kieu_khong_loi_500(self):
         for body in ({"email": ["moi@moc.vn"], "ma_xac_thuc": 123456}, {"email": 1, "ma_xac_thuc": None}):
             self.assertIn(self.client.post(self.URL, body, format="json").status_code, (400, 404))
+
