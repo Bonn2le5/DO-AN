@@ -310,6 +310,7 @@ GIOI_HAN_TAN_SUAT = {
     "dat_lai_mat_khau": "5/m",        # nhập mã đặt lại mật khẩu của một tài khoản
     "dang_nhap_admin": "10/h",        # trang đăng nhập /admin của Django (không đi qua DRF)
     "tro_ly_ai": env("TRO_LY_AI_TOAN_CUC", default="300/h"),  # tổng lần gọi AI của cả hệ thống (chi phí)
+    "tro_ly_ai_tai_khoan": env("TRO_LY_AI_MOI_TAI_KHOAN", default="30/h"),  # một tài khoản, nhỏ hơn trần chung
 }
 if TESTING:
     # Test chạy hàng trăm request liên tiếp: tắt giới hạn, test riêng bật lại bằng override_settings.

@@ -383,6 +383,25 @@ class KiemThuTroLyGoiMon(DuLieuThucDonMau, TestCase):
         r = self._hoi(yeu_cau="Lẩu nướng", so_nguoi=2, goi_y_nhanh="lau_nuong")  # nút nhanh không tốn AI
         self.assertEqual(r.status_code, 200)
 
+    @override_settings(GIOI_HAN_TAN_SUAT={"tro_ly_ai_tai_khoan": "2/h", "tro_ly_ai": "100/h"})
+    def test_mot_tai_khoan_khong_dung_het_tran_chung(self):
+        khach2 = NguoiDung.objects.create_user(
+            username="khach_thu3", email="khach_thu3@moc.vn", so_dien_thoai="0901112228", password="MatKhau@123"
+        )
+        with self._ai(people=2):
+            ma = [self._hoi(yeu_cau="lẩu nướng 2 người").status_code for _ in range(3)]
+            self.client.force_authenticate(khach2)
+            ma.append(self._hoi(yeu_cau="lẩu nướng 2 người").status_code)
+        self.assertEqual(ma, [200, 200, 429, 200])  # khách 1 hết lượt, khách 2 vẫn hỏi được
+
+    @override_settings(GIOI_HAN_TAN_SUAT={"tro_ly_ai_tai_khoan": "1/h", "tro_ly_ai": "1/h"})
+    def test_ai_chua_cau_hinh_khong_tinh_luot(self):
+        with mock.patch.dict(os.environ, {"OPENAI_MODEL": ""}):
+            ma = [self._hoi(yeu_cau="lẩu nướng 2 người").status_code for _ in range(3)]
+        self.assertEqual(ma, [503, 503, 503])
+        with self._ai(people=2):
+            self.assertEqual(self._hoi(yeu_cau="lẩu nướng 2 người").status_code, 200)
+
     def test_tu_choi_yeu_cau_rong(self):
         r = self._hoi(yeu_cau="")
         self.assertEqual(r.status_code, 400)

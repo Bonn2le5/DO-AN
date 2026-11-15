@@ -11,7 +11,7 @@ from foods.models import MonAn
 from .models import TuongTacMonAn, GoiYMonAn, SuKienGoiY
 from .serializers import TuongTacMonAnSerializer, GoiYMonAnSerializer, SuKienGoiYSerializer
 from .services import DichVuGoiY
-from .tro_ly import GOI_Y_NHANH, TroLyKhongSanSang, goi_y_thuc_don
+from .tro_ly import GOI_Y_NHANH, TroLyKhongSanSang, co_dung_llm, goi_y_thuc_don
 
 
 class TuongTacMonAnViewSet(viewsets.ModelViewSet):
@@ -192,6 +192,15 @@ class GioiHanTroLy(ChoQuaKhiCacheLoi, SimpleRateThrottle):
         return self.cache_format % {"scope": self.scope, "ident": dinh_danh}
 
 
+class HanMucAITaiKhoan(_GioiHanCoBan):
+    """Hạn mức gọi AI của MỘT tài khoản (GIOI_HAN_TAN_SUAT["tro_ly_ai_tai_khoan"]), nhỏ hơn nhiều so với
+    trần chung: một tài khoản không thể tự mình dùng hết ngân sách AI của cả hệ thống."""
+    scope = "tro_ly_ai_tai_khoan"
+
+    def dinh_danh(self, request):
+        return f"nd{request.user.pk}"
+
+
 class NganSachAIToanCuc(_GioiHanCoBan):
     """Trần chung cho mọi lần gọi AI thật (GIOI_HAN_TAN_SUAT["tro_ly_ai"]), một bộ đếm cho cả hệ thống:
     nhiều tài khoản/IP cùng gọi cũng không vượt được chi phí đặt trước."""
@@ -220,9 +229,12 @@ class TroLyGoiMonView(APIView):
         if not (d.get("goi_y_nhanh") and not d["dieu_chinh"]):
             if not request.user.is_authenticated:
                 raise NotAuthenticated("Bạn đăng nhập để hỏi trợ lý AI nhé.")
-            ngan_sach = NganSachAIToanCuc()
-            if not ngan_sach.allow_request(request, self):
-                self.throttled(request, ngan_sach.wait())
+            # Hạn mức tài khoản trước, trần chung sau: tài khoản đã hết lượt không bị trừ vào trần chung.
+            # AI chưa cấu hình thì trả 503 ngay, không tính lượt.
+            if co_dung_llm():
+                for gioi_han in (HanMucAITaiKhoan(), NganSachAIToanCuc()):
+                    if not gioi_han.allow_request(request, self):
+                        self.throttled(request, gioi_han.wait())
         try:
             return Response(goi_y_thuc_don(
                 d["yeu_cau"], d["dieu_chinh"], request.user, d.get("so_nguoi"), d.get("goi_y_nhanh"),
