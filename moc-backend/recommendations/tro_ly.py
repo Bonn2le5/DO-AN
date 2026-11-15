@@ -271,13 +271,26 @@ def _chu_day_du(mon: MonAn) -> str:
 
 
 def _vi_pham(mon: MonAn, rang_buoc: List[str]) -> bool:
-    """Tránh: loại nếu TÊN/thẻ món có thành phần đó. Dị ứng: loại nếu cả mô tả/nguyên liệu có."""
+    """Tránh: loại nếu TÊN/thẻ món có thành phần đó. Dị ứng: loại nếu cả mô tả/nguyên liệu có.
+
+    Riêng "cay" xét thêm mức cay (do_cay) và NGUYÊN LIỆU của món (ớt, sa tế...): món ướp sẵn ớt
+    mà tên không ghi "cay" vẫn bị loại. Không xét mô tả: mô tả kiểu "Sốt BBQ/Muối Ớt/Ướp Sả" là
+    khách tự chọn sốt, món đó vẫn ăn được không cay.
+    """
     for rb in rang_buoc:
         loai, x = _tach_rang_buoc(rb)
-        if loai and _chua_tu(_chu_day_du(mon) if loai == "di_ung" else _chu_ten(mon),
-                             TU_THANH_PHAN.get(x, [x.replace("_", " ")])):
+        if not loai:
+            continue
+        tu = TU_THANH_PHAN.get(x, [x.replace("_", " ")])
+        if x == "cay" and ((mon.do_cay or 0) > 0 or _chua_tu(_chu_nguyen_lieu(mon), tu)):
+            return True
+        if _chua_tu(_chu_day_du(mon) if loai == "di_ung" else _chu_ten(mon), tu):
             return True
     return False
+
+
+def _chu_nguyen_lieu(mon: MonAn) -> str:
+    return " ".join(x.ten for x in mon.nguyen_lieu.all()).lower()
 
 
 TU_DONG_VAT = TU_THANH_PHAN["thit"] + TU_THANH_PHAN["hai_san"] + TU_THANH_PHAN["noi_tang"] + [

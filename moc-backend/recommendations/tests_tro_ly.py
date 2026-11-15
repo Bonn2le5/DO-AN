@@ -336,6 +336,8 @@ class KiemThuTroLyGoiMon(DuLieuThucDonMau, TestCase):
         with self._ai(people=2, constraints=["khong_cay"]):
             r = self._hoi(yeu_cau="lẩu nướng 2 người không cay")
         da_chon = set(self._mon(r))
+        # Tôm nướng có nguyên liệu Ớt (tên không ghi "cay"): không được vào thực đơn lẫn món dự phòng
+        self.assertFalse(da_chon & {self.lau_mala.id, self.tom.id})
         for g in r.data["nhom_mon"]:
             self.assertLessEqual(len(g["du_phong"]), 3)
             for m in g["du_phong"]:
