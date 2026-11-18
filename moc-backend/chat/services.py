@@ -69,6 +69,17 @@ def chi_nhanh_mac_dinh(user):
     return upcoming or qs.order_by("-ngay_dat", "-gio_bat_dau").values_list("chi_nhanh_id", flat=True).first()
 
 
+def sender_role(user):
+    """Vai trò hiển thị cạnh tin nhắn, để nhân viên biết ai trong nhà hàng đã trả lời."""
+    if is_admin_user(user):
+        return "admin"
+    if getattr(user, "la_quan_ly_chi_nhanh", False):
+        return "quan_ly"
+    if getattr(user, "la_nhan_vien_nha_hang", False):
+        return "nhan_vien"
+    return "khach"
+
+
 def serialize_message(msg, client_id=None):
     u = msg.nguoi_gui
     return {
@@ -77,6 +88,7 @@ def serialize_message(msg, client_id=None):
         "sender_id": u.id,
         "sender_name": getattr(u, "ho_ten", None) or u.get_full_name() or u.username,
         "is_staff": is_staff_user(u),
+        "sender_role": sender_role(u),
         "content": msg.noi_dung,
         "message_type": msg.loai_tin_nhan,
         "is_read": msg.da_doc,

@@ -9,6 +9,7 @@ import { MessageCircle, X, Send, LogIn } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
 import { useWebSocketChat } from "@/hooks/useWebSocketChat";
+import MessageMeta from "./MessageMeta";
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
@@ -132,15 +133,7 @@ export default function ChatWidget() {
                           </div>
                         )}
                         <div>{m.content}</div>
-                        <div
-                          className={
-                            isMe
-                              ? "text-[9.5px] text-white/70 mt-1 text-right"
-                              : "text-[9.5px] text-muted mt-1"
-                          }
-                        >
-                          {m.time} {isMe && (m.isRead ? "✓✓" : "✓")}
-                        </div>
+                        <MessageMeta time={m.time} mine={isMe} isRead={m.isRead} className={isMe ? "text-white/70" : "text-muted justify-start"} />
                       </div>
                     </div>
                   );

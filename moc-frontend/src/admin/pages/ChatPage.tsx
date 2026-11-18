@@ -11,6 +11,10 @@ import { useAsync } from "@/hooks/useAsync";
 import { getTableManagementBranches } from "../api/admin.api";
 import { fmtDateTime } from "../lib";
 import { cn } from "@/lib/utils";
+import MessageMeta from "@/components/chat/MessageMeta";
+
+/** Nhãn vai trò cho tin của người khác bên nhà hàng. */
+const ROLE_LABEL: Record<string, string> = { admin: "Admin tổng", quan_ly: "Quản lý chi nhánh", nhan_vien: "Nhân viên" };
 
 export default function ChatPage() {
   const can = useCan();
@@ -212,35 +216,33 @@ export default function ChatPage() {
                   Đang tải lịch sử…
                 </div>
               )}
-              {messages.map((m) => (
-                <div
-                  key={m.id}
-                  className={cn(
-                    "flex",
-                    m.from === "me" ? "justify-end" : "justify-start",
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "max-w-[78%] rounded-2xl px-3.5 py-2.5 text-sm",
-                      m.from === "me"
-                        ? "bg-primary text-white rounded-br-sm"
-                        : "bg-white border border-black/[0.07] rounded-bl-sm",
+              {messages.map((m) => {
+                // Ba loại tin: của mình, của người khác bên nhà hàng (admin/quản lý/nhân viên), của khách.
+                // Tin nhà hàng luôn nằm bên phải để không bị nhầm là khách tự nói.
+                const mine = m.from === "me";
+                const teammate = !mine && m.isStaff;
+                return (
+                  <div key={m.id} className={cn("flex flex-col", mine || teammate ? "items-end" : "items-start")}>
+                    {teammate && (
+                      <span className="mb-1 mr-1 text-[11px] text-muted">
+                        {m.senderName}
+                        {ROLE_LABEL[m.senderRole ?? ""] && <span className="ml-1.5 rounded bg-dark/80 px-1.5 py-0.5 font-medium text-white">{ROLE_LABEL[m.senderRole ?? ""]}</span>}
+                      </span>
                     )}
-                  >
-                    {m.content}
                     <div
                       className={cn(
-                        "text-[10px] mt-1",
-                        m.from === "me" ? "text-white/70" : "text-muted",
+                        "max-w-[78%] rounded-2xl px-3.5 py-2.5 text-sm",
+                        mine && "bg-primary text-white rounded-br-sm",
+                        teammate && "bg-dark text-white rounded-br-sm",
+                        !mine && !teammate && "bg-white border border-black/[0.07] rounded-bl-sm",
                       )}
                     >
-                      {fmtDateTime(m.createdAt)}{" "}
-                      {m.from === "me" && (m.isRead ? "✓✓" : "✓")}
+                      {m.content}
+                      <MessageMeta time={fmtDateTime(m.createdAt)} mine={mine} isRead={m.isRead} className={mine || teammate ? "text-white/70" : "text-muted justify-start"} />
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {isTyping && (
                 <div className="text-xs text-muted italic">
                   {typingUser ?? active.customerName} đang nhập…

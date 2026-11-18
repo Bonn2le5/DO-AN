@@ -97,6 +97,11 @@ class ChatTheoChiNhanhTest(TestCase):
         r = self.nv_a.post(f"/api/hoi-thoai/{room['id']}/tin-nhan/", {"noi_dung": "Chào anh, bàn đã giữ."}, format="json")
         self.assertEqual(r.status_code, 201, r.content)
         self.assertTrue(r.json()["is_staff"])
+        self.assertEqual(r.json()["sender_role"], "nhan_vien")
+        r = self.admin.post(f"/api/hoi-thoai/{room['id']}/tin-nhan/", {"noi_dung": "Admin hỏi thêm."}, format="json")
+        self.assertEqual(r.json()["sender_role"], "admin")
+        roles = [m["sender_role"] for m in self.nv_a.get(f"/api/hoi-thoai/{room['id']}/tin-nhan/").json()]
+        self.assertEqual(roles, ["nhan_vien", "admin"])
 
         # Chỉ admin chuyển hội thoại sang chi nhánh khác.
         self.assertEqual(self.nv_a.post(f"/api/hoi-thoai/{room['id']}/chuyen-chi-nhanh/", {"chi_nhanh": self.b.id}, format="json").status_code, 403)
