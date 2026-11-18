@@ -9,7 +9,7 @@ from .models import HoiThoai, TinNhan
 from .serializers import HoiThoaiSerializer, DanhSachHoiThoaiSerializer, TinNhanSerializer
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from .services import (
-    broadcast_message, broadcast_read, chi_nhanh_mac_dinh, is_admin_user, is_staff_user,
+    broadcast_message, broadcast_read, broadcast_reassigned, chi_nhanh_mac_dinh, is_admin_user, is_staff_user,
     save_message, scope_rooms, serialize_message,
 )
 
@@ -63,6 +63,7 @@ class HoiThoaiViewSet(viewsets.ModelViewSet):
             raise ValidationError({"chi_nhanh": "Chi nhánh không tồn tại hoặc đã ngừng hoạt động."})
         room.chi_nhanh_id = branch_id
         room.save(update_fields=["chi_nhanh", "cap_nhat_luc"])
+        broadcast_reassigned(room)
         return Response(HoiThoaiSerializer(room).data)
 
     @action(detail=False, methods=["get"])

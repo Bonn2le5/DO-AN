@@ -251,3 +251,50 @@ class ChatRESTApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["content"], "Alo alo")
+
+
+
+class ChatQuyenSauKhiChuyenChiNhanhTest(TransactionTestCase):
+    """Nhân viên đang mở phòng chat phải bị ngắt khi admin chuyển hội thoại sang chi nhánh khác."""
+
+    def setUp(self):
+        from accounts.models import NguoiDung, VaiTro
+        from branches.models import ChiNhanh
+        self.a = ChiNhanh.objects.create(ten="A", dia_chi="a")
+        self.b = ChiNhanh.objects.create(ten="B", dia_chi="b")
+        khach = NguoiDung.objects.create_user(username="k", thu_dien_tu="k@x.vn", email="k@x.vn", password="Passw0rd!x")
+        self.nv = NguoiDung.objects.create_user(username="nv", thu_dien_tu="nv@x.vn", email="nv@x.vn", password="Passw0rd!x")
+        self.nv.danh_sach_vai_tro.add(VaiTro.objects.get_or_create(ten="nhan_vien_ban_hang")[0])
+        self.nv.chi_nhanh_quan_ly = self.a
+        self.nv.save()
+        self.room = HoiThoai.objects.create(khach_hang=khach, chi_nhanh=self.a)
+
+    async def _connect(self):
+        token = str(AccessToken.for_user(self.nv))
+        com = WebsocketCommunicator(application, f"/ws/chat/{self.room.id}/?token={token}")
+        connected, _ = await com.connect()
+        self.assertTrue(connected)
+        self.assertEqual((await com.receive_json_from())["type"], "connection_established")
+        return com
+
+    async def test_bi_ngat_ngay_khi_admin_chuyen_chi_nhanh(self):
+        from channels.db import database_sync_to_async
+        from chat.services import broadcast_reassigned
+        com = await self._connect()
+
+        def chuyen():
+            HoiThoai.objects.filter(pk=self.room.pk).update(chi_nhanh=self.b)
+            self.room.refresh_from_db()
+            broadcast_reassigned(self.room)
+        await database_sync_to_async(chuyen)()
+        self.assertEqual((await com.receive_json_from())["type"], "access_revoked")
+        self.assertEqual((await com.receive_output())["type"], "websocket.close")
+
+    async def test_khong_gui_duoc_tin_khi_da_mat_quyen(self):
+        from channels.db import database_sync_to_async
+        com = await self._connect()
+        # Đổi chi nhánh trực tiếp trong DB, không phát sự kiện: lần gửi tiếp theo vẫn phải bị chặn.
+        await database_sync_to_async(lambda: HoiThoai.objects.filter(pk=self.room.pk).update(chi_nhanh=self.b))()
+        await com.send_json_to({"action": "send_message", "content": "Còn gửi được không?"})
+        self.assertEqual((await com.receive_json_from())["type"], "access_revoked")
+        self.assertEqual(await database_sync_to_async(lambda: TinNhan.objects.filter(hoi_thoai=self.room).count())(), 0)

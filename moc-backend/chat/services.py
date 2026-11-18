@@ -120,6 +120,11 @@ def broadcast_message(room, payload):
         _gui_nhom(nhom, inbox)
 
 
+def broadcast_reassigned(room):
+    """Báo cho các kết nối đang mở phòng này: consumer tự kiểm tra lại quyền và ngắt người mất quyền."""
+    _gui_nhom(f"chat_{room.id}", {"type": "room_reassigned", "conversation_id": room.id, "branch_id": room.chi_nhanh_id})
+
+
 def broadcast_read(room, reader, last_id=None):
     _gui_nhom(f"chat_{room.id}", {
         "type": "chat_read_receipt", "conversation_id": room.id,
