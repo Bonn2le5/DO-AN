@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Newspaper } from "lucide-react";
 import SectionHeading from "@/components/ui/SectionHeading";
-import PlaceholderMedia from "@/components/ui/PlaceholderMedia";
+import FoodImage from "@/components/food/FoodImage";
 import { useAsync } from "@/hooks/useAsync";
 import { getBlogPosts } from "@/api/blog.api";
 
@@ -34,10 +34,12 @@ export default function BlogPreviewSection() {
                 className="card overflow-hidden hover:shadow-lift transition-shadow"
               >
                 <div className="aspect-16/10">
-                  <PlaceholderMedia
+                  <FoodImage
+                    src={post.anhDaiDien}
+                    alt={post.tieuDe}
                     tone={post.phongCachHienThi}
                     icon={Newspaper}
-                    className="w-full h-full"
+                    className="w-full h-full object-cover"
                     iconClassName="w-8 h-8"
                   />
                 </div>

@@ -23,11 +23,13 @@ class TinNhanSerializer(serializers.ModelSerializer):
 
 class HoiThoaiSerializer(serializers.ModelSerializer):
     customer_name = serializers.SerializerMethodField()
+    ten_chi_nhanh = serializers.CharField(source="chi_nhanh.ten", read_only=True, default="")
 
     class Meta:
         model = HoiThoai
         fields = "__all__"
-        read_only_fields = ("khach_hang", "nhan_vien")
+        # Chi nhánh chỉ đổi qua thao tác "chuyển chi nhánh" của admin.
+        read_only_fields = ("khach_hang", "nhan_vien", "chi_nhanh")
 
     def get_customer_name(self, obj):
         return obj.khach_hang.get_full_name() or obj.khach_hang.username
@@ -37,11 +39,12 @@ class DanhSachHoiThoaiSerializer(serializers.ModelSerializer):
     customer_name = serializers.SerializerMethodField()
     last_message = serializers.CharField(read_only=True, default="")
     unread_count = serializers.IntegerField(read_only=True)
+    ten_chi_nhanh = serializers.CharField(source="chi_nhanh.ten", read_only=True, default="")
 
     class Meta:
         model = HoiThoai
         fields = ("id", "customer_name", "trang_thai", "tin_nhan_cuoi_luc",
-                  "last_message", "unread_count")
+                  "last_message", "unread_count", "chi_nhanh", "ten_chi_nhanh")
 
     def get_customer_name(self, obj):
         return obj.khach_hang.get_full_name() or obj.khach_hang.username

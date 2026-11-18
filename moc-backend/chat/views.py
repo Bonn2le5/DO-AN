@@ -7,8 +7,10 @@ from api.permissions import LaNhanVienNhaHang
 from rest_framework.response import Response
 from .models import HoiThoai, TinNhan
 from .serializers import HoiThoaiSerializer, DanhSachHoiThoaiSerializer, TinNhanSerializer
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from .services import (
-    broadcast_message, broadcast_read, save_message, serialize_message, is_staff_user,
+    broadcast_message, broadcast_read, broadcast_reassigned, chi_nhanh_mac_dinh, is_admin_user, is_staff_user,
+    save_message, scope_rooms, serialize_message,
 )
 
 
@@ -24,10 +26,9 @@ class HoiThoaiViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
-        q = HoiThoai.objects.select_related("khach_hang")
-        user = self.request.user
-        if not is_staff_user(user):
-            return q.filter(khach_hang=user)
+        q = scope_rooms(HoiThoai.objects.select_related("khach_hang", "chi_nhanh"), self.request.user)
+        if not is_staff_user(self.request.user):
+            return q
         if self.action == "list":
             last = TinNhan.objects.filter(hoi_thoai=OuterRef("pk")).order_by("-id")
             q = q.annotate(
@@ -39,8 +40,31 @@ class HoiThoaiViewSet(viewsets.ModelViewSet):
             ).order_by(F("tin_nhan_cuoi_luc").desc(nulls_last=True))
         return q
 
+    def _requested_branch(self, request):
+        from branches.models import ChiNhanh
+        raw = request.query_params.get("chi_nhanh") or request.data.get("chi_nhanh")
+        if raw in (None, "") or not str(raw).isdigit():
+            return None
+        return ChiNhanh.objects.filter(pk=raw, con_hoat_dong=True).values_list("id", flat=True).first()
+
     def perform_create(self, serializer):
-        serializer.save(khach_hang=self.request.user)
+        user = self.request.user
+        serializer.save(khach_hang=user, chi_nhanh_id=self._requested_branch(self.request) or chi_nhanh_mac_dinh(user))
+
+    @action(detail=True, methods=["post"], url_path="chuyen-chi-nhanh")
+    def chuyen_chi_nhanh(self, request, pk=None):
+        """Admin giao hội thoại cho một chi nhánh (hoặc bỏ trống để admin tự trả lời)."""
+        if not is_admin_user(request.user):
+            raise PermissionDenied("Chỉ quản trị viên mới chuyển hội thoại giữa các chi nhánh.")
+        room = self.get_object()
+        raw = request.data.get("chi_nhanh")
+        branch_id = self._requested_branch(request)
+        if raw not in (None, "") and not branch_id:
+            raise ValidationError({"chi_nhanh": "Chi nhánh không tồn tại hoặc đã ngừng hoạt động."})
+        room.chi_nhanh_id = branch_id
+        room.save(update_fields=["chi_nhanh", "cap_nhat_luc"])
+        broadcast_reassigned(room)
+        return Response(HoiThoaiSerializer(room).data)
 
     @action(detail=False, methods=["get"])
     def active(self, request):
@@ -58,8 +82,16 @@ class HoiThoaiViewSet(viewsets.ModelViewSet):
             .order_by("-cap_nhat_luc")
             .first()
         )
+        requested = self._requested_branch(request)
         if not room:
-            room = HoiThoai.objects.create(khach_hang=user, trang_thai=HoiThoai.TrangThai.MO)
+            room = HoiThoai.objects.create(
+                khach_hang=user, trang_thai=HoiThoai.TrangThai.MO,
+                chi_nhanh_id=requested or chi_nhanh_mac_dinh(user),
+            )
+        elif room.chi_nhanh_id is None and (requested or chi_nhanh_mac_dinh(user)):
+            # Hội thoại cũ chưa gắn chi nhánh: gắn khi biết khách liên quan tới chi nhánh nào.
+            room.chi_nhanh_id = requested or chi_nhanh_mac_dinh(user)
+            room.save(update_fields=["chi_nhanh", "cap_nhat_luc"])
         return Response(self.get_serializer(room).data)
 
     @action(detail=True, methods=["post"])

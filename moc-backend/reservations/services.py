@@ -172,10 +172,14 @@ class DichVuDatBan:
 
         # Món phải còn phục vụ; tồn kho hiện tại chỉ có ý nghĩa với đặt bàn trong ngày.
         dat_trong_ngay = ngay == timezone.localdate(timezone=ZoneInfo("Asia/Ho_Chi_Minh"))
+        from foods.services import mon_tam_het_ids
+        tam_het = mon_tam_het_ids(chi_nhanh.pk) if dat_trong_ngay and danh_sach_item else set()
         for item in danh_sach_item:
             mon = item["mon_an"]
             if not mon.hien_thi or not mon.con_hang:
                 raise ValidationError({"danh_sach_mon": f"Món {mon.ten} hiện không phục vụ."})
+            if dat_trong_ngay and mon.id in tam_het:
+                raise ValidationError({"danh_sach_mon": f"Món {mon.ten} đã hết hôm nay ở chi nhánh này."})
             if dat_trong_ngay and mon_khong_du_ton(mon, item["so_luong"]):
                 raise ValidationError({"danh_sach_mon": f"Món {mon.ten} chỉ còn {mon.ton_kho_cache} phần hôm nay."})
 
@@ -311,6 +315,21 @@ class DichVuPhienPhucVu:
         return don
 
     @staticmethod
+    def _chan_mon_tam_het(chi_nhanh_id, danh_sach_item, so_luong_cu=None):
+        """Không cho gọi thêm món đang tạm hết ở chi nhánh hôm nay (phần đã gọi trước đó vẫn giữ)."""
+        from foods.services import mon_tam_het_ids
+        het = mon_tam_het_ids(chi_nhanh_id)
+        if not het:
+            return
+        moi = {}
+        for item in danh_sach_item:
+            moi[item["mon_an"].id] = moi.get(item["mon_an"].id, 0) + item["so_luong"]
+        cu = so_luong_cu or {}
+        ten = [item["mon_an"].ten for item in danh_sach_item if item["mon_an"].id in het and moi[item["mon_an"].id] > cu.get(item["mon_an"].id, 0)]
+        if ten:
+            raise ValidationError({"danh_sach_mon": f"{', '.join(dict.fromkeys(ten))} đang tạm hết ở chi nhánh này."})
+
+    @staticmethod
     def _xoa_don_chua_gui_bep(don_hang):
         """Đơn chưa gửi bếp không có giá trị lưu trữ: trả lại tồn món rồi xoá."""
         for line in don_hang.danh_sach_mon.select_related("mon_an"):
@@ -404,6 +423,7 @@ class DichVuPhienPhucVu:
             raise ValidationError({"session": "Chỉ có thể thêm món khi phiên đang phục vụ."})
         if not danh_sach_item:
             return phien
+        cls._chan_mon_tam_het(phien.chi_nhanh_id, danh_sach_item)
         from orders.services import DichVuDonHang
         don_hang = cls._don_cua_phien(phien, nguoi_dung, tao_moi=True)
         DichVuDonHang.them_mon_tai_cho(don_hang=don_hang, danh_sach_item=danh_sach_item, nguoi_dung=nguoi_dung)
@@ -441,6 +461,10 @@ class DichVuPhienPhucVu:
             don_hang = cls._don_cua_phien(phien, nguoi_dung, tao_moi=True)
         if don_hang.trang_thai in DichVuDonHang.TERMINAL_STATES:
             raise ValidationError({"session": "Hoá đơn đã kết thúc, không sửa món được nữa."})
+        so_luong_cu = {}
+        for line in don_hang.danh_sach_mon.all():
+            so_luong_cu[line.mon_an_id] = so_luong_cu.get(line.mon_an_id, 0) + line.so_luong
+        cls._chan_mon_tam_het(phien.chi_nhanh_id, danh_sach_item, so_luong_cu)
 
         # Mã QR PayOS đang chờ ghi số tiền cũ nên phải huỷ trước khi sửa món; khách đã trả thì hoá đơn chốt.
         from payments.models import ThanhToan

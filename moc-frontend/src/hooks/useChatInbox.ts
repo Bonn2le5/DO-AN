@@ -14,6 +14,9 @@ export interface InboxItem {
   lastAt: string | null;
   unread: number;
   status: "open" | "closed";
+  /** Chi nhánh phụ trách; null = câu hỏi chung, chỉ admin thấy. */
+  branchId: string | null;
+  branchName: string;
 }
 
 export interface InboxMessage {
@@ -35,6 +38,8 @@ const mapItem = (r: any): InboxItem => ({
   lastAt: r.tin_nhan_cuoi_luc ?? null,
   unread: Number(r.unread_count ?? 0),
   status: r.trang_thai === "dong" ? "closed" : "open",
+  branchId: r.chi_nhanh != null ? String(r.chi_nhanh) : null,
+  branchName: r.ten_chi_nhanh ?? "",
 });
 
 export function useChatInbox(
@@ -142,6 +147,8 @@ export function useChatInbox(
               lastAt: m.created_at ?? null,
               unread: 1,
               status: "open",
+              branchId: d.branch_id != null ? String(d.branch_id) : null,
+              branchName: "",
             },
             m,
           );
@@ -196,7 +203,8 @@ export function useChatInbox(
 
   const totalUnread = items.reduce((sum, i) => sum + i.unread, 0);
 
-  return { items, loading, totalUnread, setActive, setStatus };
+  // Admin chuyển hội thoại sang chi nhánh khác: tải lại danh sách để có tên chi nhánh mới.
+  return { items, loading, totalUnread, setActive, setStatus, reload: load };
 }
 
 export type ChatInbox = ReturnType<typeof useChatInbox>;

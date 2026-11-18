@@ -8,7 +8,7 @@ from channels.db import database_sync_to_async
 from config.consumers import JWTExpiryConsumerMixin
 from django.utils import timezone
 from .models import HoiThoai, TinNhan
-from .services import STAFF_GROUP, is_staff_user, save_message
+from .services import STAFF_GROUP, branch_group, can_access_room, inbox_groups, is_admin_user, is_staff_user, save_message, staff_branch_id
 
 
 class HoiThoaiConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
@@ -72,6 +72,12 @@ class HoiThoaiConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
             await self.send_json({"type": "pong"})
             return
 
+        # Quyền có thể đổi khi kết nối đang mở (admin chuyển hội thoại sang chi nhánh khác,
+        # nhân viên bị đổi chi nhánh hoặc khoá tài khoản): kiểm tra lại trước mọi thao tác.
+        if not await self._con_quyen():
+            await self._thu_hoi_quyen()
+            return
+
         action = content.get("action")
         if not action:
             if any(k in content for k in ("message", "content", "noi_dung", "text")):
@@ -126,10 +132,10 @@ class HoiThoaiConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
             )
             inbox = {
                 "type": "inbox_update", "conversation_id": room.id,
-                "customer_id": room.khach_hang_id, "last_message": msg_payload,
+                "customer_id": room.khach_hang_id, "branch_id": room.chi_nhanh_id, "last_message": msg_payload,
             }
-            await self.channel_layer.group_send(STAFF_GROUP, inbox)
-            await self.channel_layer.group_send(f"user_{room.khach_hang_id}", inbox)
+            for group in inbox_groups(room):
+                await self.channel_layer.group_send(group, inbox)
 
         elif action == "typing":
             is_typing = bool(content.get("is_typing", True))
@@ -173,6 +179,32 @@ class HoiThoaiConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
         """Receive message from room group and forward to WebSocket client."""
         await self.send_json(event)
 
+    async def room_reassigned(self, event):
+        """Admin vừa chuyển hội thoại sang chi nhánh khác: ai không còn quyền thì bị ngắt ngay."""
+        if await self._con_quyen():
+            await self.send_json(event)
+        else:
+            await self._thu_hoi_quyen()
+
+    async def _thu_hoi_quyen(self):
+        await self.send_json({"type": "access_revoked", "conversation_id": getattr(self.room, "id", None),
+                              "message": "Bạn không còn quyền trong hội thoại này."})
+        if hasattr(self, "room_group_name"):
+            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        await self.close(code=4403)
+
+    @database_sync_to_async
+    def _con_quyen(self):
+        """Đọc lại hội thoại và tài khoản từ DB rồi kiểm tra quyền, không dùng trạng thái lúc kết nối."""
+        room = HoiThoai.objects.filter(id=self.room.id).first()
+        if not room:
+            return False
+        self.user.refresh_from_db(fields=["is_active", "chi_nhanh_quan_ly"])
+        if not self.user.is_active:
+            return False
+        self.room = room
+        return can_access_room(self.user, room)
+
     async def chat_typing(self, event):
         """Broadcasts chat_typing to group excluding sender."""
         if event.get("sender_id") != self.user.id:
@@ -193,8 +225,9 @@ class HoiThoaiConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
             if not room:
                 return False, None, False
 
+            # Admin: mọi phòng; nhân viên/quản lý: phòng của chi nhánh mình; khách: phòng của mình.
             is_staff = is_staff_user(user)
-            if is_staff or room.khach_hang_id == user.id:
+            if can_access_room(user, room):
                 return True, room, is_staff
             return False, None, is_staff
         except Exception:
@@ -224,14 +257,20 @@ class HopThuConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
         if not user or not user.is_authenticated:
             await self.tu_choi(4401)
             return
-        self.group = STAFF_GROUP if await self._can_access_staff_inbox(user) else f"user_{user.id}"
+        self.group = await self._inbox_group(user)
         await self.channel_layer.group_add(self.group, self.channel_name)
         await self.accept()
         self.start_jwt_expiry_timer()
 
     @database_sync_to_async
-    def _can_access_staff_inbox(self, user):
-        return is_staff_user(user)
+    def _inbox_group(self, user):
+        """Admin nghe hộp thư chung; nhân viên/quản lý chỉ nghe chi nhánh mình; khách nghe phòng của họ."""
+        if is_admin_user(user):
+            return STAFF_GROUP
+        branch_id = staff_branch_id(user)
+        if branch_id:
+            return branch_group(branch_id)
+        return f"user_{user.id}"
 
     async def disconnect(self, code):
         self.cancel_jwt_expiry_timer()
@@ -239,7 +278,17 @@ class HopThuConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
             await self.channel_layer.group_discard(self.group, self.channel_name)
 
     async def inbox_update(self, event):
+        # Hộp thư chi nhánh: bỏ tin của hội thoại không còn thuộc chi nhánh người này
+        # (bị chuyển chi nhánh hoặc khoá tài khoản sau khi đã kết nối).
+        if self.group.startswith(f"{STAFF_GROUP}_") and not await self._van_thuoc_chi_nhanh(event.get("branch_id")):
+            return
         await self.send_json(event)
+
+    @database_sync_to_async
+    def _van_thuoc_chi_nhanh(self, branch_id):
+        user = self.scope["user"]
+        user.refresh_from_db(fields=["is_active", "chi_nhanh_quan_ly"])
+        return user.is_active and branch_id is not None and staff_branch_id(user) == branch_id
 
     async def receive_json(self, content, **kwargs):
         if content.get("action") == "ping":

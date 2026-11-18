@@ -208,3 +208,22 @@ class LichSuXuatNhapKho(MoHinhThoiGian):
 
     class Meta:
         db_table = "lich_su_xuat_nhap_kho"
+
+
+class MonAnTamHet(models.Model):
+    """Món tạm hết tại một chi nhánh trong một ngày (giờ Việt Nam).
+
+    Chỉ có hiệu lực trong ngày được báo: sang ngày mới món tự mở bán lại,
+    tránh trường hợp quên mở lại làm món bị ẩn nhiều ngày.
+    """
+
+    mon_an = models.ForeignKey(MonAn, related_name="tam_het_chi_nhanh", on_delete=models.CASCADE)
+    chi_nhanh = models.ForeignKey("branches.ChiNhanh", related_name="mon_tam_het", on_delete=models.CASCADE)
+    ngay = models.DateField(db_index=True)
+    nguoi_bao = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    tao_luc = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "mon_an_tam_het"
+        verbose_name = "Món tạm hết theo chi nhánh"
+        unique_together = ("mon_an", "chi_nhanh", "ngay")

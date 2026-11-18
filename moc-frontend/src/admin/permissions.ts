@@ -55,12 +55,14 @@ export const MATRIX: Record<RoleName, Partial<Record<Module, Action[]>>> = {
     ingredients: ["view"],
     stock: ["view", "create"],
     users: ["view", "create", "update"],
+    chat: ["view", "create", "update"],
   },
   staff: {
     orders: ["view", "create", "update"],
     reservations: ["view", "create", "update"],
     tables: ["view"],
     payments: ["view", "create", "update"],
+    chat: ["view", "create", "update"],
   },
 };
 

@@ -308,3 +308,17 @@ class DichVuKho:
             }
             for nl, hien_tai, toi_thieu in nl_map.values()
         ]
+
+
+def hom_nay_vn():
+    from zoneinfo import ZoneInfo
+    from django.utils import timezone
+    return timezone.localdate(timezone=ZoneInfo("Asia/Ho_Chi_Minh"))
+
+
+def mon_tam_het_ids(chi_nhanh_id, ngay=None):
+    """ID các món đang tạm hết tại chi nhánh trong ngày (mặc định hôm nay)."""
+    from .models import MonAnTamHet
+    if not chi_nhanh_id:
+        return set()
+    return set(MonAnTamHet.objects.filter(chi_nhanh_id=chi_nhanh_id, ngay=ngay or hom_nay_vn()).values_list("mon_an_id", flat=True))

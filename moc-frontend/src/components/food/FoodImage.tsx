@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { UtensilsCrossed } from "lucide-react";
+import { UtensilsCrossed, type LucideIcon } from "lucide-react";
 import PlaceholderMedia from "@/components/ui/PlaceholderMedia";
 
 interface FoodImageProps {
@@ -8,9 +8,10 @@ interface FoodImageProps {
   tone: number;
   className?: string;
   iconClassName?: string;
+  icon?: LucideIcon;
 }
 
-export default function FoodImage({ src, alt, tone, className, iconClassName }: FoodImageProps) {
+export default function FoodImage({ src, alt, tone, className, iconClassName, icon = UtensilsCrossed }: FoodImageProps) {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => setFailed(false), [src]);
@@ -19,7 +20,7 @@ export default function FoodImage({ src, alt, tone, className, iconClassName }: 
     return (
       <PlaceholderMedia
         tone={tone}
-        icon={UtensilsCrossed}
+        icon={icon}
         className={className}
         iconClassName={iconClassName}
       />

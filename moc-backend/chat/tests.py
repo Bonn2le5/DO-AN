@@ -251,3 +251,80 @@ class ChatRESTApiTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["content"], "Alo alo")
+
+
+
+class ChatQuyenSauKhiChuyenChiNhanhTest(TransactionTestCase):
+    """Nhân viên đang mở phòng chat phải bị ngắt khi admin chuyển hội thoại sang chi nhánh khác."""
+
+    def setUp(self):
+        from accounts.models import NguoiDung, VaiTro
+        from branches.models import ChiNhanh
+        self.a = ChiNhanh.objects.create(ten="A", dia_chi="a")
+        self.b = ChiNhanh.objects.create(ten="B", dia_chi="b")
+        khach = NguoiDung.objects.create_user(username="k", thu_dien_tu="k@x.vn", email="k@x.vn", password="Passw0rd!x")
+        self.nv = NguoiDung.objects.create_user(username="nv", thu_dien_tu="nv@x.vn", email="nv@x.vn", password="Passw0rd!x")
+        self.nv.danh_sach_vai_tro.add(VaiTro.objects.get_or_create(ten="nhan_vien_ban_hang")[0])
+        self.nv.chi_nhanh_quan_ly = self.a
+        self.nv.save()
+        self.room = HoiThoai.objects.create(khach_hang=khach, chi_nhanh=self.a)
+
+    async def _connect(self):
+        token = str(AccessToken.for_user(self.nv))
+        com = WebsocketCommunicator(application, f"/ws/chat/{self.room.id}/?token={token}")
+        connected, _ = await com.connect()
+        self.assertTrue(connected)
+        self.assertEqual((await com.receive_json_from())["type"], "connection_established")
+        return com
+
+    async def test_bi_ngat_ngay_khi_admin_chuyen_chi_nhanh(self):
+        from channels.db import database_sync_to_async
+        from chat.services import broadcast_reassigned
+        com = await self._connect()
+
+        def chuyen():
+            HoiThoai.objects.filter(pk=self.room.pk).update(chi_nhanh=self.b)
+            self.room.refresh_from_db()
+            broadcast_reassigned(self.room)
+        await database_sync_to_async(chuyen)()
+        self.assertEqual((await com.receive_json_from())["type"], "access_revoked")
+        self.assertEqual((await com.receive_output())["type"], "websocket.close")
+
+    async def test_khong_gui_duoc_tin_khi_da_mat_quyen(self):
+        from channels.db import database_sync_to_async
+        com = await self._connect()
+        # Đổi chi nhánh trực tiếp trong DB, không phát sự kiện: lần gửi tiếp theo vẫn phải bị chặn.
+        await database_sync_to_async(lambda: HoiThoai.objects.filter(pk=self.room.pk).update(chi_nhanh=self.b))()
+        await com.send_json_to({"action": "send_message", "content": "Còn gửi được không?"})
+        self.assertEqual((await com.receive_json_from())["type"], "access_revoked")
+        self.assertEqual(await database_sync_to_async(lambda: TinNhan.objects.filter(hoi_thoai=self.room).count())(), 0)
+
+
+class MigrationGanChiNhanhHoiThoaiCuTest(TestCase):
+    """Migration 0003: gắn chi nhánh cho hội thoại cũ theo lịch sử đặt bàn, không ghi đè."""
+
+    def test_gan_theo_dat_ban(self):
+        import importlib
+        from datetime import timedelta
+        from django.apps import apps
+        from accounts.models import NguoiDung
+        from branches.models import ChiNhanh
+        from foods.services import hom_nay_vn
+        from reservations.models import DatBan
+        mig = importlib.import_module("chat.migrations.0003_gan_chi_nhanh_hoi_thoai_cu")
+        a = ChiNhanh.objects.create(ten="A", dia_chi="a")
+        b = ChiNhanh.objects.create(ten="B", dia_chi="b")
+        mk = lambda u: NguoiDung.objects.create_user(username=u, thu_dien_tu=f"{u}@x.vn", email=f"{u}@x.vn", password="Passw0rd!x")
+        def dat(user, branch, days, status=DatBan.TrangThai.DA_XAC_NHAN):
+            DatBan.objects.create(nguoi_dung=user, chi_nhanh=branch, ngay_dat=hom_nay_vn() + timedelta(days=days), gio_bat_dau="19:00",
+                                  so_luong_khach=2, hinh_thuc=DatBan.HinhThuc.CHI_GIU_CHO, trang_thai=status, ten_khach="K", sdt_khach="09")
+        sap_toi, da_qua, chua_dat, da_gan = mk("k1"), mk("k2"), mk("k3"), mk("k4")
+        dat(sap_toi, a, -5); dat(sap_toi, b, 2); dat(sap_toi, a, 1, DatBan.TrangThai.DA_HUY)
+        dat(da_qua, a, -10); dat(da_qua, b, -3)
+        dat(da_gan, a, 1)
+        rooms = {u: HoiThoai.objects.create(khach_hang=u) for u in (sap_toi, da_qua, chua_dat)}
+        rooms[da_gan] = HoiThoai.objects.create(khach_hang=da_gan, chi_nhanh=b)
+
+        mig.gan_chi_nhanh(apps, None)
+        got = {u.username: HoiThoai.objects.get(pk=r.pk).chi_nhanh_id for u, r in rooms.items()}
+        self.assertEqual(got, {"k1": b.id, "k2": b.id, "k3": None, "k4": b.id})

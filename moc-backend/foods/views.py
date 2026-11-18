@@ -549,3 +549,57 @@ class MonAnViewSet(viewsets.ModelViewSet):
             danh_muc=mon_hien_tai.danh_muc
         ).exclude(pk=mon_hien_tai.pk)[:int(request.query_params.get("gioi_han", 3))]
         return Response(MonAnSerializer(danh_sach, many=True, context={"request": request}).data)
+
+
+class TinhTrangMonViewSet(viewsets.ViewSet):
+    """Báo món tạm hết / mở bán lại theo chi nhánh, có hiệu lực trong ngày.
+
+    GET  /tinh-trang-mon/?chi_nhanh=<id>   -> {"chi_nhanh", "ngay", "mon_an": [id...]}
+    POST /tinh-trang-mon/ {mon_an, het, chi_nhanh?}
+    Nhân viên và quản lý chỉ thao tác chi nhánh của mình; admin phải chỉ rõ chi nhánh.
+    """
+
+    permission_classes = [LaNhanVienHoacChiDoc]
+
+    def _branch(self, request, required=True):
+        from rest_framework.exceptions import PermissionDenied, ValidationError
+        from branches.models import ChiNhanh
+        user = request.user
+        requested = request.data.get("chi_nhanh") if request.method == "POST" else request.query_params.get("chi_nhanh")
+        is_admin = user.is_authenticated and (user.is_superuser or getattr(user, "la_quan_tri_vien", False))
+        is_staff = user.is_authenticated and getattr(user, "la_nhan_vien_nha_hang", False)
+        own = getattr(user, "chi_nhanh_quan_ly_id", None) if is_staff else None
+        if is_staff and not is_admin and not own and request.method == "POST":
+            raise PermissionDenied("Tài khoản chưa được gán chi nhánh nên không báo tình trạng món được.")
+        if own and not is_admin:
+            if requested not in (None, "") and str(requested) != str(own):
+                raise PermissionDenied("Bạn chỉ được báo tình trạng món của chi nhánh mình.")
+            return own
+        if requested in (None, ""):
+            if required:
+                raise ValidationError({"chi_nhanh": "Cần chọn chi nhánh."})
+            return None
+        if not str(requested).isdigit() or not ChiNhanh.objects.filter(pk=requested).exists():
+            raise ValidationError({"chi_nhanh": "Chi nhánh không tồn tại."})
+        return int(requested)
+
+    def list(self, request):
+        from .services import hom_nay_vn, mon_tam_het_ids
+        branch_id = self._branch(request)
+        return Response({"chi_nhanh": branch_id, "ngay": hom_nay_vn().isoformat(), "mon_an": sorted(mon_tam_het_ids(branch_id))})
+
+    def create(self, request):
+        from rest_framework.exceptions import ValidationError
+        from .models import MonAnTamHet
+        from .services import hom_nay_vn, mon_tam_het_ids
+        branch_id = self._branch(request)
+        mon = MonAn.objects.filter(pk=request.data.get("mon_an")).first()
+        if not mon:
+            raise ValidationError({"mon_an": "Không tìm thấy món."})
+        het = str(request.data.get("het", True)).lower() not in ("false", "0", "")
+        today = hom_nay_vn()
+        if het:
+            MonAnTamHet.objects.get_or_create(mon_an=mon, chi_nhanh_id=branch_id, ngay=today, defaults={"nguoi_bao": request.user})
+        else:
+            MonAnTamHet.objects.filter(mon_an=mon, chi_nhanh_id=branch_id, ngay=today).delete()
+        return Response({"chi_nhanh": branch_id, "ngay": today.isoformat(), "mon_an": sorted(mon_tam_het_ids(branch_id))})
