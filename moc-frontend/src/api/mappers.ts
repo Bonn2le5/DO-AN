@@ -166,7 +166,10 @@ export function mapKhuyenMai(raw: any): KhuyenMai {
   const discountValue = Number(raw.gia_tri_giam ?? raw.discount_value ?? 0);
   const minOrder = Number(raw.don_hang_toi_thieu ?? raw.min_order_value ?? 0);
   const endsAt = raw.ket_thuc_luc ?? raw.ends_at ?? "";
-  const badge = raw.nhan_giam_gia ?? `${discountValue}${discountType === "percentage" || discountType === "phan_tram" ? "%" : "đ"}`;
+  const isPercent = discountType === "percentage" || discountType === "phan_tram";
+  const badge =
+    raw.nhan_giam_gia ??
+    (isPercent ? `-${discountValue}%` : `-${discountValue.toLocaleString("vi-VN")}đ`);
 
   return {
     id: String(raw.id),
@@ -174,6 +177,7 @@ export function mapKhuyenMai(raw: any): KhuyenMai {
     tieuDe: title,
     moTa: description,
     nhanGiamGia: badge,
+    nhanMucGiam: badge,
     kieuGiamGia: discountType,
     giaTriGiam: discountValue,
     donHangToiThieu: minOrder,
@@ -223,6 +227,7 @@ export function mapBaiViet(raw: any): BaiVietBlog {
     taoLuc: createdAt,
     thoiGianDocPhut: 3,
     phongCachHienThi: placeholderTone,
+    anhDaiDien: raw.anh_dai_dien || raw.image || undefined,
   };
 }
 

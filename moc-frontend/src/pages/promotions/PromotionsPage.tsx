@@ -47,9 +47,9 @@ export default function PromotionsPage() {
               </div>
               <h3 className="text-lg font-bold mb-2">{promo.tieuDe}</h3>
               <p className="text-sm text-muted mb-4">{promo.moTa}</p>
-              {promo.donHangToiThieu && (
+              {(promo.donHangToiThieu ?? 0) > 0 && (
                 <p className="text-xs text-muted mb-4">
-                  Đơn tối thiểu: {promo.donHangToiThieu.toLocaleString("vi-VN")}đ
+                  Đơn tối thiểu: {promo.donHangToiThieu!.toLocaleString("vi-VN")}đ
                 </p>
               )}
               <div className="flex items-center justify-between border-t border-dashed border-black/15 pt-4">

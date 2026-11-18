@@ -2,7 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import { ChevronRight, Newspaper } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import { getBlogPostBySlug, getOtherBlogPosts } from "@/api/blog.api";
-import PlaceholderMedia from "@/components/ui/PlaceholderMedia";
+import FoodImage from "@/components/food/FoodImage";
 import { formatDate } from "@/lib/utils";
 import NotFoundPage from "@/pages/NotFoundPage";
 
@@ -38,7 +38,7 @@ export default function BlogDetailPage() {
       </div>
 
       <div className="aspect-[16/9] rounded-[20px] overflow-hidden mb-10">
-        <PlaceholderMedia tone={post.phongCachHienThi} icon={Newspaper} className="w-full h-full" iconClassName="w-14 h-14" />
+        <FoodImage src={post.anhDaiDien} alt={post.tieuDe} tone={post.phongCachHienThi} icon={Newspaper} className="w-full h-full object-cover" iconClassName="w-14 h-14" />
       </div>
 
       <div className="text-[16px] leading-[1.85] text-text space-y-5">
@@ -52,7 +52,7 @@ export default function BlogDetailPage() {
             {others.map((o) => (
               <Link key={o.id} to={`/bai-viet/${o.duongDan}`} className="card overflow-hidden hover:shadow-lift transition-shadow">
                 <div className="aspect-[16/10]">
-                  <PlaceholderMedia tone={o.phongCachHienThi} icon={Newspaper} className="w-full h-full" iconClassName="w-7 h-7" />
+                  <FoodImage src={o.anhDaiDien} alt={o.tieuDe} tone={o.phongCachHienThi} icon={Newspaper} className="w-full h-full object-cover" iconClassName="w-7 h-7" />
                 </div>
                 <div className="p-4">
                   <h3 className="font-display text-base leading-snug">{o.tieuDe}</h3>
