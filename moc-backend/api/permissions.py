@@ -22,6 +22,8 @@ class LaNhanVienNhaHang(BasePermission):
         "reviews": "reviews", "danh-gia": "reviews",
         "payments": "payments", "thanh-toan": "payments", "refund-receipts": "payments", "phieu-hoan-tien": "payments",
         "chat": "chat", "hoi-thoai": "chat",
+        # Báo món tạm hết theo chi nhánh: việc vận hành trong ca của nhân viên và quản lý.
+        "tinh-trang-mon": "food_status",
         "branches": "branches", "chi-nhanh": "branches",
         "users": "users", "nguoi-dung": "users",
         "roles": "roles", "vai-tro": "roles", "permissions": "roles", "quyen-han": "roles",
@@ -67,7 +69,8 @@ class LaNhanVienNhaHang(BasePermission):
             return False
         # foods/categories/promotions chỉ đọc: cần để gọi món trong phiên phục vụ.
         # ingredients chỉ đọc với nhân viên: để thấy cảnh báo nguyên liệu sắp hết.
-        allowed = {"orders", "reservations", "dining_sessions", "payments", "branches", "foods", "categories", "promotions", "ingredients"}
+        # chat: nhân viên và quản lý trả lời khách của chi nhánh mình (lọc theo chi nhánh trong view).
+        allowed = {"orders", "reservations", "dining_sessions", "payments", "branches", "foods", "categories", "promotions", "ingredients", "food_status", "chat"}
         if is_manager:
             # Quản lý chi nhánh: sơ đồ bàn/phòng, tổng quan, kho nguyên liệu và nhân viên chi nhánh mình.
             allowed.update({"dashboard", "tables", "users"})

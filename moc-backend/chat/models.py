@@ -15,6 +15,12 @@ class HoiThoai(MoHinhThoiGian):
         settings.AUTH_USER_MODEL, related_name="hoi_thoai_phu_trach",
         null=True, blank=True, on_delete=models.SET_NULL
     )
+    # Chi nhánh phụ trách hội thoại: nhân viên/quản lý chi nhánh đó trả lời.
+    # Để trống = câu hỏi chung, chỉ admin thấy cho tới khi được chuyển cho chi nhánh.
+    chi_nhanh = models.ForeignKey(
+        "branches.ChiNhanh", related_name="danh_sach_hoi_thoai",
+        null=True, blank=True, on_delete=models.SET_NULL
+    )
     trang_thai = models.CharField(max_length=10, choices=TrangThai.choices, default=TrangThai.MO)
     tin_nhan_cuoi_luc = models.DateTimeField(null=True, blank=True)
 

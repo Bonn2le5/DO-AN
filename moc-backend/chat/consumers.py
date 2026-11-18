@@ -8,7 +8,7 @@ from channels.db import database_sync_to_async
 from config.consumers import JWTExpiryConsumerMixin
 from django.utils import timezone
 from .models import HoiThoai, TinNhan
-from .services import STAFF_GROUP, is_staff_user, save_message
+from .services import STAFF_GROUP, branch_group, can_access_room, inbox_groups, is_admin_user, is_staff_user, save_message, staff_branch_id
 
 
 class HoiThoaiConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
@@ -126,10 +126,10 @@ class HoiThoaiConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
             )
             inbox = {
                 "type": "inbox_update", "conversation_id": room.id,
-                "customer_id": room.khach_hang_id, "last_message": msg_payload,
+                "customer_id": room.khach_hang_id, "branch_id": room.chi_nhanh_id, "last_message": msg_payload,
             }
-            await self.channel_layer.group_send(STAFF_GROUP, inbox)
-            await self.channel_layer.group_send(f"user_{room.khach_hang_id}", inbox)
+            for group in inbox_groups(room):
+                await self.channel_layer.group_send(group, inbox)
 
         elif action == "typing":
             is_typing = bool(content.get("is_typing", True))
@@ -193,8 +193,9 @@ class HoiThoaiConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
             if not room:
                 return False, None, False
 
+            # Admin: mọi phòng; nhân viên/quản lý: phòng của chi nhánh mình; khách: phòng của mình.
             is_staff = is_staff_user(user)
-            if is_staff or room.khach_hang_id == user.id:
+            if can_access_room(user, room):
                 return True, room, is_staff
             return False, None, is_staff
         except Exception:
@@ -224,14 +225,20 @@ class HopThuConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
         if not user or not user.is_authenticated:
             await self.tu_choi(4401)
             return
-        self.group = STAFF_GROUP if await self._can_access_staff_inbox(user) else f"user_{user.id}"
+        self.group = await self._inbox_group(user)
         await self.channel_layer.group_add(self.group, self.channel_name)
         await self.accept()
         self.start_jwt_expiry_timer()
 
     @database_sync_to_async
-    def _can_access_staff_inbox(self, user):
-        return is_staff_user(user)
+    def _inbox_group(self, user):
+        """Admin nghe hộp thư chung; nhân viên/quản lý chỉ nghe chi nhánh mình; khách nghe phòng của họ."""
+        if is_admin_user(user):
+            return STAFF_GROUP
+        branch_id = staff_branch_id(user)
+        if branch_id:
+            return branch_group(branch_id)
+        return f"user_{user.id}"
 
     async def disconnect(self, code):
         self.cancel_jwt_expiry_timer()

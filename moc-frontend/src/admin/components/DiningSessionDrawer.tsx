@@ -14,7 +14,9 @@ import {
   foodsStore,
   getDiningSession,
   getPayOSStatus,
+  getSoldOut,
   getStockAlerts,
+  setSoldOut,
   moveDiningSession,
   ordersStore,
   replaceDiningSessionItems,
@@ -63,6 +65,9 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
   const isManager = role === "admin" || role === "branch_manager";
   const [cancelOpen, setCancelOpen] = useState(false);
   const [releaseOpen, setReleaseOpen] = useState(false);
+  // Chế độ báo hết món: chạm món để báo hết / mở bán lại hôm nay tại chi nhánh này.
+  const [markMode, setMarkMode] = useState(false);
+  const [soldOut, setSoldOutIds] = useState<Set<string>>(new Set());
   const [cancelReason, setCancelReason] = useState("");
   const push = useToast((state) => state.push);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -83,8 +88,11 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
 
   const { data, loading, refetch } = useAsync(async () => {
     if (!session) return undefined;
-    const [orders, foods, current, alerts] = await Promise.all([ordersStore.list(), foodsStore.list(), getDiningSession(session.id), getStockAlerts(session.branchId || undefined).catch(() => [])]);
-    return { orders, foods, current, alerts };
+    const [orders, foods, current, alerts, soldOut] = await Promise.all([
+      ordersStore.list(), foodsStore.list(), getDiningSession(session.id), getStockAlerts(session.branchId || undefined).catch(() => []),
+      session.branchId ? getSoldOut(session.branchId).catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
+    ]);
+    return { orders, foods, current, alerts, soldOut };
   }, [session?.id]);
 
   const current = data?.current ?? session;
@@ -151,6 +159,7 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
   }, [order, data?.foods]);
 
   useEffect(() => { if (screen === "invoice") setTendered(due); }, [screen, due]);
+  useEffect(() => { if (data?.soldOut) setSoldOutIds(data.soldOut); }, [data?.soldOut]);
   useEffect(() => { const id = window.setInterval(() => setTick((t) => t + 1), 30_000); return () => window.clearInterval(id); }, []);
 
   useEffect(() => {
@@ -191,8 +200,21 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
 
   const refresh = async () => { await refetch(); onChanged(); };
 
+  const toggleSoldOut = async (food: AdminFood) => {
+    const branchId = current?.branchId;
+    if (!branchId) return;
+    const out = !soldOut.has(food.id);
+    try {
+      setSoldOutIds(await setSoldOut(food.id, out, branchId));
+      push(out ? `Đã báo hết ${food.name} hôm nay.` : `${food.name} đã mở bán lại.`);
+    } catch (error) {
+      push(error instanceof Error ? error.message : "Không cập nhật được tình trạng món.", "err");
+    }
+  };
+
   const addFood = (food: AdminFood) => {
-    if (!editable) return;
+    if (markMode) { void toggleSoldOut(food); return; }
+    if (!editable || soldOut.has(food.id)) return;
     setCart((rows) => {
       const found = rows.findIndex((line) => line.foodId === food.id && !line.note.trim());
       if (found < 0) return [...rows, { foodId: food.id, name: food.name, category: food.category, price: food.price, image: food.image, qty: 1, note: "" }];
@@ -386,6 +408,16 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
                 <input ref={searchRef} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm món" className={`${inputCls} pl-10! pr-10!`} />
                 <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-black/10 px-1.5 text-xs text-muted">/</kbd>
               </label>
+              {canOperate && current.branchId && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" onClick={() => setMarkMode((v) => !v)} aria-pressed={markMode}
+                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${markMode ? "border-dark bg-dark text-white" : "border-black/10 text-dark/80 hover:border-black/25"}`}>
+                    {markMode ? "Xong" : "Báo hết món"}
+                  </button>
+                  {markMode ? <span className="text-sm text-muted">Chạm món để báo hết hoặc mở bán lại. Có hiệu lực hết hôm nay tại chi nhánh này.</span>
+                    : soldOut.size > 0 && <span className="text-sm text-muted">{soldOut.size} món đã hết hôm nay</span>}
+                </div>
+              )}
               <nav className="-mb-px flex gap-1 overflow-x-auto" aria-label="Danh mục món">
                 {categories.map((item) => {
                   const active = category === item;
@@ -401,13 +433,15 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
                   {visibleFoods.map((food) => {
                     const qty = qtyByFood.get(food.id) ?? 0;
                     const short = shortFoods.get(food.name);
+                    const out = soldOut.has(food.id);
                     return (
-                      <button key={food.id} type="button" disabled={!editable || busy} onClick={() => addFood(food)} aria-label={`Thêm ${food.name}, ${formatCurrency(food.price)}${qty ? `, đang có ${qty}` : ""}`}
-                        className={`relative flex min-h-[88px] items-start gap-3 rounded-xl border bg-white p-3 text-left transition-[border-color,box-shadow] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${qty ? "border-primary/60 shadow-[inset_0_0_0_1px_var(--color-primary)]" : "border-black/[0.08] hover:border-black/20"}`}>
+                      <button key={food.id} type="button" disabled={markMode ? busy : (!editable || busy || out)} onClick={() => addFood(food)} aria-pressed={markMode ? out : undefined}
+                        aria-label={markMode ? `${food.name}: ${out ? "đã hết, chạm để mở bán lại" : "chạm để báo hết"}` : `Thêm ${food.name}, ${formatCurrency(food.price)}${out ? ", đã hết hôm nay" : ""}${qty ? `, đang có ${qty}` : ""}`}
+                        className={`relative flex min-h-[88px] items-start gap-3 rounded-xl border bg-white p-3 text-left transition-[border-color,box-shadow] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${out ? "border-dashed border-black/20 bg-black/[0.03]" : qty ? "border-primary/60 shadow-[inset_0_0_0_1px_var(--color-primary)]" : "border-black/[0.08] hover:border-black/20"} ${markMode ? "ring-1 ring-dark/10 hover:ring-dark/30" : ""}`}>
                         {food.image && <img src={food.image} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />}
                         <span className="flex min-w-0 flex-1 flex-col self-stretch">
                           <span className="line-clamp-2 pr-6 text-sm font-medium leading-snug">{food.name}</span>
-                          <span className="mt-auto flex items-center gap-2 pt-1 text-sm tabular-nums text-muted">{formatCurrency(food.price)}{short && <span title={short.join(", ")} className="rounded bg-secondary/25 px-1.5 py-0.5 text-[11px] font-medium text-[#8a6416]">Sắp hết NL</span>}</span>
+                          <span className="mt-auto flex items-center gap-2 pt-1 text-sm tabular-nums text-muted">{formatCurrency(food.price)}{out && <span className="rounded bg-dark/80 px-1.5 py-0.5 text-[11px] font-medium text-white">Hết hôm nay</span>}{!out && short && <span title={short.join(", ")} className="rounded bg-secondary/25 px-1.5 py-0.5 text-[11px] font-medium text-[#8a6416]">Sắp hết NL</span>}</span>
                         </span>
                         {qty > 0 && <span className="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold tabular-nums text-white">{qty}</span>}
                       </button>
@@ -463,7 +497,7 @@ export default function DiningSessionDrawer({ session, tables, onClose, onChange
                             title={!isManager && sentToKitchen && line.qty <= (savedQty.get(lineKey(line)) ?? 0) ? "Món đã gửi bếp: cần quản lý chi nhánh bớt" : undefined}
                             aria-label={`Bớt ${line.name}`} className="flex h-9 w-9 items-center justify-center text-dark/70 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"><Minus size={15} /></button>
                           <span className="w-7 text-center text-sm font-semibold tabular-nums" aria-live="polite">{line.qty}</span>
-                          <button onClick={() => changeQuantity(index, 1)} aria-label={`Thêm ${line.name}`} className="flex h-9 w-9 items-center justify-center text-dark/70 hover:text-primary"><Plus size={15} /></button>
+                          <button onClick={() => changeQuantity(index, 1)} disabled={soldOut.has(line.foodId)} title={soldOut.has(line.foodId) ? "Món đã hết hôm nay" : undefined} aria-label={`Thêm ${line.name}`} className="flex h-9 w-9 items-center justify-center text-dark/70 hover:text-primary disabled:cursor-not-allowed disabled:opacity-30"><Plus size={15} /></button>
                         </div>
                         <button onClick={() => setNoteOpen(noteOpen === key ? null : key)} className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted hover:bg-black/[0.04] hover:text-dark"><NotebookPen size={14} />{line.note ? "Sửa ghi chú" : "Ghi chú"}</button>
                       </div>

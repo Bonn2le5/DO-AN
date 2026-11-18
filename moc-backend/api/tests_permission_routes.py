@@ -67,7 +67,7 @@ class TongQuanTheoVaiTroTest(TestCase):
             self.assertEqual(r.status_code, 200, (path, r.content[:200]))
             self.assertEqual([b["id"] for b in r.json()["live"]], [self.branch.id])
             self.assertEqual(nv.get(path).status_code, 403, path)
-        self.assertEqual(ql.get("/api/chat/rooms/").status_code, 403)
+        self.assertEqual(ql.get("/api/chat/rooms/").status_code, 200)  # chat lọc theo chi nhánh trong view
 
     def test_quan_ly_xem_khoan_hut_chi_nhanh_minh(self):
         from decimal import Decimal

@@ -6,15 +6,20 @@ import { useWebSocketChat } from "@/hooks/useWebSocketChat";
 import type { ChatInbox } from "@/hooks/useChatInbox";
 import { inputCls, StatusBadge } from "../components/primitives";
 import { useToast } from "../components/toast";
-import { useCan } from "../permissions";
+import { useCan, useRole } from "../permissions";
+import { useAsync } from "@/hooks/useAsync";
+import { getTableManagementBranches } from "../api/admin.api";
 import { fmtDateTime } from "../lib";
 import { cn } from "@/lib/utils";
 
 export default function ChatPage() {
   const can = useCan();
+  const isAdmin = useRole() === "admin";
   const push = useToast((s) => s.push);
-  const { items, loading, setActive, setStatus } =
+  const { items, loading, setActive, setStatus, reload } =
     useOutletContext<ChatInbox>();
+  // Admin giao hội thoại cho chi nhánh; nhân viên/quản lý chỉ thấy hội thoại của chi nhánh mình.
+  const { data: branches } = useAsync(() => (isAdmin ? getTableManagementBranches() : Promise.resolve([])), [isAdmin]);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -70,6 +75,18 @@ export default function ChatPage() {
     setSending(false);
   };
 
+  const transfer = async (branchId: string) => {
+    if (!active) return;
+    try {
+      await apiClient.post(`/hoi-thoai/${active.id}/chuyen-chi-nhanh/`, { chi_nhanh: branchId || null });
+      const name = branches?.find((b) => b.id === branchId)?.name;
+      push(name ? `Đã chuyển hội thoại cho ${name}` : "Hội thoại chuyển về hộp thư chung");
+      await reload();
+    } catch {
+      push("Không chuyển được hội thoại", "err");
+    }
+  };
+
   const close = async () => {
     if (!active) return;
     try {
@@ -91,8 +108,9 @@ export default function ChatPage() {
           activeId && "hidden md:block",
         )}
       >
-        <div className="px-5 py-4 border-b border-black/[0.07] font-display text-lg">
-          Hội thoại
+        <div className="px-5 py-4 border-b border-black/[0.07]">
+          <div className="font-display text-lg">Hội thoại</div>
+          {!isAdmin && <div className="text-xs text-muted mt-0.5">Khách liên hệ chi nhánh của bạn</div>}
         </div>
         {loading ? (
           <div className="p-5 space-y-3">
@@ -130,6 +148,11 @@ export default function ChatPage() {
                 {c.lastAt && fmtDateTime(c.lastAt)}
                 {c.status === "closed" && " · đã đóng"}
               </div>
+              {isAdmin && (
+                <div className={cn("text-[11px] mt-0.5 truncate", c.branchId ? "text-muted" : "text-primary font-medium")}>
+                  {c.branchId ? c.branchName.replace(/^Nhà hàng Mộc\s*-\s*/i, "") : "Chưa giao chi nhánh"}
+                </div>
+              )}
             </button>
           ))
         )}
@@ -161,6 +184,15 @@ export default function ChatPage() {
                   {isConnected ? "Đã kết nối trực tiếp" : "Đang kết nối lại…"}
                 </div>
               </div>
+              {isAdmin && (
+                <label className="hidden sm:block">
+                  <span className="sr-only">Chi nhánh phụ trách</span>
+                  <select value={active.branchId ?? ""} onChange={(e) => void transfer(e.target.value)} className="h-9 max-w-52 rounded-lg border border-black/10 bg-white px-2 text-[13px]" title="Chi nhánh phụ trách trả lời">
+                    <option value="">Hộp thư chung (admin)</option>
+                    {(branches ?? []).map((b) => <option key={b.id} value={b.id}>{b.name.replace(/^Nhà hàng Mộc\s*-\s*/i, "")}</option>)}
+                  </select>
+                </label>
+              )}
               {active.status === "closed" ? (
                 <StatusBadge>Đã đóng</StatusBadge>
               ) : (

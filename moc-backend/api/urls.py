@@ -9,7 +9,7 @@ from accounts.views import (
     QuyenHanViewSet,
     DangNhapTokenView,
 )
-from foods.views import DanhMucViewSet, NguyenLieuViewSet, MonAnViewSet, TheMonAnViewSet, LichSuKhoViewSet, DinhMucNguyenLieuViewSet, TonKhoChiNhanhViewSet
+from foods.views import DanhMucViewSet, NguyenLieuViewSet, MonAnViewSet, TheMonAnViewSet, LichSuKhoViewSet, DinhMucNguyenLieuViewSet, TonKhoChiNhanhViewSet, TinhTrangMonViewSet
 from orders.views import DonHangViewSet
 from reservations.views import BanAnViewSet, DatBanViewSet, PhongRiengViewSet, PhienPhucVuViewSet
 from promotions.views import KhuyenMaiViewSet, MaKhuyenMaiViewSet, LichSuDungKhuyenMaiViewSet
@@ -41,6 +41,7 @@ router.register("categories", DanhMucViewSet, basename="category")
 router.register("danh-muc", DanhMucViewSet, basename="danh-muc")
 router.register("tags", TheMonAnViewSet, basename="tag")
 router.register("the-mon-an", TheMonAnViewSet, basename="the-mon-an")
+router.register("tinh-trang-mon", TinhTrangMonViewSet, basename="tinh-trang-mon")
 router.register("ingredients", NguyenLieuViewSet, basename="ingredient")
 router.register("nguyen-lieu", NguyenLieuViewSet, basename="nguyen-lieu")
 router.register("inventory-transactions", LichSuKhoViewSet, basename="inventory-transaction")

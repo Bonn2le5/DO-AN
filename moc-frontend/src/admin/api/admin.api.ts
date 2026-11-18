@@ -157,6 +157,15 @@ export async function cancelDiningSession(sessionId: string, reason = ""): Promi
   const { data } = await apiClient.post(`/phien-phuc-vu/${sessionId}/huy/`, { ly_do: reason });
   return mapDiningSession(data);
 }
+/** Món tạm hết hôm nay ở một chi nhánh (sang ngày mới tự mở bán lại). */
+export async function getSoldOut(branchId: string): Promise<Set<string>> {
+  const { data } = await apiClient.get("/tinh-trang-mon/", { params: { chi_nhanh: branchId } });
+  return new Set((data.mon_an ?? []).map(String));
+}
+export async function setSoldOut(foodId: string, soldOut: boolean, branchId: string): Promise<Set<string>> {
+  const { data } = await apiClient.post("/tinh-trang-mon/", { mon_an: Number(foodId), het: soldOut, chi_nhanh: Number(branchId) });
+  return new Set((data.mon_an ?? []).map(String));
+}
 /** Nguyên liệu đang thiếu và các món bị ảnh hưởng, để đánh dấu trên thực đơn. */
 export async function getStockAlerts(branchId?: string): Promise<LowStockWarning[]> {
   const { data } = await apiClient.get("/phien-phuc-vu/canh-bao-kho/", { params: branchId ? { chi_nhanh: branchId } : undefined });

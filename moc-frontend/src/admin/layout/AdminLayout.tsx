@@ -32,8 +32,8 @@ export default function AdminLayout() {
   useStaffOrderStream(isAuthenticated && !PREVIEW && role !== null);
 
   // Một kết nối WebSocket duy nhất cho toàn khu admin (thay cho polling 3s).
-  const inbox = useChatInbox(isAuthenticated && role === "admin", (item, message) => {
-    if (/\/chat\/?$/.test(window.location.pathname)) return; // đang ở trang chat thì không toast
+  const inbox = useChatInbox(isAuthenticated && !!role, (item, message) => {
+    if (/\/(hoi-thoai|chat)\/?$/.test(window.location.pathname)) return; // đang ở trang chat thì không toast
     const text = String(message.content ?? "");
     const preview = text.length > 70 ? `${text.slice(0, 67)}…` : text;
     const notice = `${item.customerName} vừa nhắn: ${preview}`;
