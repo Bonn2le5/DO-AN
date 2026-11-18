@@ -10,6 +10,7 @@ import { Link } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
 import { useWebSocketChat } from "@/hooks/useWebSocketChat";
 import MessageMeta from "./MessageMeta";
+import SystemDivider from "./SystemDivider";
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
@@ -117,6 +118,7 @@ export default function ChatWidget() {
                 )}
 
                 {messages.map((m) => {
+                  if (m.messageType === "he_thong") return <SystemDivider key={m.id} text={m.content} time={m.time} />;
                   const isMe = m.from === "me";
                   return (
                     <div key={m.id} className={isMe ? "flex justify-end" : "flex justify-start"}>

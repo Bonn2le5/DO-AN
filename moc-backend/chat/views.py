@@ -9,7 +9,7 @@ from .models import HoiThoai, TinNhan
 from .serializers import HoiThoaiSerializer, DanhSachHoiThoaiSerializer, TinNhanSerializer
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from .services import (
-    broadcast_message, broadcast_read, broadcast_reassigned, chi_nhanh_mac_dinh, is_admin_user, is_staff_user,
+    broadcast_message, broadcast_read, broadcast_reassigned, chi_nhanh_mac_dinh, dong_hoi_thoai, is_admin_user, is_staff_user,
     save_message, scope_rooms, serialize_message,
 )
 
@@ -35,7 +35,7 @@ class HoiThoaiViewSet(viewsets.ModelViewSet):
                 unread_count=Count("danh_sach_tin_nhan", filter=Q(
                     danh_sach_tin_nhan__da_doc=False,
                     danh_sach_tin_nhan__nguoi_gui_id=F("khach_hang_id"),
-                )),
+                ) & ~Q(danh_sach_tin_nhan__loai_tin_nhan=TinNhan.LoaiTinNhan.HE_THONG)),
                 last_message=Subquery(last.values("noi_dung")[:1]),
             ).order_by(F("tin_nhan_cuoi_luc").desc(nulls_last=True))
         return q
@@ -46,6 +46,15 @@ class HoiThoaiViewSet(viewsets.ModelViewSet):
         if raw in (None, "") or not str(raw).isdigit():
             return None
         return ChiNhanh.objects.filter(pk=raw, con_hoat_dong=True).values_list("id", flat=True).first()
+
+    def perform_update(self, serializer):
+        # Đóng hội thoại đi qua dịch vụ để ghi dòng "Cuộc tư vấn đã kết thúc" cho cả hai bên.
+        if serializer.validated_data.get("trang_thai") == HoiThoai.TrangThai.DONG and serializer.instance.trang_thai != HoiThoai.TrangThai.DONG:
+            if not is_staff_user(self.request.user):
+                raise PermissionDenied("Chỉ nhà hàng mới kết thúc cuộc tư vấn.")
+            serializer.instance = dong_hoi_thoai(serializer.instance.id, self.request.user)
+            return
+        serializer.save()
 
     def perform_create(self, serializer):
         user = self.request.user

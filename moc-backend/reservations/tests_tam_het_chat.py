@@ -119,6 +119,29 @@ class ChatTheoChiNhanhTest(TestCase):
         room = HoiThoai.objects.create(khach_hang=nv_b, chi_nhanh=self.a)
         self.assertIn(room.id, self._ids(client_for(nv_b)))
 
+    def test_ket_thuc_tu_van_va_tu_mo_lai_khi_khach_nhan_tiep(self):
+        khach = client_for(self.khach)
+        room = khach.get("/api/hoi-thoai/dang-mo/").json()
+        khach.post(f"/api/hoi-thoai/{room['id']}/tin-nhan/", {"noi_dung": "Có ghế trẻ em không ạ?"}, format="json")
+        self.assertEqual(khach.patch(f"/api/hoi-thoai/{room['id']}/", {"trang_thai": "dong"}, format="json").status_code, 403)
+
+        self.assertEqual(self.nv_a.patch(f"/api/hoi-thoai/{room['id']}/", {"trang_thai": "dong"}, format="json").status_code, 200)
+        self.assertEqual(HoiThoai.objects.get(pk=room["id"]).trang_thai, "dong")
+        msgs = self.nv_a.get(f"/api/hoi-thoai/{room['id']}/tin-nhan/").json()
+        self.assertEqual((msgs[-1]["message_type"], msgs[-1]["content"]), ("he_thong", "Cuộc tư vấn đã kết thúc"))
+
+        khach.post(f"/api/hoi-thoai/{room['id']}/tin-nhan/", {"noi_dung": "Cho mình hỏi thêm"}, format="json")
+        self.assertEqual(HoiThoai.objects.get(pk=room["id"]).trang_thai, "mo")
+        tail = [(m["message_type"], m["content"]) for m in self.nv_a.get(f"/api/hoi-thoai/{room['id']}/tin-nhan/").json()][-3:]
+        self.assertEqual(tail, [
+            ("he_thong", "Cuộc tư vấn đã kết thúc"),
+            ("he_thong", "Khách nhắn lại, cuộc tư vấn được mở lại"),
+            ("van_ban", "Cho mình hỏi thêm"),
+        ])
+        # Dòng hệ thống không tính vào tin chưa đọc: chỉ 2 tin thật của khách.
+        row = next(r for r in self.nv_a.get("/api/hoi-thoai/").json() if r["id"] == room["id"])
+        self.assertEqual((row["unread_count"], row["trang_thai"]), (2, "mo"))
+
     def test_hoi_thoai_chua_gan_chi_nhanh_chi_admin_thay(self):
         room = HoiThoai.objects.create(khach_hang=make_user("khach2"))
         self.assertIn(room.id, self._ids(self.admin))

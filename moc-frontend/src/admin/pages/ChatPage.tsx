@@ -12,6 +12,7 @@ import { getTableManagementBranches } from "../api/admin.api";
 import { fmtDateTime } from "../lib";
 import { cn } from "@/lib/utils";
 import MessageMeta from "@/components/chat/MessageMeta";
+import SystemDivider from "@/components/chat/SystemDivider";
 
 /** Nhãn vai trò cho tin của người khác bên nhà hàng. */
 const ROLE_LABEL: Record<string, string> = { admin: "Admin tổng", quan_ly: "Quản lý chi nhánh", nhan_vien: "Nhân viên" };
@@ -217,6 +218,7 @@ export default function ChatPage() {
                 </div>
               )}
               {messages.map((m) => {
+                if (m.messageType === "he_thong") return <SystemDivider key={m.id} text={m.content} time={fmtDateTime(m.createdAt)} />;
                 // Ba loại tin: của mình, của người khác bên nhà hàng (admin/quản lý/nhân viên), của khách.
                 // Tin nhà hàng luôn nằm bên phải để không bị nhầm là khách tự nói.
                 const mine = m.from === "me";

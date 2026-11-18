@@ -131,7 +131,7 @@ class HoiThoaiConsumer(JWTExpiryConsumerMixin, AsyncJsonWebsocketConsumer):
                 self.room_group_name, {"type": "chat_message", **msg_payload}
             )
             inbox = {
-                "type": "inbox_update", "conversation_id": room.id,
+                "type": "inbox_update", "conversation_id": room.id, "status": room.trang_thai,
                 "customer_id": room.khach_hang_id, "branch_id": room.chi_nhanh_id, "last_message": msg_payload,
             }
             for group in inbox_groups(room):

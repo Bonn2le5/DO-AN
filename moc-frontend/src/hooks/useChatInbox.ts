@@ -26,6 +26,7 @@ export interface InboxMessage {
   is_staff?: boolean;
   content?: string;
   created_at?: string;
+  message_type?: string;
 }
 
 const CHAT_API = "/hoi-thoai/";
@@ -125,9 +126,12 @@ export function useChatInbox(
         if (!known) {
           void load(); // hội thoại mới: tải lại danh sách một lần
         } else {
-          const fromCustomer = !m.is_staff;
+          // Dòng hệ thống (kết thúc / mở lại tư vấn) không tính là tin chưa đọc.
+          const fromCustomer = !m.is_staff && m.message_type !== "he_thong";
           const updated: InboxItem = {
             ...known,
+            // Đóng hội thoại / khách nhắn lại làm hội thoại mở lại: cập nhật trạng thái ngay.
+            status: d.status === "dong" ? "closed" : d.status === "mo" ? "open" : known.status,
             lastMessage: m.content ?? known.lastMessage,
             lastAt: m.created_at ?? known.lastAt,
             unread:
@@ -138,7 +142,7 @@ export function useChatInbox(
           commit([updated, ...itemsRef.current.filter((i) => i.id !== convId)]);
         }
 
-        if (!m.is_staff) {
+        if (!m.is_staff && m.message_type !== "he_thong") {
           onIncomingRef.current?.(
             known ?? {
               id: convId,

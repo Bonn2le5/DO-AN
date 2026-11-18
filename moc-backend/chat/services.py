@@ -97,6 +97,32 @@ def serialize_message(msg, client_id=None):
     }
 
 
+TIN_KET_THUC = "Cuộc tư vấn đã kết thúc"
+TIN_MO_LAI = "Khách nhắn lại, cuộc tư vấn được mở lại"
+
+
+def _tin_he_thong(room, user, text):
+    """Tin hệ thống (hiện thành dòng phân cách giữa khung chat) đánh dấu mốc của cuộc tư vấn."""
+    msg = TinNhan.objects.create(hoi_thoai=room, nguoi_gui=user, noi_dung=text, loai_tin_nhan=TinNhan.LoaiTinNhan.HE_THONG)
+    room.tin_nhan_cuoi_luc = msg.tao_luc
+    payload = serialize_message(msg)
+    # Phát sau khi lưu xong, trước tin của khách (nếu có) để hai bên thấy đúng thứ tự.
+    transaction.on_commit(lambda: broadcast_message(room, payload))
+    return payload
+
+
+@transaction.atomic
+def dong_hoi_thoai(room_id, user):
+    """Nhà hàng đóng hội thoại: chuyển trạng thái và ghi dòng "Cuộc tư vấn đã kết thúc"."""
+    room = HoiThoai.objects.select_for_update().get(id=room_id)
+    if room.trang_thai == HoiThoai.TrangThai.DONG:
+        return room
+    room.trang_thai = HoiThoai.TrangThai.DONG
+    _tin_he_thong(room, user, TIN_KET_THUC)
+    room.save(update_fields=["trang_thai", "tin_nhan_cuoi_luc", "cap_nhat_luc"])
+    return room
+
+
 @transaction.atomic
 def save_message(*, room_id, user, text, msg_type="van_ban", client_id=None):
     # Tin hệ thống không được gửi từ người dùng; khách chỉ gửi văn bản.
@@ -104,9 +130,14 @@ def save_message(*, room_id, user, text, msg_type="van_ban", client_id=None):
     if msg_type not in allowed:
         msg_type = "van_ban"
     room = HoiThoai.objects.select_for_update().get(id=room_id)
+    fields = ["tin_nhan_cuoi_luc", "cap_nhat_luc"]
+    if room.trang_thai == HoiThoai.TrangThai.DONG and not is_staff_user(user):
+        # Khách nhắn tiếp sau khi đã kết thúc tư vấn: mở lại để nhà hàng trả lời được.
+        room.trang_thai = HoiThoai.TrangThai.MO
+        fields.append("trang_thai")
+        _tin_he_thong(room, user, TIN_MO_LAI)
     msg = TinNhan.objects.create(hoi_thoai=room, nguoi_gui=user, noi_dung=text, loai_tin_nhan=msg_type)
     room.tin_nhan_cuoi_luc = msg.tao_luc
-    fields = ["tin_nhan_cuoi_luc", "cap_nhat_luc"]
     if is_staff_user(user) and room.nhan_vien_id is None:
         room.nhan_vien = user
         fields.append("nhan_vien")
@@ -126,7 +157,7 @@ def _gui_nhom(nhom, su_kien):
 def broadcast_message(room, payload):
     """Dùng trong code sync (REST view)."""
     _gui_nhom(f"chat_{room.id}", {"type": "chat_message", **payload})
-    inbox = {"type": "inbox_update", "conversation_id": room.id,
+    inbox = {"type": "inbox_update", "conversation_id": room.id, "status": room.trang_thai,
              "customer_id": room.khach_hang_id, "branch_id": room.chi_nhanh_id, "last_message": payload}
     for nhom in inbox_groups(room):
         _gui_nhom(nhom, inbox)
